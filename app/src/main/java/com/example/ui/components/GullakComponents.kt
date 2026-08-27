@@ -1,0 +1,838 @@
+package com.example.ui.components
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.CurrencyRupee
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.model.AccountStatus
+import com.example.data.model.PaymentStatus
+import com.example.data.model.PaymentType
+import com.example.ui.theme.GullakClay
+import com.example.ui.theme.GullakDanger
+import com.example.ui.theme.GullakDangerContainer
+import com.example.ui.theme.GullakGold
+import com.example.ui.theme.GullakGoldContainer
+import com.example.ui.theme.GullakGoldLight
+import com.example.ui.theme.GullakInfo
+import com.example.ui.theme.GullakInfoContainer
+import com.example.ui.theme.GullakNavyDark
+import com.example.ui.theme.GullakPrimary
+import com.example.ui.theme.GullakPrimaryLight
+import com.example.ui.theme.GullakSuccess
+import com.example.ui.theme.GullakSuccessContainer
+import com.example.ui.theme.GullakWarning
+import com.example.ui.theme.GullakWarningContainer
+import java.text.NumberFormat
+import java.util.Locale
+
+// Helper for Indian Currency format (₹ 40,000)
+fun formatRupees(amount: Double): String {
+    val formatter = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+    return formatter.format(amount).replace("INR", "₹").replace(".00", "")
+}
+
+// WhatsApp Intent Trigger Helper
+fun openWhatsApp(context: Context, mobileNumber: String, prefilledText: String) {
+    try {
+        val cleanNumber = mobileNumber.replace("+", "").replace(" ", "").trim()
+        val formattedNumber = if (cleanNumber.length == 10) "91$cleanNumber" else cleanNumber
+        val uri = Uri.parse("https://api.whatsapp.com/send?phone=$formattedNumber&text=${Uri.encode(prefilledText)}")
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "WhatsApp nahi khula. Number: $mobileNumber", Toast.LENGTH_LONG).show()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GullakTopBar(
+    title: String,
+    subtitle: String? = null,
+    onLogoutClick: (() -> Unit)? = null,
+    onBackClick: (() -> Unit)? = null,
+    unreadNotificationCount: Int = 0,
+    onNotificationClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    TopAppBar(
+        modifier = modifier,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = GullakPrimary,
+            titleContentColor = Color.White,
+            navigationIconContentColor = Color.White,
+            actionIconContentColor = Color.White
+        ),
+        title = {
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.White.copy(alpha = 0.85f)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        },
+        navigationIcon = {
+            if (onBackClick != null) {
+                IconButton(onClick = onBackClick, modifier = Modifier.testTag("topbar_back_btn")) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back"
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 12.dp, end = 8.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(GullakGold),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "₹",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                }
+            }
+        },
+        actions = {
+            if (onNotificationClick != null) {
+                Box(contentAlignment = Alignment.TopEnd) {
+                    IconButton(onClick = onNotificationClick, modifier = Modifier.testTag("topbar_notif_btn")) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifications"
+                        )
+                    }
+                    if (unreadNotificationCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 6.dp, end = 6.dp)
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(GullakDanger),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (unreadNotificationCount > 9) "9+" else "$unreadNotificationCount",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+            if (onLogoutClick != null) {
+                IconButton(onClick = onLogoutClick, modifier = Modifier.testTag("topbar_logout_btn")) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                        contentDescription = "Logout"
+                    )
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun StatusBadge(
+    status: PaymentStatus,
+    modifier: Modifier = Modifier
+) {
+    val (bgColor, textColor, text) = when (status) {
+        PaymentStatus.APPROVED -> Triple(GullakSuccessContainer, GullakSuccess, "APPROVED ✅")
+        PaymentStatus.PENDING -> Triple(GullakWarningContainer, GullakClay, "PENDING ⏳")
+        PaymentStatus.REJECTED -> Triple(GullakDangerContainer, GullakDanger, "REJECTED ❌")
+        PaymentStatus.APPROVED_WITH_EDIT -> Triple(GullakInfoContainer, GullakInfo, "APPROVED (EDITED) ✏️")
+    }
+
+    Surface(
+        modifier = modifier,
+        color = bgColor,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = text,
+            color = textColor,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+fun AccountStatusBadge(
+    status: AccountStatus,
+    modifier: Modifier = Modifier
+) {
+    val (bgColor, textColor, text) = when (status) {
+        AccountStatus.ACTIVE -> Triple(GullakSuccessContainer, GullakSuccess, "Active")
+        AccountStatus.INACTIVE -> Triple(GullakWarningContainer, GullakClay, "Inactive")
+        AccountStatus.DELETED -> Triple(GullakDangerContainer, GullakDanger, "Deleted")
+    }
+
+    Surface(
+        modifier = modifier,
+        color = bgColor,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            text = text,
+            color = textColor,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
+fun FinancialMetricCard(
+    title: String,
+    hindiTitle: String,
+    amount: Double,
+    subtitle: String,
+    icon: ImageVector,
+    iconColor: Color,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = hindiTitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(iconColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = iconColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = formatRupees(amount),
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (amount > 0 && iconColor == GullakDanger) GullakDanger else iconColor
+                )
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// Cash Payment Modal Dialog
+@Composable
+fun CashPaymentModal(
+    defaultAmount: Double,
+    onDismiss: () -> Unit,
+    onSubmit: (amount: Double, month: String, remarks: String) -> Unit
+) {
+    var amountText by remember { mutableStateOf(defaultAmount.toInt().toString()) }
+    var monthText by remember { mutableStateOf("August 2026") }
+    var remarksText by remember { mutableStateOf("Cash submitted to Society Admin") }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.CurrencyRupee,
+                    contentDescription = null,
+                    tint = GullakGold,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Column {
+                    Text("Cash Payment / नकद भुगतान", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Pay Now → Cash", fontSize = 12.sp, color = Color.Gray)
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Payment Amount (₹)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("cash_amount_input"),
+                    singleLine = true,
+                    leadingIcon = { Text("₹", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp)) }
+                )
+
+                OutlinedTextField(
+                    value = monthText,
+                    onValueChange = { monthText = it },
+                    label = { Text("Month (महीना)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("cash_month_input"),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = remarksText,
+                    onValueChange = { remarksText = it },
+                    label = { Text("Remarks (टिप्पणी / विवरण)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("cash_remarks_input"),
+                    maxLines = 2
+                )
+
+                if (errorMsg != null) {
+                    Text(
+                        text = errorMsg!!,
+                        color = GullakDanger,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Surface(
+                    color = GullakGoldContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "ℹ️ Cash submit karne ke baad Admin ise verify karke approve karenge.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF78350F)),
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amt = amountText.toDoubleOrNull()
+                    if (amt == null || amt <= 0) {
+                        errorMsg = "Kripya sahi amount dalein (Please enter valid amount)"
+                    } else {
+                        onSubmit(amt, monthText, remarksText)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GullakPrimary),
+                modifier = Modifier.testTag("cash_submit_btn")
+            ) {
+                Text("Submit Request / जमा करें")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.testTag("cash_cancel_btn")) {
+                Text("Cancel / रद्द करें")
+            }
+        }
+    )
+}
+
+// Online UPI Payment Modal Dialog
+@Composable
+fun OnlinePaymentModal(
+    defaultAmount: Double,
+    upiId: String,
+    payeeName: String,
+    onDismiss: () -> Unit,
+    onSubmit: (amount: Double, remarks: String) -> Unit
+) {
+    var amountText by remember { mutableStateOf(defaultAmount.toInt().toString()) }
+    var refRemarks by remember { mutableStateOf("UPI Payment Ref No: ") }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.QrCode,
+                    contentDescription = null,
+                    tint = GullakPrimaryLight,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Column {
+                    Text("Pay Online / UPI QR Code", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Scan & Pay with Google Pay, PhonePe, Paytm", fontSize = 11.sp, color = Color.Gray)
+                }
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Visual UPI QR Canvas Card
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(2.dp, GullakPrimaryLight),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = payeeName,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = GullakNavyDark)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Stylized QR pattern box
+                        Surface(
+                            modifier = Modifier
+                                .size(140.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            color = Color(0xFF0F172A)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCode,
+                                        contentDescription = "QR",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(80.dp)
+                                    )
+                                    Text(
+                                        text = "SCAN TO PAY",
+                                        color = GullakGoldLight,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Copy UPI ID row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFFF1F5F9))
+                                .clickable {
+                                    clipboardManager.setText(AnnotatedString(upiId))
+                                    Toast
+                                        .makeText(context, "UPI ID Copied: $upiId", Toast.LENGTH_SHORT)
+                                        .show()
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "UPI: $upiId",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = GullakPrimary)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy",
+                                tint = GullakPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Payment Amount (₹)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("online_amount_input"),
+                    singleLine = true,
+                    leadingIcon = { Text("₹", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp)) }
+                )
+
+                OutlinedTextField(
+                    value = refRemarks,
+                    onValueChange = { refRemarks = it },
+                    label = { Text("UPI UTR / Reference No / Remarks") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("online_ref_input"),
+                    maxLines = 2
+                )
+
+                if (errorMsg != null) {
+                    Text(
+                        text = errorMsg!!,
+                        color = GullakDanger,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amt = amountText.toDoubleOrNull()
+                    if (amt == null || amt <= 0) {
+                        errorMsg = "Kripya sahi amount dalein"
+                    } else {
+                        onSubmit(amt, refRemarks)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                modifier = Modifier.testTag("online_submit_btn")
+            ) {
+                Text("Payment Done / Submit for Approval")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.testTag("online_cancel_btn")) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// Payment Rejection Dialog with Standard Master Spec Reasons
+@Composable
+fun RejectPaymentDialog(
+    memberName: String,
+    amount: Double,
+    onDismiss: () -> Unit,
+    onConfirmReject: (reason: String) -> Unit
+) {
+    val reasons = listOf(
+        "Amount abhi prapt nahi hua (Amount not received)",
+        "Payment verify nahi hua (Payment not verified)",
+        "Galat Amount (Incorrect amount)",
+        "Screenshot / UTR Required (Screenshot needed)",
+        "Other (Any other reason)"
+    )
+    var selectedIndex by remember { mutableStateOf(0) }
+    var customReason by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = GullakDanger, modifier = Modifier.size(36.dp))
+        },
+        title = {
+            Text("Reject Payment / भुगतान अस्वीकार", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Member: $memberName\nAmount: ${formatRupees(amount)}",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+
+                Text(
+                    text = "Select Rejection Reason (कारण चुनें):",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+
+                reasons.forEachIndexed { index, reason ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedIndex = index }
+                            .padding(vertical = 2.dp)
+                    ) {
+                        RadioButton(
+                            selected = (selectedIndex == index),
+                            onClick = { selectedIndex = index },
+                            colors = RadioButtonDefaults.colors(selectedColor = GullakDanger)
+                        )
+                        Text(
+                            text = reason,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+                }
+
+                if (selectedIndex == 4) {
+                    OutlinedTextField(
+                        value = customReason,
+                        onValueChange = { customReason = it },
+                        label = { Text("Custom Reason / कारण लिखें") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("reject_custom_reason_input")
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val finalReason = if (selectedIndex == 4 && customReason.isNotBlank()) {
+                        customReason.trim()
+                    } else {
+                        reasons[selectedIndex]
+                    }
+                    onConfirmReject(finalReason)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GullakDanger),
+                modifier = Modifier.testTag("reject_confirm_btn")
+            ) {
+                Text("Reject Payment")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.testTag("reject_cancel_btn")) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// Approve With Edit Dialog
+@Composable
+fun ApproveWithEditDialog(
+    memberName: String,
+    originalAmount: Double,
+    onDismiss: () -> Unit,
+    onConfirmApproveEdit: (editedAmount: Double) -> Unit
+) {
+    var editedAmountText by remember { mutableStateOf(originalAmount.toInt().toString()) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(Icons.Default.Edit, contentDescription = null, tint = GullakInfo, modifier = Modifier.size(36.dp))
+        },
+        title = {
+            Text("Approve with Edit / राशि बदलकर स्वीकार करें", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Member: $memberName",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                )
+
+                Surface(
+                    color = GullakInfoContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = "Original Amount Submitted: ${formatRupees(originalAmount)}",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = GullakInfo, fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "Admin dwara badli gayi amount hi Member ke account mein adjust hogi.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = GullakNavyDark)
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = editedAmountText,
+                    onValueChange = { editedAmountText = it },
+                    label = { Text("Edited Amount (बदली हुई राशि)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("approve_edit_amount_input"),
+                    leadingIcon = { Text("₹", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp)) }
+                )
+
+                if (errorMsg != null) {
+                    Text(text = errorMsg!!, color = GullakDanger, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amt = editedAmountText.toDoubleOrNull()
+                    if (amt == null || amt <= 0) {
+                        errorMsg = "Kripya valid amount dalein"
+                    } else {
+                        onConfirmApproveEdit(amt)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GullakInfo),
+                modifier = Modifier.testTag("approve_edit_confirm_btn")
+            ) {
+                Text("Approve & Adjust")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.testTag("approve_edit_cancel_btn")) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// Confirmation Dialog Generic
+@Composable
+fun GullakConfirmationDialog(
+    title: String,
+    message: String,
+    confirmButtonText: String = "Confirm",
+    cancelButtonText: String = "Cancel",
+    isDanger: Boolean = false,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, fontWeight = FontWeight.Bold) },
+        text = { Text(message) },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isDanger) GullakDanger else GullakPrimary
+                ),
+                modifier = Modifier.testTag("dialog_confirm_btn")
+            ) {
+                Text(confirmButtonText)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.testTag("dialog_cancel_btn")) {
+                Text(cancelButtonText)
+            }
+        }
+    )
+}

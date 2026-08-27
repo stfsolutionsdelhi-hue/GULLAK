@@ -1,0 +1,6 @@
+{
+  "name": "Gullak Society",
+  "description": "Private Society Management App for Gullak Co-operative Society for RD, Loan, Interest, Cash and UPI payments, Approvals, Reminders, and Excel Ledger Sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
