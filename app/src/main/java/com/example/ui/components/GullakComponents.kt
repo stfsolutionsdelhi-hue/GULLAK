@@ -1260,10 +1260,37 @@ fun AdminDetailedApprovalDialog(
     ) -> Unit,
     onReject: () -> Unit
 ) {
-    var rdText by remember { mutableStateOf(initialRd.toInt().toString()) }
-    var intText by remember { mutableStateOf(initialInt.toInt().toString()) }
-    var penText by remember { mutableStateOf(initialPen.toInt().toString()) }
-    var loanText by remember { mutableStateOf(initialLoan.toInt().toString()) }
+    // Smart auto-distribution if total of initial components does not match submittedAmount
+    val computedRd: Double
+    val computedInt: Double
+    val computedPen: Double
+    val computedLoan: Double
+
+    val sumInitial = initialRd + initialInt + initialPen + initialLoan
+    if (submittedAmount > 0 && sumInitial != submittedAmount) {
+        val rd = if (initialRd > 0) minOf(initialRd, submittedAmount) else minOf(400.0, submittedAmount)
+        var rem = maxOf(0.0, submittedAmount - rd)
+        val int = if (initialInt > 0) minOf(initialInt, rem) else minOf(400.0, rem)
+        rem = maxOf(0.0, rem - int)
+        val pen = if (initialPen > 0) minOf(initialPen, rem) else 0.0
+        rem = maxOf(0.0, rem - pen)
+        val loan = rem
+
+        computedRd = rd
+        computedInt = int
+        computedPen = pen
+        computedLoan = loan
+    } else {
+        computedRd = initialRd
+        computedInt = initialInt
+        computedPen = initialPen
+        computedLoan = initialLoan
+    }
+
+    var rdText by remember { mutableStateOf(computedRd.toInt().toString()) }
+    var intText by remember { mutableStateOf(computedInt.toInt().toString()) }
+    var penText by remember { mutableStateOf(computedPen.toInt().toString()) }
+    var loanText by remember { mutableStateOf(if (computedLoan > 0) computedLoan.toInt().toString() else "") }
     var adminRemarksText by remember { mutableStateOf("Verified & Approved") }
 
     val rd = rdText.toDoubleOrNull() ?: 0.0

@@ -818,6 +818,49 @@ fun PaymentItemCard(payment: com.example.data.model.PaymentEntity) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
+            // Member Name Header Row if available
+            if (payment.userName.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = GullakPrimary.copy(alpha = 0.15f),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = payment.userName.take(1).uppercase(),
+                                    fontWeight = FontWeight.Bold,
+                                    color = GullakGoldLight,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = payment.userName,
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White
+                            )
+                            Text(
+                                text = "ID: ${payment.userId} • 📱 ${payment.userMobile}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                    StatusBadge(status = payment.status)
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -843,7 +886,9 @@ fun PaymentItemCard(payment: com.example.data.model.PaymentEntity) {
                     )
                 }
 
-                StatusBadge(status = payment.status)
+                if (payment.userName.isBlank()) {
+                    StatusBadge(status = payment.status)
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -880,6 +925,28 @@ fun PaymentItemCard(payment: com.example.data.model.PaymentEntity) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2
                     )
+                }
+            }
+
+            // 4-Column Breakdown details
+            if (payment.rdAmount > 0 || payment.interestAmount > 0 || payment.penaltyAmount > 0 || payment.loanReturnAmount > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = Color(0xFF1E293B),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("RD: ₹${payment.rdAmount.toInt()}", fontSize = 11.sp, color = GullakGoldLight, fontWeight = FontWeight.SemiBold)
+                        Text("Int: ₹${payment.interestAmount.toInt()}", fontSize = 11.sp, color = GullakGoldLight, fontWeight = FontWeight.SemiBold)
+                        Text("Pen: ₹${payment.penaltyAmount.toInt()}", fontSize = 11.sp, color = if (payment.penaltyAmount > 0) GullakDanger else Color.Gray, fontWeight = FontWeight.SemiBold)
+                        Text("Loan: ₹${payment.loanReturnAmount.toInt()}", fontSize = 11.sp, color = if (payment.loanReturnAmount > 0) GullakSuccess else Color.Gray, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
 

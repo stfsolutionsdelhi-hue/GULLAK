@@ -237,6 +237,10 @@ class GullakRepository(private val database: AppDatabase) {
                 userName = "Suresh Sharma",
                 userMobile = "9810022222",
                 amount = 800.0, // 400 RD + 400 Interest
+                rdAmount = 400.0,
+                interestAmount = 400.0,
+                penaltyAmount = 0.0,
+                loanReturnAmount = 0.0,
                 paymentType = PaymentType.ONLINE,
                 paymentDate = System.currentTimeMillis() - 7200000,
                 month = "August 2026",

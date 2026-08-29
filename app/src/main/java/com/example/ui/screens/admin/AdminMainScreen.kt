@@ -328,6 +328,7 @@ fun AdminMainScreen(
                 )
                 2 -> AdminPaymentsTab(
                     allPayments = allPayments,
+                    membersWithFinancials = membersWithFinancials,
                     onApproveClick = { detailedPaymentToApprove = it },
                     onRejectClick = { paymentToReject = it },
                     onApproveEditClick = { detailedPaymentToApprove = it }
@@ -375,14 +376,46 @@ fun AdminMainScreen(
 
     if (detailedPaymentToApprove != null) {
         val p = detailedPaymentToApprove!!
+        val memberFin = membersWithFinancials.find { it.user.userId == p.userId }?.financials
+
+        // Compute smart initial values based on submitted amount and member dues
+        val initialRd: Double
+        val initialInt: Double
+        val initialPen: Double
+        val initialLoan: Double
+
+        val sumBreakdown = p.rdAmount + p.interestAmount + p.penaltyAmount + p.loanReturnAmount
+        if (sumBreakdown == p.amount && (p.interestAmount > 0 || p.loanReturnAmount > 0 || p.amount <= 400.0)) {
+            initialRd = p.rdAmount
+            initialInt = p.interestAmount
+            initialPen = p.penaltyAmount
+            initialLoan = p.loanReturnAmount
+        } else {
+            var rem = p.amount
+            val targetRd = minOf(rem, memberFin?.currentRdDue?.takeIf { it > 0 } ?: (memberFin?.rdAmount ?: 400.0))
+            rem = maxOf(0.0, rem - targetRd)
+            val calculatedInterestDue = memberFin?.interestDue?.takeIf { it > 0 }
+                ?: if (memberFin != null && memberFin.loanOutstanding > 0) (memberFin.loanOutstanding * (memberFin.loanInterestRate / 100.0)) else 0.0
+            val targetInt = if (calculatedInterestDue > 0) minOf(rem, calculatedInterestDue) else minOf(rem, 400.0)
+            rem = maxOf(0.0, rem - targetInt)
+            val targetPen = minOf(rem, memberFin?.calculateLivePenalty() ?: 0.0)
+            rem = maxOf(0.0, rem - targetPen)
+            val targetLoan = rem
+
+            initialRd = targetRd
+            initialInt = targetInt
+            initialPen = targetPen
+            initialLoan = targetLoan
+        }
+
         AdminDetailedApprovalDialog(
             paymentId = p.id,
             userName = p.userName,
             submittedAmount = p.amount,
-            initialRd = p.rdAmount,
-            initialInt = p.interestAmount,
-            initialPen = p.penaltyAmount,
-            initialLoan = p.loanReturnAmount,
+            initialRd = initialRd,
+            initialInt = initialInt,
+            initialPen = initialPen,
+            initialLoan = initialLoan,
             initialRemarks = p.remarks,
             onDismiss = { detailedPaymentToApprove = null },
             onApprove = { approvedAmount, rd, int, pen, loan, adminRemarks ->
@@ -1336,6 +1369,7 @@ fun AdminMemberCard(
 @Composable
 fun AdminPaymentsTab(
     allPayments: List<PaymentEntity>,
+    membersWithFinancials: List<MemberWithFinancials> = emptyList(),
     onApproveClick: (PaymentEntity) -> Unit,
     onRejectClick: (PaymentEntity) -> Unit,
     onApproveEditClick: (PaymentEntity) -> Unit
@@ -1390,31 +1424,214 @@ fun AdminPaymentsTab(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(filteredPayments) { payment ->
+                    val resolvedMember = membersWithFinancials.find { it.user.userId == payment.userId }
+                    val displayUserName = if (payment.userName.isNotBlank()) payment.userName else (resolvedMember?.user?.name ?: "Member (${payment.userId})")
+                    val displayUserMobile = if (payment.userMobile.isNotBlank()) payment.userMobile else (resolvedMember?.user?.mobile ?: "")
+
                     if (payment.status == PaymentStatus.PENDING) {
                         AdminPendingPaymentCard(
-                            payment = payment,
+                            payment = payment.copy(userName = displayUserName, userMobile = displayUserMobile),
                             onApprove = { onApproveClick(payment) },
                             onReject = { onRejectClick(payment) },
                             onApproveEdit = { onApproveEditClick(payment) }
                         )
                     } else {
-                        Column {
-                            com.example.ui.screens.member.PaymentItemCard(payment = payment)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                TextButton(
-                                    onClick = { onApproveEditClick(payment) }
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = GullakPrimary)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Re-adjust / Edit Breakdown ✏️", fontSize = 11.sp, color = GullakPrimary)
-                                }
-                            }
+                        AdminPaymentRecordCard(
+                            payment = payment.copy(userName = displayUserName, userMobile = displayUserMobile),
+                            onApproveEditClick = { onApproveEditClick(payment) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminPaymentRecordCard(
+    payment: PaymentEntity,
+    onApproveEditClick: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.US) }
+    val formattedDate = remember(payment.paymentDate) { dateFormat.format(Date(payment.paymentDate)) }
+
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Member Identity Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = GullakPrimary.copy(alpha = 0.15f),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = payment.userName.take(1).uppercase(),
+                                fontWeight = FontWeight.Bold,
+                                color = GullakGoldLight,
+                                fontSize = 15.sp
+                            )
                         }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = payment.userName,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                        Text(
+                            text = "ID: ${payment.userId}${if (payment.userMobile.isNotBlank()) " • 📱 ${payment.userMobile}" else ""}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+
+                StatusBadge(status = payment.status)
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Transaction ID & Type
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = if (payment.paymentType == PaymentType.ONLINE) GullakPrimary.copy(alpha = 0.1f) else GullakGoldContainer,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = payment.paymentType.name,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (payment.paymentType == PaymentType.ONLINE) GullakPrimary else GullakClay,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = payment.transactionId,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.Gray
+                    )
+                }
+
+                Text(
+                    text = formattedDate,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Amount Display
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column {
+                    Text(
+                        text = formatRupees(payment.approvedAmount ?: payment.amount),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = GullakGold
+                        )
+                    )
+                    if (payment.approvedAmount != null && payment.approvedAmount != payment.amount) {
+                        Text(
+                            text = "Submitted: ${formatRupees(payment.amount)}",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                        )
+                    }
+                }
+
+                if (payment.remarks.isNotBlank()) {
+                    Text(
+                        text = payment.remarks,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2
+                    )
+                }
+            }
+
+            // 4-Column Breakdown Grid
+            if (payment.rdAmount > 0 || payment.interestAmount > 0 || payment.penaltyAmount > 0 || payment.loanReturnAmount > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = Color(0xFF1E293B),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("RD: ₹${payment.rdAmount.toInt()}", fontSize = 11.sp, color = GullakGoldLight, fontWeight = FontWeight.SemiBold)
+                        Text("Int: ₹${payment.interestAmount.toInt()}", fontSize = 11.sp, color = GullakGoldLight, fontWeight = FontWeight.SemiBold)
+                        Text("Pen: ₹${payment.penaltyAmount.toInt()}", fontSize = 11.sp, color = if (payment.penaltyAmount > 0) GullakDanger else Color.Gray, fontWeight = FontWeight.SemiBold)
+                        Text("Loan: ₹${payment.loanReturnAmount.toInt()}", fontSize = 11.sp, color = if (payment.loanReturnAmount > 0) GullakSuccess else Color.Gray, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+
+            // Admin remarks
+            if (payment.adminRemarks.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Admin Note: ${payment.adminRemarks}",
+                    fontSize = 11.sp,
+                    color = Color.LightGray
+                )
+            }
+
+            // Rejection reason if rejected
+            if (payment.status == PaymentStatus.REJECTED && payment.rejectionReason.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = GullakDanger.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Reason: ${payment.rejectionReason}",
+                        color = GullakDanger,
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
+
+            // Edit / Readjust Button
+            if (payment.status == PaymentStatus.APPROVED || payment.status == PaymentStatus.APPROVED_WITH_EDIT) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onApproveEditClick) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = GullakPrimary)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Re-adjust / Edit Breakdown ✏️", fontSize = 11.sp, color = GullakPrimary)
                     }
                 }
             }
