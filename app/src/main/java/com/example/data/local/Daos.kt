@@ -105,6 +105,9 @@ interface PaymentDao {
     @Query("SELECT * FROM payments WHERE status = 'PENDING' ORDER BY paymentDate DESC")
     fun getPendingPayments(): Flow<List<PaymentEntity>>
 
+    @Query("SELECT COUNT(*) FROM payments WHERE status = 'PENDING'")
+    fun getPendingPaymentCount(): Flow<Int>
+
     @Query("SELECT * FROM payments WHERE userId = :userId ORDER BY paymentDate DESC")
     fun getPaymentsByUserId(userId: String): Flow<List<PaymentEntity>>
 
@@ -114,8 +117,29 @@ interface PaymentDao {
     @Query("SELECT * FROM payments WHERE userMobile = :mobile AND amount = :amount AND strftime('%Y-%m-%d', paymentDate / 1000, 'unixepoch') = strftime('%Y-%m-%d', :date / 1000, 'unixepoch') LIMIT 1")
     suspend fun findDuplicatePayment(mobile: String, amount: Double, date: Long): PaymentEntity?
 
-    @Query("SELECT COUNT(*) FROM payments WHERE status = 'PENDING'")
-    fun getPendingPaymentCount(): Flow<Int>
+    @Query("SELECT * FROM payments WHERE paymentDate >= :startDate AND paymentDate <= :endDate ORDER BY paymentDate DESC")
+    fun getPaymentsByDateRange(startDate: Long, endDate: Long): Flow<List<PaymentEntity>>
+
+    @Query("SELECT SUM(COALESCE(approvedAmount, amount)) FROM payments WHERE status IN ('APPROVED', 'APPROVED_WITH_EDIT') AND paymentDate >= :startDate AND paymentDate <= :endDate")
+    fun getCollectionByDateRange(startDate: Long, endDate: Long): Flow<Double?>
+
+    @Query("SELECT * FROM payments WHERE id = :id LIMIT 1")
+    suspend fun getPaymentById(id: Long): PaymentEntity?
+
+    @Query("UPDATE payments SET status = :status, approvedAmount = :approvedAmount, rdAmount = :rdAmount, interestAmount = :interestAmount, penaltyAmount = :penaltyAmount, loanReturnAmount = :loanReturnAmount, adminRemarks = :adminRemarks, approvedBy = :approvedBy, approvedAt = :approvedAt, isReversed = :isReversed WHERE id = :id")
+    suspend fun updatePaymentBreakdownAndStatus(
+        id: Long,
+        status: PaymentStatus,
+        approvedAmount: Double,
+        rdAmount: Double,
+        interestAmount: Double,
+        penaltyAmount: Double,
+        loanReturnAmount: Double,
+        adminRemarks: String,
+        approvedBy: String,
+        approvedAt: Long,
+        isReversed: Boolean
+    )
 
     @Query("SELECT SUM(COALESCE(approvedAmount, amount)) FROM payments WHERE status IN ('APPROVED', 'APPROVED_WITH_EDIT') AND paymentDate >= :startOfDayTimestamp")
     fun getTodayCollection(startOfDayTimestamp: Long): Flow<Double?>

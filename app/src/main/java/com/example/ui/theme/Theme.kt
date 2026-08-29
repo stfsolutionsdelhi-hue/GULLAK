@@ -13,41 +13,32 @@ import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
     primary = GullakPrimaryLight,
-    onPrimary = Color.White,
-    primaryContainer = GullakPrimary,
-    onPrimaryContainer = Color.White,
-    secondary = GullakGoldLight,
-    onSecondary = Color.Black,
+    onPrimary = Color(0xFF0F172A),
+    primaryContainer = GullakGoldContainer,
+    onPrimaryContainer = GullakGold,
+    secondary = GullakGold,
+    onSecondary = Color(0xFF0F172A),
     secondaryContainer = GullakClay,
     onSecondaryContainer = Color.White,
     tertiary = GullakSuccess,
-    background = GullakBackgroundDark,
+    onTertiary = Color.White,
+    tertiaryContainer = GullakSuccessContainer,
+    onTertiaryContainer = GullakSuccessBright,
+    background = GullakNavyDark,
     surface = GullakSurfaceDark,
     surfaceVariant = GullakSurfaceVariantDark,
-    onBackground = Color(0xFFF1F5F9),
-    onSurface = Color(0xFFF1F5F9)
+    outline = GullakCardBorderDark,
+    outlineVariant = GullakCardBorderDark.copy(alpha = 0.6f),
+    onBackground = GullakTextPrimary,
+    onSurface = GullakTextPrimary,
+    onSurfaceVariant = GullakTextSecondary
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = GullakPrimary,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFE0F2FE),
-    onPrimaryContainer = Color(0xFF034159),
-    secondary = GullakGold,
-    onSecondary = Color.White,
-    secondaryContainer = GullakGoldContainer,
-    onSecondaryContainer = Color(0xFF78350F),
-    tertiary = GullakPrimaryLight,
-    background = GullakBackgroundLight,
-    surface = GullakSurfaceLight,
-    surfaceVariant = GullakSurfaceVariantLight,
-    onBackground = Color(0xFF0F172A),
-    onSurface = Color(0xFF0F172A)
-)
+private val LightColorScheme = DarkColorScheme // Always maintain dark luxury theme as default as requested in prompt
 
 @Composable
 fun GullakSocietyTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true, // Force rich dark theme with gold & emerald
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
@@ -60,23 +51,15 @@ fun GullakSocietyTheme(
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = DarkColorScheme,
         typography = Typography,
         content = content
     )
 }
+
 

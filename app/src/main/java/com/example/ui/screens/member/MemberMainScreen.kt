@@ -62,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,6 +75,7 @@ import com.example.ui.components.CashPaymentModal
 import com.example.ui.components.FinancialMetricCard
 import com.example.ui.components.GullakTopBar
 import com.example.ui.components.OnlinePaymentModal
+import com.example.ui.components.PayNowComprehensiveDialog
 import com.example.ui.components.StatusBadge
 import com.example.ui.components.formatRupees
 import com.example.ui.components.openWhatsApp
@@ -100,6 +102,7 @@ fun MemberMainScreen(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showComprehensivePayDialog by remember { mutableStateOf(false) }
     var showPaymentChoiceDialog by remember { mutableStateOf(false) }
     var showCashModal by remember { mutableStateOf(false) }
     var showOnlineModal by remember { mutableStateOf(false) }
@@ -154,7 +157,7 @@ fun MemberMainScreen(
                     selected = (selectedTab == 0),
                     onClick = { selectedTab = 0 },
                     icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home / होम") },
+                    label = { Text("Home", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -166,7 +169,7 @@ fun MemberMainScreen(
                     selected = (selectedTab == 1),
                     onClick = { selectedTab = 1 },
                     icon = { Icon(Icons.Default.History, contentDescription = "History") },
-                    label = { Text("History / इतिहास") },
+                    label = { Text("History", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -178,7 +181,7 @@ fun MemberMainScreen(
                     selected = (selectedTab == 2),
                     onClick = { selectedTab = 2 },
                     icon = { Icon(Icons.Default.CreditCard, contentDescription = "Loan") },
-                    label = { Text("Loan / ऋण") },
+                    label = { Text("Loan", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -203,7 +206,7 @@ fun MemberMainScreen(
                             }
                         }
                     },
-                    label = { Text("Notif / सूचना") },
+                    label = { Text("Notices", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -215,7 +218,7 @@ fun MemberMainScreen(
                     selected = (selectedTab == 4),
                     onClick = { selectedTab = 4 },
                     icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Profile / प्रोफाइल") },
+                    label = { Text("Profile", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -242,7 +245,7 @@ fun MemberMainScreen(
                     loanOutstanding = loanOutstanding,
                     loanEligibility = loanEligibility,
                     recentPayments = payments.take(3),
-                    onPayNowClick = { showPaymentChoiceDialog = true },
+                    onPayNowClick = { showComprehensivePayDialog = true },
                     onViewAllHistory = { selectedTab = 1 },
                     onViewLoanDetails = { selectedTab = 2 }
                 )
@@ -261,6 +264,33 @@ fun MemberMainScreen(
                 )
             }
         }
+    }
+
+    // 4-Column Comprehensive Member Payment Dialog
+    if (showComprehensivePayDialog) {
+        val livePenalty = financials?.calculateLivePenalty() ?: 0.0
+        PayNowComprehensiveDialog(
+            monthlyRdDefault = currentRdDue,
+            interestDueDefault = currentInterestDue,
+            penaltyDueDefault = livePenalty,
+            loanOutstanding = loanOutstanding,
+            upiId = settings?.upiId ?: "gullaksociety@okaxis",
+            payeeName = settings?.upiPayeeName ?: "Gullak Co-operative Society",
+            onDismiss = { showComprehensivePayDialog = false },
+            onSubmitPayment = { totalAmount, rdAmount, interestAmount, penaltyAmount, loanReturnAmount, paymentType, paymentMode, remarks ->
+                viewModel.submitPaymentWithBreakdown(
+                    totalAmount = totalAmount,
+                    rdAmount = rdAmount,
+                    interestAmount = interestAmount,
+                    penaltyAmount = penaltyAmount,
+                    loanReturnAmount = loanReturnAmount,
+                    paymentType = paymentType,
+                    paymentMode = paymentMode,
+                    remarks = remarks
+                )
+                showComprehensivePayDialog = false
+            }
+        )
     }
 
     // Payment Option Modal (Cash vs Pay Online)

@@ -180,25 +180,167 @@ class GullakViewModel(application: Application) : AndroidViewModel(application) 
         clearMessages()
     }
 
-    // Member: Submit Payment Request
-    fun submitPayment(amount: Double, paymentType: PaymentType, remarks: String) {
+    // Member: Submit Payment Request (with 4-column breakdown)
+    fun submitPaymentWithBreakdown(
+        totalAmount: Double,
+        rdAmount: Double = 400.0,
+        interestAmount: Double = 0.0,
+        penaltyAmount: Double = 0.0,
+        loanReturnAmount: Double = 0.0,
+        paymentType: PaymentType = PaymentType.ONLINE,
+        paymentMode: String = "ONLINE",
+        remarks: String = "",
+        screenshotUrl: String = ""
+    ) {
         val user = _currentUser.value ?: return
         viewModelScope.launch {
             val result = repository.submitPaymentRequest(
                 userId = user.userId,
-                amount = amount,
+                amount = totalAmount,
+                rdAmount = rdAmount,
+                interestAmount = interestAmount,
+                penaltyAmount = penaltyAmount,
+                loanReturnAmount = loanReturnAmount,
                 paymentType = paymentType,
-                remarks = remarks
+                paymentMode = paymentMode,
+                remarks = remarks,
+                screenshotUrl = screenshotUrl
             )
             result.onSuccess {
                 _userMessage.value = "Payment Request Submitted ✅ Status: Pending Approval"
+                com.example.util.NotificationHelper.showPushNotification(
+                    getApplication(),
+                    "Payment Submitted 💳",
+                    "Aapka ₹$totalAmount ka payment approval ke liye bhej diya gaya hai."
+                )
             }.onFailure {
                 _errorMessage.value = "Payment submit nahi ho paya: ${it.message}"
             }
         }
     }
 
-    // Admin: Approve Payment
+    fun submitPayment(
+        amount: Double,
+        paymentType: PaymentType = PaymentType.ONLINE,
+        remarks: String = ""
+    ) {
+        submitPaymentWithBreakdown(
+            totalAmount = amount,
+            rdAmount = 400.0,
+            interestAmount = 0.0,
+            penaltyAmount = 0.0,
+            loanReturnAmount = 0.0,
+            paymentType = paymentType,
+            paymentMode = if (paymentType == PaymentType.ONLINE) "ONLINE_UPI" else "OFFICE_CASH",
+            remarks = remarks
+        )
+    }
+
+    // Admin: Record Manual / Office Cash Payment Directly
+    fun recordOfficeCashPayment(
+        userId: String,
+        amount: Double,
+        rdAmount: Double,
+        interestAmount: Double,
+        penaltyAmount: Double,
+        loanReturnAmount: Double,
+        paymentMode: String = "OFFICE_CASH",
+        remarks: String = "Office Cash Received",
+        adminRemarks: String = "Approved by Office"
+    ) {
+        val admin = _currentUser.value ?: return
+        viewModelScope.launch {
+            val result = repository.recordOfficeCashPayment(
+                userId = userId,
+                amount = amount,
+                rdAmount = rdAmount,
+                interestAmount = interestAmount,
+                penaltyAmount = penaltyAmount,
+                loanReturnAmount = loanReturnAmount,
+                paymentMode = paymentMode,
+                remarks = remarks,
+                adminRemarks = adminRemarks,
+                adminId = admin.userId
+            )
+            result.onSuccess {
+                _userMessage.value = "Office Payment Recorded & Approved Successfully ✅"
+                com.example.util.NotificationHelper.showPushNotification(
+                    getApplication(),
+                    "Office Payment Recorded",
+                    "₹$amount recorded for member $userId"
+                )
+            }.onFailure {
+                _errorMessage.value = "Record nahi ho saka: ${it.message}"
+            }
+        }
+    }
+
+    // Admin: Approve Payment with Breakdown & Admin Remarks
+    fun approvePaymentWithBreakdown(
+        paymentId: Long,
+        approvedAmount: Double,
+        rdAmount: Double,
+        interestAmount: Double,
+        penaltyAmount: Double,
+        loanReturnAmount: Double,
+        adminRemarks: String
+    ) {
+        val admin = _currentUser.value ?: return
+        viewModelScope.launch {
+            val result = repository.approvePaymentWithBreakdown(
+                paymentId = paymentId,
+                approvedAmount = approvedAmount,
+                rdAmount = rdAmount,
+                interestAmount = interestAmount,
+                penaltyAmount = penaltyAmount,
+                loanReturnAmount = loanReturnAmount,
+                adminRemarks = adminRemarks,
+                adminId = admin.userId
+            )
+            result.onSuccess {
+                _userMessage.value = "Payment Approved & Receipt Generated ✅"
+                com.example.util.NotificationHelper.showPushNotification(
+                    getApplication(),
+                    "Payment Approved ✅",
+                    "Payment #$paymentId of ₹$approvedAmount approved successfully."
+                )
+            }.onFailure {
+                _errorMessage.value = "Approval failed: ${it.message}"
+            }
+        }
+    }
+
+    // Admin: Re-edit / Correct / Reverse Approved Payment
+    fun reverseOrEditPayment(
+        paymentId: Long,
+        newApprovedAmount: Double,
+        newRdAmount: Double,
+        newInterestAmount: Double,
+        newPenaltyAmount: Double,
+        newLoanReturnAmount: Double,
+        newAdminRemarks: String
+    ) {
+        val admin = _currentUser.value ?: return
+        viewModelScope.launch {
+            val result = repository.reverseOrEditPayment(
+                paymentId = paymentId,
+                newApprovedAmount = newApprovedAmount,
+                newRdAmount = newRdAmount,
+                newInterestAmount = newInterestAmount,
+                newPenaltyAmount = newPenaltyAmount,
+                newLoanReturnAmount = newLoanReturnAmount,
+                newAdminRemarks = newAdminRemarks,
+                adminId = admin.userId
+            )
+            result.onSuccess {
+                _userMessage.value = "Payment Rectified / Adjusted Successfully ✏️"
+            }.onFailure {
+                _errorMessage.value = "Correction failed: ${it.message}"
+            }
+        }
+    }
+
+    // Admin: Approve Payment (Default Legacy)
     fun approvePayment(paymentId: Long) {
         val admin = _currentUser.value ?: return
         viewModelScope.launch {
@@ -211,7 +353,7 @@ class GullakViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // Admin: Approve Payment With Edit
+    // Admin: Approve Payment With Edit (Legacy)
     fun approvePaymentWithEdit(paymentId: Long, editedAmount: Double) {
         val admin = _currentUser.value ?: return
         viewModelScope.launch {
@@ -223,6 +365,7 @@ class GullakViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+
 
     // Admin: Reject Payment
     fun rejectPayment(paymentId: Long, reason: String) {

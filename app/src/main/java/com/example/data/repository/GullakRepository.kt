@@ -460,12 +460,24 @@ class GullakRepository(private val database: AppDatabase) {
         )
     }
 
-    // Member Payment Request (Cash or Online)
+    // Filtered Payments & Collection by Date Range
+    fun getPaymentsByDateRange(startDate: Long, endDate: Long): Flow<List<PaymentEntity>> =
+        paymentDao.getPaymentsByDateRange(startDate, endDate)
+
+    fun getCollectionByDateRange(startDate: Long, endDate: Long): Flow<Double?> =
+        paymentDao.getCollectionByDateRange(startDate, endDate)
+
+    // Member Payment Request (with 4-column breakdown)
     suspend fun submitPaymentRequest(
         userId: String,
         amount: Double,
-        paymentType: PaymentType,
-        remarks: String,
+        rdAmount: Double = 400.0,
+        interestAmount: Double = 0.0,
+        penaltyAmount: Double = 0.0,
+        loanReturnAmount: Double = 0.0,
+        paymentType: PaymentType = PaymentType.ONLINE,
+        paymentMode: String = "ONLINE",
+        remarks: String = "",
         screenshotUrl: String = ""
     ): Result<PaymentEntity> = withContext(Dispatchers.IO) {
         val user = userDao.getUserByUserId(userId) ?: return@withContext Result.failure(Exception("User nahi mila"))
@@ -479,7 +491,12 @@ class GullakRepository(private val database: AppDatabase) {
             userName = user.name,
             userMobile = user.mobile,
             amount = amount,
+            rdAmount = rdAmount,
+            interestAmount = interestAmount,
+            penaltyAmount = penaltyAmount,
+            loanReturnAmount = loanReturnAmount,
             paymentType = paymentType,
+            paymentMode = paymentMode,
             paymentDate = System.currentTimeMillis(),
             month = currentMonth,
             status = PaymentStatus.PENDING,
@@ -493,8 +510,8 @@ class GullakRepository(private val database: AppDatabase) {
         notificationDao.insertNotification(
             NotificationEntity(
                 userId = "ADMIN-00001",
-                title = "New ${paymentType.name} Payment Approval Required",
-                message = "${user.name} ne ₹$amount ka ${paymentType.name} payment submit kiya hai. Approval pending hai.",
+                title = "New Payment Approval Required 💳",
+                message = "${user.name} ne ₹$amount (RD: ₹$rdAmount, Int: ₹$interestAmount, Pen: ₹$penaltyAmount, Loan: ₹$loanReturnAmount) submit kiya hai. Approval pending.",
                 type = NotificationType.GENERAL
             )
         )
@@ -502,90 +519,275 @@ class GullakRepository(private val database: AppDatabase) {
         Result.success(payment.copy(id = id))
     }
 
-    // Approve Payment
-    suspend fun approvePayment(
-        paymentId: Long,
+    // Admin: Record Manual / Office Cash Payment Directly
+    suspend fun recordOfficeCashPayment(
+        userId: String,
+        amount: Double,
+        rdAmount: Double = 400.0,
+        interestAmount: Double = 0.0,
+        penaltyAmount: Double = 0.0,
+        loanReturnAmount: Double = 0.0,
+        paymentMode: String = "OFFICE_CASH",
+        remarks: String = "Office Cash Received",
+        adminRemarks: String = "Verified by Secretary",
         adminId: String = "ADMIN-00001"
-    ): Result<Unit> = withContext(Dispatchers.IO) {
-        val payments = paymentDao.getAllPayments().first()
-        val payment = payments.find { it.id == paymentId } ?: return@withContext Result.failure(Exception("Payment nahi mili"))
-
-        val approvedAmount = payment.amount
+    ): Result<PaymentEntity> = withContext(Dispatchers.IO) {
+        val user = userDao.getUserByUserId(userId) ?: return@withContext Result.failure(Exception("Member not found"))
+        val txnId = generateTransactionId()
+        val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        val currentMonth = monthFormat.format(Date())
         val timestamp = System.currentTimeMillis()
 
-        paymentDao.approvePayment(
-            id = paymentId,
+        val payment = PaymentEntity(
+            transactionId = txnId,
+            userId = userId,
+            userName = user.name,
+            userMobile = user.mobile,
+            amount = amount,
+            rdAmount = rdAmount,
+            interestAmount = interestAmount,
+            penaltyAmount = penaltyAmount,
+            loanReturnAmount = loanReturnAmount,
+            paymentType = PaymentType.CASH,
+            paymentMode = paymentMode,
+            paymentDate = timestamp,
+            month = currentMonth,
             status = PaymentStatus.APPROVED,
-            approvedAmount = approvedAmount,
+            remarks = remarks.trim(),
+            adminRemarks = adminRemarks.trim(),
+            approvedAmount = amount,
             approvedBy = adminId,
             approvedAt = timestamp
         )
 
-        // Adjust Member Financials
-        adjustFinancialsOnPaymentApproval(payment.userId, approvedAmount, timestamp)
+        val id = paymentDao.insertPayment(payment)
+
+        // Adjust Financials based on 4 columns
+        adjustFinancialsOnDetailedApproval(userId, rdAmount, interestAmount, penaltyAmount, loanReturnAmount, timestamp)
 
         // In-App Notification to Member
         notificationDao.insertNotification(
             NotificationEntity(
-                userId = payment.userId,
-                title = "Payment Approved ✅",
-                message = "Aapka ₹$approvedAmount ka payment successfully approve ho gaya hai.",
+                userId = userId,
+                title = "Office Cash Payment Recorded ✅",
+                message = "Aapka ₹$amount ka offline cash payment Office me deposit ho gaya hai (RD: ₹$rdAmount, Int: ₹$interestAmount, Pen: ₹$penaltyAmount, Loan Return: ₹$loanReturnAmount).",
                 type = NotificationType.PAYMENT_APPROVAL
             )
         )
 
         auditDao.insertAuditLog(
             AuditLogEntity(
-                action = "PAYMENT_APPROVED",
+                action = "OFFICE_CASH_PAYMENT_RECORDED",
                 performedBy = adminId,
-                details = "Approved payment ${payment.transactionId} of ₹$approvedAmount for user ${payment.userName} (${payment.userId})"
+                details = "Recorded Office Cash payment $txnId of ₹$amount for ${user.name} ($userId). Mode: $paymentMode"
+            )
+        )
+
+        Result.success(payment.copy(id = id))
+    }
+
+    // Admin: Approve Payment With Breakdown & Remarks
+    suspend fun approvePaymentWithBreakdown(
+        paymentId: Long,
+        approvedAmount: Double,
+        rdAmount: Double,
+        interestAmount: Double,
+        penaltyAmount: Double,
+        loanReturnAmount: Double,
+        adminRemarks: String,
+        adminId: String = "ADMIN-00001"
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val payment = paymentDao.getPaymentById(paymentId) ?: return@withContext Result.failure(Exception("Payment nahi mili"))
+        val timestamp = System.currentTimeMillis()
+
+        val isEdited = (approvedAmount != payment.amount || rdAmount != payment.rdAmount || interestAmount != payment.interestAmount || penaltyAmount != payment.penaltyAmount || loanReturnAmount != payment.loanReturnAmount)
+        val finalStatus = if (isEdited) PaymentStatus.APPROVED_WITH_EDIT else PaymentStatus.APPROVED
+
+        paymentDao.updatePaymentBreakdownAndStatus(
+            id = paymentId,
+            status = finalStatus,
+            approvedAmount = approvedAmount,
+            rdAmount = rdAmount,
+            interestAmount = interestAmount,
+            penaltyAmount = penaltyAmount,
+            loanReturnAmount = loanReturnAmount,
+            adminRemarks = adminRemarks.trim(),
+            approvedBy = adminId,
+            approvedAt = timestamp,
+            isReversed = false
+        )
+
+        // Adjust Financials accurately
+        adjustFinancialsOnDetailedApproval(payment.userId, rdAmount, interestAmount, penaltyAmount, loanReturnAmount, timestamp)
+
+        // Notification to Member
+        val remarkText = if (adminRemarks.isNotBlank()) " | Remarks: $adminRemarks" else ""
+        val statusText = if (isEdited) "Approved with Adjustment (₹$approvedAmount)" else "Approved (₹$approvedAmount)"
+        notificationDao.insertNotification(
+            NotificationEntity(
+                userId = payment.userId,
+                title = "Payment $statusText ✅",
+                message = "Aapka payment approve ho gaya hai. RD: ₹$rdAmount, Interest: ₹$interestAmount, Penalty: ₹$penaltyAmount, Loan Return: ₹$loanReturnAmount$remarkText",
+                type = NotificationType.PAYMENT_APPROVAL
+            )
+        )
+
+        auditDao.insertAuditLog(
+            AuditLogEntity(
+                action = "PAYMENT_APPROVED_DETAILED",
+                performedBy = adminId,
+                details = "Approved $paymentId ($finalStatus) for ${payment.userName}: Total ₹$approvedAmount (RD: ₹$rdAmount, Int: ₹$interestAmount, Pen: ₹$penaltyAmount, Loan: ₹$loanReturnAmount). Note: $adminRemarks"
             )
         )
 
         Result.success(Unit)
     }
 
-    // Approve Payment With Edit
-    suspend fun approvePaymentWithEdit(
+    // Admin: Re-edit / Correct / Reverse Approved Payment
+    suspend fun reverseOrEditPayment(
         paymentId: Long,
-        editedAmount: Double,
+        newApprovedAmount: Double,
+        newRdAmount: Double,
+        newInterestAmount: Double,
+        newPenaltyAmount: Double,
+        newLoanReturnAmount: Double,
+        newAdminRemarks: String,
         adminId: String = "ADMIN-00001"
     ): Result<Unit> = withContext(Dispatchers.IO) {
-        val payments = paymentDao.getAllPayments().first()
-        val payment = payments.find { it.id == paymentId } ?: return@withContext Result.failure(Exception("Payment nahi mili"))
-
+        val payment = paymentDao.getPaymentById(paymentId) ?: return@withContext Result.failure(Exception("Payment record not found"))
         val timestamp = System.currentTimeMillis()
 
-        paymentDao.approvePayment(
+        // 1. Rollback old financial adjustments
+        rollbackPreviousFinancialAdjustment(payment)
+
+        // 2. Apply new updated breakdown
+        paymentDao.updatePaymentBreakdownAndStatus(
             id = paymentId,
             status = PaymentStatus.APPROVED_WITH_EDIT,
-            approvedAmount = editedAmount,
+            approvedAmount = newApprovedAmount,
+            rdAmount = newRdAmount,
+            interestAmount = newInterestAmount,
+            penaltyAmount = newPenaltyAmount,
+            loanReturnAmount = newLoanReturnAmount,
+            adminRemarks = newAdminRemarks.trim(),
             approvedBy = adminId,
-            approvedAt = timestamp
+            approvedAt = timestamp,
+            isReversed = false
         )
 
-        // Adjust Member Financials with Edited Amount
-        adjustFinancialsOnPaymentApproval(payment.userId, editedAmount, timestamp)
+        adjustFinancialsOnDetailedApproval(payment.userId, newRdAmount, newInterestAmount, newPenaltyAmount, newLoanReturnAmount, timestamp)
 
-        // In-App Notification to Member
         notificationDao.insertNotification(
             NotificationEntity(
                 userId = payment.userId,
-                title = "Payment Approved with Edit ✏️",
-                message = "Aapka payment Admin dwara edit karke ₹$editedAmount par approve kiya gaya (Original: ₹${payment.amount}).",
+                title = "Payment Rectified / Adjusted ✏️",
+                message = "Admin ne aapke payment #${payment.transactionId} ko correct kiya hai. Naya Approved Amount: ₹$newApprovedAmount. Remarks: $newAdminRemarks",
                 type = NotificationType.PAYMENT_APPROVAL
             )
         )
 
         auditDao.insertAuditLog(
             AuditLogEntity(
-                action = "PAYMENT_APPROVED_WITH_EDIT",
+                action = "PAYMENT_RE_EDITED_BY_ADMIN",
                 performedBy = adminId,
-                details = "Approved with edit ${payment.transactionId}: Original ₹${payment.amount} -> Edited ₹$editedAmount for ${payment.userName}"
+                details = "Admin re-edited payment ${payment.transactionId} for ${payment.userName} to ₹$newApprovedAmount (RD: ₹$newRdAmount, Int: ₹$newInterestAmount, Pen: ₹$newPenaltyAmount, Loan: ₹$newLoanReturnAmount)"
             )
         )
 
         Result.success(Unit)
+    }
+
+    private suspend fun adjustFinancialsOnDetailedApproval(
+        userId: String,
+        rdAmount: Double,
+        interestAmount: Double,
+        penaltyAmount: Double,
+        loanReturnAmount: Double,
+        timestamp: Long
+    ) {
+        val fin = financialDao.getFinancialByUserIdDirect(userId) ?: return
+        var currentRdDue = maxOf(0.0, fin.currentRdDue - rdAmount)
+        var interestDue = maxOf(0.0, fin.interestDue - interestAmount)
+        var penaltyDue = maxOf(0.0, fin.penaltyDue - penaltyAmount)
+        var loanOutstanding = maxOf(0.0, fin.loanOutstanding - loanReturnAmount)
+        var accumulatedBonus = fin.accumulatedRdBonus + (rdAmount * 0.01)
+        val totalPaid = fin.totalPaidThisYear + (rdAmount + interestAmount + penaltyAmount + loanReturnAmount)
+
+        val updatedFin = fin.copy(
+            currentRdDue = currentRdDue,
+            interestDue = interestDue,
+            penaltyDue = penaltyDue,
+            loanOutstanding = loanOutstanding,
+            accumulatedRdBonus = accumulatedBonus,
+            totalPaidThisYear = totalPaid,
+            lastPaymentDate = timestamp,
+            updatedAt = timestamp
+        )
+        financialDao.updateFinancial(updatedFin)
+    }
+
+    private suspend fun rollbackPreviousFinancialAdjustment(payment: PaymentEntity) {
+        val fin = financialDao.getFinancialByUserIdDirect(payment.userId) ?: return
+        val oldRd = payment.rdAmount
+        val oldInt = payment.interestAmount
+        val oldPen = payment.penaltyAmount
+        val oldLoan = payment.loanReturnAmount
+        val oldTotal = payment.approvedAmount ?: payment.amount
+
+        val restoredRdDue = fin.currentRdDue + oldRd
+        val restoredIntDue = fin.interestDue + oldInt
+        val restoredPenDue = fin.penaltyDue + oldPen
+        val restoredLoan = fin.loanOutstanding + oldLoan
+        val restoredBonus = maxOf(0.0, fin.accumulatedRdBonus - (oldRd * 0.01))
+        val restoredTotalPaid = maxOf(0.0, fin.totalPaidThisYear - oldTotal)
+
+        val restoredFin = fin.copy(
+            currentRdDue = restoredRdDue,
+            interestDue = restoredIntDue,
+            penaltyDue = restoredPenDue,
+            loanOutstanding = restoredLoan,
+            accumulatedRdBonus = restoredBonus,
+            totalPaidThisYear = restoredTotalPaid,
+            updatedAt = System.currentTimeMillis()
+        )
+        financialDao.updateFinancial(restoredFin)
+    }
+
+    // Approve Payment (Legacy overload keeping compatibility)
+    suspend fun approvePayment(
+        paymentId: Long,
+        adminId: String = "ADMIN-00001"
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val payment = paymentDao.getPaymentById(paymentId) ?: return@withContext Result.failure(Exception("Payment nahi mili"))
+        approvePaymentWithBreakdown(
+            paymentId = paymentId,
+            approvedAmount = payment.amount,
+            rdAmount = payment.rdAmount,
+            interestAmount = payment.interestAmount,
+            penaltyAmount = payment.penaltyAmount,
+            loanReturnAmount = payment.loanReturnAmount,
+            adminRemarks = payment.remarks,
+            adminId = adminId
+        )
+    }
+
+    // Approve Payment With Edit (Legacy overload keeping compatibility)
+    suspend fun approvePaymentWithEdit(
+        paymentId: Long,
+        editedAmount: Double,
+        adminId: String = "ADMIN-00001"
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val payment = paymentDao.getPaymentById(paymentId) ?: return@withContext Result.failure(Exception("Payment nahi mili"))
+        approvePaymentWithBreakdown(
+            paymentId = paymentId,
+            approvedAmount = editedAmount,
+            rdAmount = minOf(400.0, editedAmount),
+            interestAmount = payment.interestAmount,
+            penaltyAmount = payment.penaltyAmount,
+            loanReturnAmount = maxOf(0.0, editedAmount - 400.0 - payment.interestAmount - payment.penaltyAmount),
+            adminRemarks = "Adjusted by Admin",
+            adminId = adminId
+        )
     }
 
     // Reject Payment
@@ -734,20 +936,30 @@ class GullakRepository(private val database: AppDatabase) {
         val pendingPaymentsUserIds = paymentDao.getPendingPayments().first().map { it.userId }.toSet()
         val settings = settingsDao.getSettingsDirect() ?: SocietySettingsEntity()
 
-        val messageText = customTemplate ?: settings.template1
+        val rawTemplate = customTemplate ?: settings.template1
 
         var remindersSent = 0
         for (user in activeMembersList) {
             val fin = financialsMap[user.userId]
-            val totalDue = (fin?.currentRdDue ?: 0.0) + (fin?.interestDue ?: 0.0)
+            val rdDue = fin?.currentRdDue ?: 400.0
+            val intDue = fin?.interestDue ?: 0.0
+            val penDue = fin?.calculateLivePenalty() ?: 0.0
+            val totalDue = rdDue + intDue + penDue
             val hasPending = pendingPaymentsUserIds.contains(user.userId)
 
             if (totalDue > 0 || hasPending) {
+                val formattedMessage = rawTemplate
+                    .replace("{NAME}", user.name)
+                    .replace("{AMOUNT}", totalDue.toInt().toString())
+                    .replace("{RD}", rdDue.toInt().toString())
+                    .replace("{INT}", intDue.toInt().toString())
+                    .replace("{PEN}", penDue.toInt().toString())
+
                 notificationDao.insertNotification(
                     NotificationEntity(
                         userId = user.userId,
                         title = "Society Payment Reminder 🔔",
-                        message = messageText,
+                        message = formattedMessage,
                         type = NotificationType.DUES_REMINDER
                     )
                 )
@@ -773,7 +985,7 @@ class GullakRepository(private val database: AppDatabase) {
             AuditLogEntity(
                 action = "SETTINGS_UPDATED",
                 performedBy = adminId,
-                details = "Updated society settings: RD ₹${settings.defaultMonthlyRd}, UPI: ${settings.upiId}"
+                details = "Updated society settings: RD ₹${settings.defaultMonthlyRd}, UPI: ${settings.upiId}, SimSlot: ${settings.selectedSimSlot}, Frequency: ${settings.autoReminderFrequency}"
             )
         )
     }
@@ -803,8 +1015,18 @@ class GullakRepository(private val database: AppDatabase) {
         "Year-End bonus adjustment of ₹$totalAdjusted completed."
     }
 
+    // Sample Excel CSV Template with only essential columns
+    fun generateSampleExcelTemplateCsv(): String {
+        val sb = StringBuilder()
+        sb.append("Name,Mobile,Monthly_RD,Opening_Loan_Outstanding,Current_Due_Amount,Remarks\n")
+        sb.append("Sanjay Gupta,9812345670,400,20000,400,Sample Member 1\n")
+        sb.append("Ramesh Kumar,9812345671,400,0,400,Sample Member 2\n")
+        sb.append("Sunita Verma,9812345672,400,50000,900,Sample Member 3\n")
+        sb.append("Deepak Sharma,9812345673,400,10000,500,Sample Member 4\n")
+        return sb.toString()
+    }
+
     // Excel CSV Export Logic (Fixed Column Template)
-    // Columns: Name, Mobile Number, Payment Info, Amount, Date, Remarks, Transaction ID, Payment Status
     suspend fun generateExcelCsvData(): String = withContext(Dispatchers.IO) {
         val payments = paymentDao.getAllPayments().first()
         val sb = StringBuilder()
@@ -815,14 +1037,13 @@ class GullakRepository(private val database: AppDatabase) {
             val dateStr = dateFormat.format(Date(p.paymentDate))
             val amountStr = p.approvedAmount?.toString() ?: p.amount.toString()
             val cleanName = p.userName.replace(",", " ")
-            val cleanRemarks = p.remarks.replace(",", " ")
+            val cleanRemarks = (p.adminRemarks.ifBlank { p.remarks }).replace(",", " ")
             sb.append("$cleanName,${p.userMobile},${p.paymentType},$amountStr,$dateStr,$cleanRemarks,${p.transactionId},${p.status}\n")
         }
         sb.toString()
     }
 
-    // Excel CSV Import Logic with Duplicate Detection & Conflict Summary
-    // Supports Multiple Imports without duplicate corruption
+    // Excel CSV Import Logic with Dual-Format Support & Duplicate Prevention
     suspend fun previewAndImportCsv(csvContent: String, isDryRun: Boolean): ImportSummary = withContext(Dispatchers.IO) {
         val lines = csvContent.trim().lines()
         var newCount = 0
@@ -834,138 +1055,185 @@ class GullakRepository(private val database: AppDatabase) {
         val paymentsToInsert = mutableListOf<PaymentEntity>()
         val membersToCreate = mutableListOf<UserEntity>()
         val financialsToCreate = mutableListOf<MemberFinancialEntity>()
+        val financialsToUpdate = mutableListOf<MemberFinancialEntity>()
 
         val existingMembers = userDao.getAllMembersIncludingDeleted().first().associateBy { it.mobile }
+        val existingFins = financialDao.getAllFinancials().first().associateBy { it.userId }
 
         val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.US)
         val altDateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.US)
 
-        for ((index, line) in lines.withIndex()) {
+        for ((index, rawLine) in lines.withIndex()) {
+            val line = rawLine.trim()
+            if (line.isBlank()) continue
             if (index == 0 && (line.contains("Name", ignoreCase = true) || line.contains("Mobile", ignoreCase = true))) {
                 continue // Skip header row
             }
             val tokens = line.split(",").map { it.trim() }
-            if (tokens.size < 4) {
-                if (line.isNotBlank()) {
-                    errorCount++
-                    details.add("Line ${index + 1}: Invalid column count (${tokens.size})")
-                }
-                continue
-            }
 
             try {
-                val name = tokens[0]
-                val mobile = tokens[1]
-                val paymentInfo = tokens.getOrNull(2) ?: "CASH"
-                val amountStr = tokens.getOrNull(3) ?: "0"
-                val amount = amountStr.toDoubleOrNull() ?: 0.0
-                val dateStr = tokens.getOrNull(4) ?: ""
-                val remarks = tokens.getOrNull(5) ?: ""
-                val txnIdFromCsv = tokens.getOrNull(6) ?: ""
-                val statusStr = tokens.getOrNull(7) ?: "APPROVED"
+                // Check if this is the simplified 6-column Member Setup format
+                // Name, Mobile, Monthly_RD, Opening_Loan_Outstanding, Current_Due_Amount, Remarks
+                val isSampleFormat = tokens.size >= 5 && (tokens[2].toDoubleOrNull() != null) && (tokens[3].toDoubleOrNull() != null)
 
-                var paymentDate = System.currentTimeMillis()
-                if (dateStr.isNotBlank()) {
-                    paymentDate = try {
-                        dateFormat.parse(dateStr)?.time ?: altDateFormat.parse(dateStr)?.time ?: System.currentTimeMillis()
-                    } catch (e: Exception) {
-                        System.currentTimeMillis()
-                    }
-                }
+                if (isSampleFormat && !line.contains("TXN", ignoreCase = true) && !line.contains("APPROVED", ignoreCase = true)) {
+                    val name = tokens[0]
+                    val mobile = tokens[1]
+                    val monthlyRd = tokens.getOrNull(2)?.toDoubleOrNull() ?: 400.0
+                    val openingLoan = tokens.getOrNull(3)?.toDoubleOrNull() ?: 0.0
+                    val currentDue = tokens.getOrNull(4)?.toDoubleOrNull() ?: monthlyRd
+                    val remarks = tokens.getOrNull(5) ?: "Excel Import"
 
-                // Check Duplicate Transaction
-                val existingTxn = if (txnIdFromCsv.isNotBlank()) paymentDao.getPaymentByTxnId(txnIdFromCsv) else null
-                val duplicatePayment = paymentDao.findDuplicatePayment(mobile, amount, paymentDate)
-
-                if (existingTxn != null || duplicatePayment != null) {
-                    duplicateCount++
-                    details.add("Duplicate record for $name ($mobile, ₹$amount) - skipped")
-                    continue
-                }
-
-                // Check Member Existing or New
-                var member = existingMembers[mobile]
-                val isNewMember = (member == null)
-                val userId = if (isNewMember) {
-                    val genId = generateNextUserId()
-                    val newUser = UserEntity(
-                        userId = genId,
-                        name = name,
-                        mobile = mobile,
-                        role = UserRole.MEMBER,
-                        status = AccountStatus.ACTIVE,
-                        remarks = "Imported from Excel Ledger"
-                    )
-                    membersToCreate.add(newUser)
-                    financialsToCreate.add(
-                        MemberFinancialEntity(
-                            userId = genId,
-                            rdAmount = 400.0,
-                            currentRdDue = 0.0,
-                            loanOutstanding = 0.0
+                    val existingMember = existingMembers[mobile]
+                    if (existingMember != null) {
+                        val existingFin = existingFins[existingMember.userId]
+                        if (existingFin != null) {
+                            financialsToUpdate.add(
+                                existingFin.copy(
+                                    rdAmount = monthlyRd,
+                                    loanOutstanding = openingLoan,
+                                    currentRdDue = currentDue,
+                                    interestDue = if (openingLoan > 0) openingLoan * 0.01 else 0.0,
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                            updatedCount++
+                            details.add("Updated Member financials: $name ($mobile)")
+                        }
+                    } else {
+                        val newId = generateNextUserId()
+                        val newUser = UserEntity(
+                            userId = newId,
+                            name = name,
+                            mobile = mobile,
+                            pin = "1234",
+                            role = UserRole.MEMBER,
+                            status = AccountStatus.ACTIVE,
+                            remarks = remarks
                         )
+                        membersToCreate.add(newUser)
+                        financialsToCreate.add(
+                            MemberFinancialEntity(
+                                userId = newId,
+                                rdAmount = monthlyRd,
+                                currentRdDue = currentDue,
+                                interestDue = if (openingLoan > 0) openingLoan * 0.01 else 0.0,
+                                loanOutstanding = openingLoan,
+                                loanEligibility = maxOf(50000.0, openingLoan * 1.5),
+                                lastMonthEndBalance = openingLoan
+                            )
+                        )
+                        newCount++
+                        details.add("New Member added: $name ($newId, $mobile, Loan: ₹$openingLoan)")
+                    }
+                } else {
+                    // Standard 8-column Transaction Ledger Format
+                    val name = tokens[0]
+                    val mobile = tokens[1]
+                    val paymentInfo = tokens.getOrNull(2) ?: "CASH"
+                    val amount = tokens.getOrNull(3)?.toDoubleOrNull() ?: 0.0
+                    val dateStr = tokens.getOrNull(4) ?: ""
+                    val remarks = tokens.getOrNull(5) ?: ""
+                    val txnIdFromCsv = tokens.getOrNull(6) ?: ""
+                    val statusStr = tokens.getOrNull(7) ?: "APPROVED"
+
+                    var paymentDate = System.currentTimeMillis()
+                    if (dateStr.isNotBlank()) {
+                        paymentDate = try {
+                            dateFormat.parse(dateStr)?.time ?: altDateFormat.parse(dateStr)?.time ?: System.currentTimeMillis()
+                        } catch (e: Exception) {
+                            System.currentTimeMillis()
+                        }
+                    }
+
+                    // Check Duplicate Transaction
+                    val existingTxn = if (txnIdFromCsv.isNotBlank()) paymentDao.getPaymentByTxnId(txnIdFromCsv) else null
+                    val duplicatePayment = paymentDao.findDuplicatePayment(mobile, amount, paymentDate)
+
+                    if (existingTxn != null || duplicatePayment != null) {
+                        duplicateCount++
+                        details.add("Duplicate record for $name ($mobile, ₹$amount) - skipped")
+                        continue
+                    }
+
+                    val existingMember = existingMembers[mobile]
+                    val userId = if (existingMember == null) {
+                        val genId = generateNextUserId()
+                        val newUser = UserEntity(
+                            userId = genId,
+                            name = name,
+                            mobile = mobile,
+                            role = UserRole.MEMBER,
+                            status = AccountStatus.ACTIVE,
+                            remarks = "Imported from Ledger"
+                        )
+                        membersToCreate.add(newUser)
+                        financialsToCreate.add(
+                            MemberFinancialEntity(
+                                userId = genId,
+                                rdAmount = 400.0,
+                                currentRdDue = 0.0,
+                                loanOutstanding = 0.0
+                            )
+                        )
+                        newCount++
+                        details.add("New member identified: $name ($genId, $mobile)")
+                        genId
+                    } else {
+                        updatedCount++
+                        details.add("Existing member matched: $name (${existingMember.userId})")
+                        existingMember.userId
+                    }
+
+                    val finalTxnId = if (txnIdFromCsv.isNotBlank()) txnIdFromCsv else generateTransactionId()
+                    val paymentType = if (paymentInfo.contains("ONLINE", ignoreCase = true) || paymentInfo.contains("UPI", ignoreCase = true)) {
+                        PaymentType.ONLINE
+                    } else {
+                        PaymentType.CASH
+                    }
+
+                    val status = try {
+                        PaymentStatus.valueOf(statusStr.uppercase())
+                    } catch (e: Exception) {
+                        PaymentStatus.APPROVED
+                    }
+
+                    val newPayment = PaymentEntity(
+                        transactionId = finalTxnId,
+                        userId = userId,
+                        userName = name,
+                        userMobile = mobile,
+                        amount = amount,
+                        rdAmount = minOf(400.0, amount),
+                        paymentType = paymentType,
+                        paymentMode = paymentType.name,
+                        paymentDate = paymentDate,
+                        month = "Imported Ledger",
+                        status = status,
+                        remarks = remarks,
+                        approvedAmount = if (status == PaymentStatus.APPROVED) amount else null,
+                        approvedBy = "EXCEL_IMPORT",
+                        approvedAt = if (status == PaymentStatus.APPROVED) paymentDate else null
                     )
-                    newCount++
-                    details.add("New member identified: $name ($genId, $mobile)")
-                    genId
-                } else {
-                    updatedCount++
-                    details.add("Existing member matched: $name (${member?.userId})")
-                    member!!.userId
+                    paymentsToInsert.add(newPayment)
                 }
-
-                val finalTxnId = if (txnIdFromCsv.isNotBlank()) txnIdFromCsv else generateTransactionId()
-                val paymentType = if (paymentInfo.contains("ONLINE", ignoreCase = true) || paymentInfo.contains("UPI", ignoreCase = true)) {
-                    PaymentType.ONLINE
-                } else {
-                    PaymentType.CASH
-                }
-
-                val status = try {
-                    PaymentStatus.valueOf(statusStr.uppercase())
-                } catch (e: Exception) {
-                    PaymentStatus.APPROVED
-                }
-
-                val newPayment = PaymentEntity(
-                    transactionId = finalTxnId,
-                    userId = userId,
-                    userName = name,
-                    userMobile = mobile,
-                    amount = amount,
-                    paymentType = paymentType,
-                    paymentDate = paymentDate,
-                    month = "Imported Ledger",
-                    status = status,
-                    remarks = remarks,
-                    approvedAmount = if (status == PaymentStatus.APPROVED) amount else null,
-                    approvedBy = "EXCEL_IMPORT",
-                    approvedAt = if (status == PaymentStatus.APPROVED) paymentDate else null
-                )
-                paymentsToInsert.add(newPayment)
-
             } catch (e: Exception) {
                 errorCount++
                 details.add("Line ${index + 1} Error: ${e.message}")
             }
         }
 
-        // If not dry run, perform batch inserts!
         if (!isDryRun) {
-            if (membersToCreate.isNotEmpty()) {
-                userDao.insertUsers(membersToCreate)
-            }
-            if (financialsToCreate.isNotEmpty()) {
-                financialDao.insertFinancials(financialsToCreate)
-            }
-            if (paymentsToInsert.isNotEmpty()) {
-                paymentDao.insertPayments(paymentsToInsert)
-            }
+            if (membersToCreate.isNotEmpty()) userDao.insertUsers(membersToCreate)
+            if (financialsToCreate.isNotEmpty()) financialDao.insertFinancials(financialsToCreate)
+            for (f in financialsToUpdate) financialDao.updateFinancial(f)
+            if (paymentsToInsert.isNotEmpty()) paymentDao.insertPayments(paymentsToInsert)
+
             auditDao.insertAuditLog(
                 AuditLogEntity(
                     action = "EXCEL_IMPORT_EXECUTED",
                     performedBy = "ADMIN",
-                    details = "Imported ${paymentsToInsert.size} records. New: $newCount, Updated: $updatedCount, Duplicates: $duplicateCount, Errors: $errorCount"
+                    details = "Imported records. New: $newCount, Updated: $updatedCount, Duplicates: $duplicateCount, Errors: $errorCount"
                 )
             )
         }
@@ -977,5 +1245,38 @@ class GullakRepository(private val database: AppDatabase) {
             errors = errorCount,
             details = details
         )
+    }
+
+    // 100% Free Cloud Backup & Restore System
+    // Exports full database state to portable JSON string for Google Sheets Webhook / Cloud Storage
+    suspend fun exportFullBackupJson(): String = withContext(Dispatchers.IO) {
+        val users = userDao.getAllMembersIncludingDeleted().first()
+        val financials = financialDao.getAllFinancials().first()
+        val payments = paymentDao.getAllPayments().first()
+        val settings = settingsDao.getSettingsDirect() ?: SocietySettingsEntity()
+
+        val sb = StringBuilder()
+        sb.append("{\n")
+        sb.append("  \"exportedAt\": ${System.currentTimeMillis()},\n")
+        sb.append("  \"totalMembers\": ${users.size},\n")
+        sb.append("  \"society\": \"${settings.societyName}\",\n")
+        sb.append("  \"users\": [\n")
+        users.forEachIndexed { i, u ->
+            sb.append("    {\"userId\":\"${u.userId}\",\"name\":\"${u.name}\",\"mobile\":\"${u.mobile}\",\"pin\":\"${u.pin}\",\"role\":\"${u.role}\",\"status\":\"${u.status}\",\"remarks\":\"${u.remarks}\"}${if (i < users.size - 1) "," else ""}\n")
+        }
+        sb.append("  ],\n")
+        sb.append("  \"financials\": [\n")
+        financials.forEachIndexed { i, f ->
+            sb.append("    {\"userId\":\"${f.userId}\",\"rdAmount\":${f.rdAmount},\"currentRdDue\":${f.currentRdDue},\"interestDue\":${f.interestDue},\"penaltyDue\":${f.penaltyDue},\"loanOutstanding\":${f.loanOutstanding},\"loanEligibility\":${f.loanEligibility},\"accumulatedRdBonus\":${f.accumulatedRdBonus},\"totalPaidThisYear\":${f.totalPaidThisYear}}${if (i < financials.size - 1) "," else ""}\n")
+        }
+        sb.append("  ],\n")
+        sb.append("  \"payments\": [\n")
+        payments.forEachIndexed { i, p ->
+            val cleanRem = (p.adminRemarks.ifBlank { p.remarks }).replace("\"", "\\\"")
+            sb.append("    {\"transactionId\":\"${p.transactionId}\",\"userId\":\"${p.userId}\",\"userName\":\"${p.userName}\",\"userMobile\":\"${p.userMobile}\",\"amount\":${p.amount},\"rdAmount\":${p.rdAmount},\"interestAmount\":${p.interestAmount},\"penaltyAmount\":${p.penaltyAmount},\"loanReturnAmount\":${p.loanReturnAmount},\"paymentType\":\"${p.paymentType}\",\"paymentMode\":\"${p.paymentMode}\",\"paymentDate\":${p.paymentDate},\"status\":\"${p.status}\",\"remarks\":\"$cleanRem\"}${if (i < payments.size - 1) "," else ""}\n")
+        }
+        sb.append("  ]\n")
+        sb.append("}\n")
+        sb.toString()
     }
 }

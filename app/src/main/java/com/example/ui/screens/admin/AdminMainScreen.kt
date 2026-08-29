@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -99,9 +101,12 @@ import com.example.data.model.SocietySettingsEntity
 import com.example.data.model.UserEntity
 import com.example.data.repository.MemberWithFinancials
 import com.example.ui.components.AccountStatusBadge
+import com.example.ui.components.AdminDetailedApprovalDialog
+import com.example.ui.components.AdminRecordOfficeCashDialog
 import com.example.ui.components.ApproveWithEditDialog
 import com.example.ui.components.GullakConfirmationDialog
 import com.example.ui.components.GullakTopBar
+import com.example.ui.components.OutstandingDefaultersDialog
 import com.example.ui.components.RejectPaymentDialog
 import com.example.ui.components.StatusBadge
 import com.example.ui.components.formatRupees
@@ -154,6 +159,10 @@ fun AdminMainScreen(
 
     // Dialog States
     var showAddMemberDialog by remember { mutableStateOf(false) }
+    var showOfficeCashDialog by remember { mutableStateOf(false) }
+    var detailedPaymentToApprove by remember { mutableStateOf<PaymentEntity?>(null) }
+    var outstandingDefaultersTitle by remember { mutableStateOf<String?>(null) }
+    var outstandingDefaultersList by remember { mutableStateOf<List<Pair<UserEntity, com.example.data.model.MemberFinancialEntity>>>(emptyList()) }
     var memberToEdit by remember { mutableStateOf<MemberWithFinancials?>(null) }
     var memberToDelete by remember { mutableStateOf<UserEntity?>(null) }
     var memberForPinReset by remember { mutableStateOf<UserEntity?>(null) }
@@ -204,7 +213,7 @@ fun AdminMainScreen(
                             }
                         }
                     },
-                    label = { Text("Tasks / होम") },
+                    label = { Text("Tasks", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -216,7 +225,7 @@ fun AdminMainScreen(
                     selected = (selectedNavTab == 1),
                     onClick = { selectedNavTab = 1 },
                     icon = { Icon(Icons.Default.People, contentDescription = "Members") },
-                    label = { Text("Members") },
+                    label = { Text("Members", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -228,7 +237,7 @@ fun AdminMainScreen(
                     selected = (selectedNavTab == 2),
                     onClick = { selectedNavTab = 2 },
                     icon = { Icon(Icons.Default.CreditCard, contentDescription = "Payments") },
-                    label = { Text("Payments") },
+                    label = { Text("Payments", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -240,7 +249,7 @@ fun AdminMainScreen(
                     selected = (selectedNavTab == 3),
                     onClick = { selectedNavTab = 3 },
                     icon = { Icon(Icons.Default.Notifications, contentDescription = "Notifications") },
-                    label = { Text("Remind") },
+                    label = { Text("Reminders", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -252,7 +261,7 @@ fun AdminMainScreen(
                     selected = (selectedNavTab == 4),
                     onClick = { selectedNavTab = 4 },
                     icon = { Icon(Icons.Default.Description, contentDescription = "Excel & Settings") },
-                    label = { Text("Excel/Set") },
+                    label = { Text("Settings", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GullakPrimary,
                         selectedTextColor = GullakPrimary,
@@ -284,6 +293,7 @@ fun AdminMainScreen(
             when (selectedNavTab) {
                 0 -> AdminDashboardTab(
                     pendingPayments = pendingPayments,
+                    membersWithFinancials = membersWithFinancials,
                     totalMembers = totalMembers,
                     activeCount = activeCount,
                     inactiveCount = inactiveCount,
@@ -291,9 +301,14 @@ fun AdminMainScreen(
                     monthlyCollection = monthlyCollection ?: 0.0,
                     totalLoanOutstanding = totalLoanOutstanding ?: 0.0,
                     totalDueAmount = totalDueAmount ?: 0.0,
-                    onApproveClick = { paymentToApprove = it },
+                    onRecordCashClick = { showOfficeCashDialog = true },
+                    onApproveClick = { detailedPaymentToApprove = it },
                     onRejectClick = { paymentToReject = it },
-                    onApproveEditClick = { paymentToApproveEdit = it },
+                    onApproveEditClick = { detailedPaymentToApprove = it },
+                    onViewDefaultersClick = { title, list ->
+                        outstandingDefaultersTitle = title
+                        outstandingDefaultersList = list
+                    },
                     onNavigateToMembers = { selectedNavTab = 1 },
                     onNavigateToPayments = { selectedNavTab = 2 }
                 )
@@ -309,9 +324,9 @@ fun AdminMainScreen(
                 )
                 2 -> AdminPaymentsTab(
                     allPayments = allPayments,
-                    onApproveClick = { paymentToApprove = it },
+                    onApproveClick = { detailedPaymentToApprove = it },
                     onRejectClick = { paymentToReject = it },
-                    onApproveEditClick = { paymentToApproveEdit = it }
+                    onApproveEditClick = { detailedPaymentToApprove = it }
                 )
                 3 -> AdminNotificationsTab(
                     settings = settings,
@@ -330,6 +345,72 @@ fun AdminMainScreen(
     }
 
     // Modal Dialogs for Admin Actions
+    if (showOfficeCashDialog) {
+        val members = membersWithFinancials.map { it.user }
+        val finMap = membersWithFinancials.mapNotNull { if (it.financials != null) it.user.userId to it.financials!! else null }.toMap()
+        AdminRecordOfficeCashDialog(
+            membersList = members,
+            financialsMap = finMap,
+            onDismiss = { showOfficeCashDialog = false },
+            onSubmit = { userId, amount, rd, int, pen, loan, mode, remarks, adminRemarks ->
+                viewModel.recordOfficeCashPayment(
+                    userId = userId,
+                    amount = amount,
+                    rdAmount = rd,
+                    interestAmount = int,
+                    penaltyAmount = pen,
+                    loanReturnAmount = loan,
+                    paymentMode = mode,
+                    remarks = remarks,
+                    adminRemarks = adminRemarks
+                )
+                showOfficeCashDialog = false
+            }
+        )
+    }
+
+    if (detailedPaymentToApprove != null) {
+        val p = detailedPaymentToApprove!!
+        AdminDetailedApprovalDialog(
+            paymentId = p.id,
+            userName = p.userName,
+            submittedAmount = p.amount,
+            initialRd = p.rdAmount,
+            initialInt = p.interestAmount,
+            initialPen = p.penaltyAmount,
+            initialLoan = p.loanReturnAmount,
+            initialRemarks = p.remarks,
+            onDismiss = { detailedPaymentToApprove = null },
+            onApprove = { approvedAmount, rd, int, pen, loan, adminRemarks ->
+                viewModel.approvePaymentWithBreakdown(
+                    paymentId = p.id,
+                    approvedAmount = approvedAmount,
+                    rdAmount = rd,
+                    interestAmount = int,
+                    penaltyAmount = pen,
+                    loanReturnAmount = loan,
+                    adminRemarks = adminRemarks
+                )
+                detailedPaymentToApprove = null
+            },
+            onReject = {
+                paymentToReject = p
+                detailedPaymentToApprove = null
+            }
+        )
+    }
+
+    if (outstandingDefaultersTitle != null) {
+        OutstandingDefaultersDialog(
+            metricTitle = outstandingDefaultersTitle!!,
+            membersWithDues = outstandingDefaultersList,
+            onDismiss = {
+                outstandingDefaultersTitle = null
+                outstandingDefaultersList = emptyList()
+            }
+        )
+    }
+
     if (paymentToApprove != null) {
         GullakConfirmationDialog(
             title = "Approve Payment? / भुगतान स्वीकृत करें?",
@@ -418,6 +499,7 @@ fun AdminMainScreen(
 @Composable
 fun AdminDashboardTab(
     pendingPayments: List<PaymentEntity>,
+    membersWithFinancials: List<MemberWithFinancials>,
     totalMembers: Int,
     activeCount: Int,
     inactiveCount: Int,
@@ -425,9 +507,11 @@ fun AdminDashboardTab(
     monthlyCollection: Double,
     totalLoanOutstanding: Double,
     totalDueAmount: Double,
+    onRecordCashClick: () -> Unit,
     onApproveClick: (PaymentEntity) -> Unit,
     onRejectClick: (PaymentEntity) -> Unit,
     onApproveEditClick: (PaymentEntity) -> Unit,
+    onViewDefaultersClick: (String, List<Pair<UserEntity, com.example.data.model.MemberFinancialEntity>>) -> Unit,
     onNavigateToMembers: () -> Unit,
     onNavigateToPayments: () -> Unit
 ) {
@@ -437,6 +521,43 @@ fun AdminDashboardTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Section: Quick Admin Actions
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onRecordCashClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1.1f)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Record Cash 💵", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                Button(
+                    onClick = {
+                        val duesList = membersWithFinancials.mapNotNull {
+                            if (it.financials != null && ((it.financials!!.currentRdDue + it.financials!!.interestDue + it.financials!!.calculateLivePenalty()) > 0)) {
+                                it.user to it.financials!!
+                            } else null
+                        }
+                        onViewDefaultersClick("All Pending Dues", duesList)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakDanger),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Defaulters 📢", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+
         // Section: Today's Tasks
         item {
             Text(
@@ -768,17 +889,23 @@ fun AdminMembersTab(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Member Directory (${membersWithFinancials.size})",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "सोसाइटी के सभी सदस्य और उनका वित्तीय खाता",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             Button(
                 onClick = onAddMemberClick,
@@ -794,12 +921,19 @@ fun AdminMembersTab(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Search Bar
+        // Search Bar (Compact, Single Line)
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Search by Name, Mobile, User ID...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            placeholder = { Text("Search by name, mobile or ID...", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(20.dp)) },
+            trailingIcon = if (searchQuery.isNotEmpty()) {
+                {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
+                    }
+                }
+            } else null,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("member_search_input"),
@@ -809,30 +943,32 @@ fun AdminMembersTab(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Filter Chips
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth()
+        // Filter Chips in a single clean horizontal scroll row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
                 selected = (selectedFilter == "ALL"),
                 onClick = { selectedFilter = "ALL" },
-                label = { Text("All (${membersWithFinancials.size})") }
+                label = { Text("All (${membersWithFinancials.size})", fontSize = 12.sp) }
             )
             FilterChip(
                 selected = (selectedFilter == "ACTIVE"),
                 onClick = { selectedFilter = "ACTIVE" },
-                label = { Text("Active") }
+                label = { Text("Active", fontSize = 12.sp) }
             )
             FilterChip(
                 selected = (selectedFilter == "INACTIVE"),
                 onClick = { selectedFilter = "INACTIVE" },
-                label = { Text("Inactive") }
+                label = { Text("Inactive", fontSize = 12.sp) }
             )
             FilterChip(
                 selected = (selectedFilter == "DUES"),
                 onClick = { selectedFilter = "DUES" },
-                label = { Text("Has Dues") }
+                label = { Text("Has Dues", fontSize = 12.sp) }
             )
         }
 
@@ -883,25 +1019,31 @@ fun AdminMemberCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Text(
                             text = user.name,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
                         AccountStatusBadge(status = user.status)
                     }
                     Text(
                         text = "${user.userId} • Mobile: ${user.mobile}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -947,42 +1089,74 @@ fun AdminMemberCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Financial Quick Row: RD Due, Interest Due, Loan Outstanding, Loan Eligibility
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+            // Financial Quick Row: 4 equal balanced columns with background surface so text never overlaps
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column {
-                    Text("RD Due", fontSize = 11.sp, color = Color.Gray)
-                    Text(
-                        formatRupees(fin?.currentRdDue ?: 0.0),
-                        fontWeight = FontWeight.Bold,
-                        color = if ((fin?.currentRdDue ?: 0.0) > 0) GullakDanger else GullakSuccess
-                    )
-                }
-                Column {
-                    Text("Interest Due", fontSize = 11.sp, color = Color.Gray)
-                    Text(
-                        formatRupees(fin?.interestDue ?: 0.0),
-                        fontWeight = FontWeight.Bold,
-                        color = if ((fin?.interestDue ?: 0.0) > 0) GullakDanger else GullakNavyDark
-                    )
-                }
-                Column {
-                    Text("Loan Out", fontSize = 11.sp, color = Color.Gray)
-                    Text(
-                        formatRupees(fin?.loanOutstanding ?: 0.0),
-                        fontWeight = FontWeight.Bold,
-                        color = GullakNavyDark
-                    )
-                }
-                Column {
-                    Text("Eligibility", fontSize = 11.sp, color = Color.Gray)
-                    Text(
-                        formatRupees(fin?.loanEligibility ?: 50000.0),
-                        fontWeight = FontWeight.Bold,
-                        color = GullakGold
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text("RD Due", fontSize = 10.sp, color = Color.Gray, maxLines = 1)
+                        Text(
+                            text = formatRupees(fin?.currentRdDue ?: 0.0),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = if ((fin?.currentRdDue ?: 0.0) > 0) GullakDanger else GullakSuccess
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Interest Due", fontSize = 10.sp, color = Color.Gray, maxLines = 1)
+                        Text(
+                            text = formatRupees(fin?.interestDue ?: 0.0),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = if ((fin?.interestDue ?: 0.0) > 0) GullakDanger else GullakNavyDark
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Loan Out", fontSize = 10.sp, color = Color.Gray, maxLines = 1)
+                        Text(
+                            text = formatRupees(fin?.loanOutstanding ?: 0.0),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = GullakNavyDark
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Text("Eligibility", fontSize = 10.sp, color = Color.Gray, maxLines = 1)
+                        Text(
+                            text = formatRupees(fin?.loanEligibility ?: 50000.0),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = GullakGold
+                        )
+                    }
                 }
             }
         }

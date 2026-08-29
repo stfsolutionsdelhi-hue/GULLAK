@@ -836,3 +836,664 @@ fun GullakConfirmationDialog(
         }
     )
 }
+
+// -------------------------------------------------------------
+// 1. Comprehensive 4-Column Member "Pay Now" Dialog
+// -------------------------------------------------------------
+@Composable
+fun PayNowComprehensiveDialog(
+    monthlyRdDefault: Double,
+    interestDueDefault: Double,
+    penaltyDueDefault: Double,
+    loanOutstanding: Double,
+    upiId: String,
+    payeeName: String,
+    onDismiss: () -> Unit,
+    onSubmitPayment: (
+        totalAmount: Double,
+        rdAmount: Double,
+        interestAmount: Double,
+        penaltyAmount: Double,
+        loanReturnAmount: Double,
+        paymentType: PaymentType,
+        paymentMode: String,
+        remarks: String
+    ) -> Unit
+) {
+    var rdText by remember { mutableStateOf(monthlyRdDefault.toInt().toString()) }
+    var interestText by remember { mutableStateOf(interestDueDefault.toInt().toString()) }
+    var penaltyText by remember { mutableStateOf(penaltyDueDefault.toInt().toString()) }
+    var loanReturnText by remember { mutableStateOf("") }
+    var selectedPaymentMode by remember { mutableStateOf("ONLINE_UPI") } // ONLINE_UPI or CASH_OFFICE
+    var remarksText by remember { mutableStateOf("") }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
+    val rdVal = rdText.toDoubleOrNull() ?: 0.0
+    val intVal = interestText.toDoubleOrNull() ?: 0.0
+    val penVal = penaltyText.toDoubleOrNull() ?: 0.0
+    val loanVal = loanReturnText.toDoubleOrNull() ?: 0.0
+    val calculatedTotal = rdVal + intVal + penVal + loanVal
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.CurrencyRupee,
+                    contentDescription = null,
+                    tint = GullakGold,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Column {
+                    Text("Pay Monthly Dues / भुगतान करें", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text("4-Column Granular Breakdown", fontSize = 11.sp, color = GullakGoldLight)
+                }
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(vertical = 4.dp)
+            ) {
+                // Mode Selector
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF1E293B))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = { selectedPaymentMode = "ONLINE_UPI" },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedPaymentMode == "ONLINE_UPI") GullakGold else Color.Transparent,
+                            contentColor = if (selectedPaymentMode == "ONLINE_UPI") Color(0xFF0F172A) else Color.White
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Online UPI QR", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = { selectedPaymentMode = "CASH_OFFICE" },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedPaymentMode == "CASH_OFFICE") GullakGold else Color.Transparent,
+                            contentColor = if (selectedPaymentMode == "CASH_OFFICE") Color(0xFF0F172A) else Color.White
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Office Cash", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // 4 Breakdown Columns in 2x2 grid or compact column list
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF161E2E)),
+                    border = BorderStroke(1.dp, GullakGold.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = rdText,
+                                onValueChange = { rdText = it },
+                                label = { Text("1. RD (₹)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = interestText,
+                                onValueChange = { interestText = it },
+                                label = { Text("2. Interest (₹)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = penaltyText,
+                                onValueChange = { penaltyText = it },
+                                label = { Text("3. Penalty (₹)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = loanReturnText,
+                                onValueChange = { loanReturnText = it },
+                                label = { Text("4. Loan Return (₹)") },
+                                placeholder = { Text("0") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                        }
+                    }
+                }
+
+                // Total Calculation Display Box
+                Surface(
+                    color = GullakGoldContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Total Payable Amount:",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF78350F),
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = formatRupees(calculatedTotal),
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF78350F),
+                            fontSize = 17.sp
+                        )
+                    }
+                }
+
+                if (selectedPaymentMode == "ONLINE_UPI") {
+                    // UPI Launch and Copy Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "UPI: $upiId",
+                            style = MaterialTheme.typography.bodySmall.copy(color = GullakGoldLight),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = {
+                            clipboardManager.setText(AnnotatedString(upiId))
+                            Toast.makeText(context, "UPI ID Copied!", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Text("Copy UPI", fontSize = 11.sp, color = GullakGold)
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            val upiUri = Uri.parse("upi://pay?pa=$upiId&pn=${Uri.encode(payeeName)}&am=$calculatedTotal&cu=INR&tn=SocietyDues")
+                            val intent = Intent(Intent.ACTION_VIEW, upiUri)
+                            try {
+                                context.startActivity(Intent.createChooser(intent, "Pay with UPI App"))
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "No UPI App found. Copy UPI ID to pay.", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Open GPay / PhonePe / Paytm (₹$calculatedTotal)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = remarksText,
+                    onValueChange = { remarksText = it },
+                    label = { Text("UTR No / Ref / Remarks (टिप्पणी)") },
+                    placeholder = { Text("e.g. UTR 4238910293") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                if (errorMsg != null) {
+                    Text(text = errorMsg!!, color = GullakDanger, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (calculatedTotal <= 0) {
+                        errorMsg = "Total payment amount ₹0 se jyada honi chahiye"
+                    } else {
+                        val paymentType = if (selectedPaymentMode == "ONLINE_UPI") PaymentType.ONLINE else PaymentType.CASH
+                        onSubmitPayment(
+                            calculatedTotal,
+                            rdVal,
+                            intVal,
+                            penVal,
+                            loanVal,
+                            paymentType,
+                            selectedPaymentMode,
+                            remarksText.ifBlank { "Monthly Payment" }
+                        )
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A))
+            ) {
+                Text("Submit for Approval ✅", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// -------------------------------------------------------------
+// 2. Admin Detailed Approval & Adjustment Dialog (with 4 columns)
+// -------------------------------------------------------------
+@Composable
+fun AdminDetailedApprovalDialog(
+    paymentId: Long,
+    userName: String,
+    submittedAmount: Double,
+    initialRd: Double,
+    initialInt: Double,
+    initialPen: Double,
+    initialLoan: Double,
+    initialRemarks: String,
+    onDismiss: () -> Unit,
+    onApprove: (
+        approvedAmount: Double,
+        rd: Double,
+        int: Double,
+        pen: Double,
+        loan: Double,
+        adminRemarks: String
+    ) -> Unit,
+    onReject: () -> Unit
+) {
+    var rdText by remember { mutableStateOf(initialRd.toInt().toString()) }
+    var intText by remember { mutableStateOf(initialInt.toInt().toString()) }
+    var penText by remember { mutableStateOf(initialPen.toInt().toString()) }
+    var loanText by remember { mutableStateOf(initialLoan.toInt().toString()) }
+    var adminRemarksText by remember { mutableStateOf("Verified & Approved") }
+
+    val rd = rdText.toDoubleOrNull() ?: 0.0
+    val int = intText.toDoubleOrNull() ?: 0.0
+    val pen = penText.toDoubleOrNull() ?: 0.0
+    val loan = loanText.toDoubleOrNull() ?: 0.0
+    val totalApproved = rd + int + pen + loan
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("Verify & Approve Payment 💳", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Text("Member: $userName | Submitted: ${formatRupees(submittedAmount)}", fontSize = 12.sp, color = GullakGoldLight)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (initialRemarks.isNotBlank()) {
+                    Text(
+                        text = "Member Note: $initialRemarks",
+                        fontSize = 12.sp,
+                        color = Color.LightGray,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF1E293B), RoundedCornerShape(6.dp))
+                            .padding(8.dp)
+                    )
+                }
+
+                Text("Adjust 4-Column Breakdown if required:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = rdText,
+                        onValueChange = { rdText = it },
+                        label = { Text("RD (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = intText,
+                        onValueChange = { intText = it },
+                        label = { Text("Interest (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = penText,
+                        onValueChange = { penText = it },
+                        label = { Text("Penalty (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = loanText,
+                        onValueChange = { loanText = it },
+                        label = { Text("Loan Return (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                Surface(
+                    color = GullakGoldContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Final Approved Total:", fontWeight = FontWeight.Bold, color = Color(0xFF78350F), fontSize = 12.sp)
+                        Text(formatRupees(totalApproved), fontWeight = FontWeight.ExtraBold, color = Color(0xFF78350F), fontSize = 14.sp)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = adminRemarksText,
+                    onValueChange = { adminRemarksText = it },
+                    label = { Text("Admin Remarks / Note") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onApprove(totalApproved, rd, int, pen, loan, adminRemarksText) },
+                colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess)
+            ) {
+                Text("Approve Payment ✅")
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Button(
+                    onClick = onReject,
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakDanger)
+                ) {
+                    Text("Reject ❌")
+                }
+                OutlinedButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+            }
+        }
+    )
+}
+
+// -------------------------------------------------------------
+// 3. Admin Direct Office Cash Entry Dialog
+// -------------------------------------------------------------
+@Composable
+fun AdminRecordOfficeCashDialog(
+    membersList: List<com.example.data.model.UserEntity>,
+    financialsMap: Map<String, com.example.data.model.MemberFinancialEntity>,
+    onDismiss: () -> Unit,
+    onSubmit: (
+        userId: String,
+        amount: Double,
+        rd: Double,
+        int: Double,
+        pen: Double,
+        loan: Double,
+        mode: String,
+        remarks: String,
+        adminRemarks: String
+    ) -> Unit
+) {
+    var selectedUserId by remember { mutableStateOf(membersList.firstOrNull()?.userId ?: "") }
+    val selectedMember = membersList.find { it.userId == selectedUserId }
+    val fin = financialsMap[selectedUserId]
+
+    var rdText by remember { mutableStateOf("400") }
+    var intText by remember { mutableStateOf(fin?.interestDue?.toInt()?.toString() ?: "0") }
+    var penText by remember { mutableStateOf(fin?.calculateLivePenalty()?.toInt()?.toString() ?: "0") }
+    var loanText by remember { mutableStateOf("") }
+    var mode by remember { mutableStateOf("OFFICE_CASH") }
+    var adminRemarks by remember { mutableStateOf("Office Cash Verified by Admin") }
+
+    val rd = rdText.toDoubleOrNull() ?: 0.0
+    val int = intText.toDoubleOrNull() ?: 0.0
+    val pen = penText.toDoubleOrNull() ?: 0.0
+    val loan = loanText.toDoubleOrNull() ?: 0.0
+    val total = rd + int + pen + loan
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("Record Office Payment 💵", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Text("Direct cash deposit by member", fontSize = 11.sp, color = GullakGoldLight)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Select Member (सदस्य चुनें):", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+
+                // Simple Member Quick Selector
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        membersList.take(6).forEach { user ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectedUserId = user.userId
+                                        val uFin = financialsMap[user.userId]
+                                        intText = (uFin?.interestDue?.toInt() ?: 0).toString()
+                                        penText = (uFin?.calculateLivePenalty()?.toInt() ?: 0).toString()
+                                    }
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                RadioButton(
+                                    selected = (selectedUserId == user.userId),
+                                    onClick = {
+                                        selectedUserId = user.userId
+                                        val uFin = financialsMap[user.userId]
+                                        intText = (uFin?.interestDue?.toInt() ?: 0).toString()
+                                        penText = (uFin?.calculateLivePenalty()?.toInt() ?: 0).toString()
+                                    },
+                                    colors = RadioButtonDefaults.colors(selectedColor = GullakGold)
+                                )
+                                Column {
+                                    Text(user.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                                    Text("ID: ${user.userId} | Mob: ${user.mobile}", fontSize = 10.sp, color = Color.Gray)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = rdText,
+                        onValueChange = { rdText = it },
+                        label = { Text("RD (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = intText,
+                        onValueChange = { intText = it },
+                        label = { Text("Interest (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = penText,
+                        onValueChange = { penText = it },
+                        label = { Text("Penalty (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = loanText,
+                        onValueChange = { loanText = it },
+                        label = { Text("Loan Return (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                Surface(
+                    color = GullakGoldContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Total Cash Deposited:", fontWeight = FontWeight.Bold, color = Color(0xFF78350F), fontSize = 12.sp)
+                        Text(formatRupees(total), fontWeight = FontWeight.ExtraBold, color = Color(0xFF78350F), fontSize = 14.sp)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = adminRemarks,
+                    onValueChange = { adminRemarks = it },
+                    label = { Text("Remarks") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (selectedUserId.isNotBlank() && total > 0) {
+                        onSubmit(selectedUserId, total, rd, int, pen, loan, mode, "Office Cash", adminRemarks)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A))
+            ) {
+                Text("Record & Deposit 💵", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// -------------------------------------------------------------
+// 4. Outstanding Defaulters & Instant WhatsApp / SMS Dispatch Dialog
+// -------------------------------------------------------------
+@Composable
+fun OutstandingDefaultersDialog(
+    metricTitle: String,
+    membersWithDues: List<Pair<com.example.data.model.UserEntity, com.example.data.model.MemberFinancialEntity>>,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("Outstanding Dues List: $metricTitle", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("${membersWithDues.size} Members have pending amounts", fontSize = 12.sp, color = GullakGoldLight)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(350.dp)
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (membersWithDues.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text("No pending dues found in this category! 🎉", color = GullakSuccess, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    membersWithDues.forEach { (user, fin) ->
+                        val pen = fin.calculateLivePenalty()
+                        val totalDue = fin.currentRdDue + fin.interestDue + pen
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(user.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                                    Text("RD: ₹${fin.currentRdDue.toInt()} | Int: ₹${fin.interestDue.toInt()} | Pen: ₹${pen.toInt()}", fontSize = 11.sp, color = GullakGoldLight)
+                                    Text("Loan Balance: ₹${fin.loanOutstanding.toInt()}", fontSize = 10.sp, color = Color.LightGray)
+                                }
+
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(formatRupees(totalDue), fontWeight = FontWeight.ExtraBold, color = GullakDanger, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        // WhatsApp Action
+                                        Button(
+                                            onClick = {
+                                                val msg = "Namaste ${user.name} ji, Gullak Society mein aapki kul deynari ₹${totalDue.toInt()} hai (RD: ₹${fin.currentRdDue.toInt()}, Interest: ₹${fin.interestDue.toInt()}, Penalty: ₹${pen.toInt()}). Kripya samay par jama karein."
+                                                com.example.util.SmsHelper.openWhatsApp(context, user.mobile, msg)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                                            shape = RoundedCornerShape(6.dp),
+                                            modifier = Modifier.height(30.dp)
+                                        ) {
+                                            Text("WA", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        // SMS Action
+                                        Button(
+                                            onClick = {
+                                                val msg = "Gullak Society Alert: ${user.name} ji, aapke dues ₹${totalDue.toInt()} pending hain. Pay via App/UPI."
+                                                com.example.util.SmsHelper.sendSmsViaSim(context, user.mobile, msg, 0)
+                                                Toast.makeText(context, "SMS sent to ${user.name}", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A)),
+                                            shape = RoundedCornerShape(6.dp),
+                                            modifier = Modifier.height(30.dp)
+                                        ) {
+                                            Text("SMS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A))) {
+                Text("Done")
+            }
+        }
+    )
+}
+
