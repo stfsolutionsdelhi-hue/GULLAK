@@ -3,6 +3,7 @@ package com.example.ui.screens.admin
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import com.example.ui.theme.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -106,6 +107,7 @@ import com.example.ui.components.AdminRecordOfficeCashDialog
 import com.example.ui.components.ApproveWithEditDialog
 import com.example.ui.components.GullakConfirmationDialog
 import com.example.ui.components.GullakTopBar
+import com.example.ui.components.MemberLedgerDialog
 import com.example.ui.components.OutstandingDefaultersDialog
 import com.example.ui.components.RejectPaymentDialog
 import com.example.ui.components.StatusBadge
@@ -166,6 +168,7 @@ fun AdminMainScreen(
     var memberToEdit by remember { mutableStateOf<MemberWithFinancials?>(null) }
     var memberToDelete by remember { mutableStateOf<UserEntity?>(null) }
     var memberForPinReset by remember { mutableStateOf<UserEntity?>(null) }
+    var memberForLedger by remember { mutableStateOf<MemberWithFinancials?>(null) }
     var paymentToApprove by remember { mutableStateOf<PaymentEntity?>(null) }
     var paymentToReject by remember { mutableStateOf<PaymentEntity?>(null) }
     var paymentToApproveEdit by remember { mutableStateOf<PaymentEntity?>(null) }
@@ -320,7 +323,8 @@ fun AdminMainScreen(
                     onResetPinClick = { memberForPinReset = it.user },
                     onToggleStatusClick = { member ->
                         viewModel.toggleMemberStatus(member.user.userId, member.user.status)
-                    }
+                    },
+                    onViewLedger = { memberForLedger = it }
                 )
                 2 -> AdminPaymentsTab(
                     allPayments = allPayments,
@@ -408,6 +412,15 @@ fun AdminMainScreen(
                 outstandingDefaultersTitle = null
                 outstandingDefaultersList = emptyList()
             }
+        )
+    }
+
+    if (memberForLedger != null) {
+        MemberLedgerDialog(
+            user = memberForLedger!!.user,
+            financials = memberForLedger!!.financials,
+            payments = allPayments.filter { it.userId == memberForLedger!!.user.userId },
+            onDismiss = { memberForLedger = null }
         )
     }
 
@@ -632,13 +645,14 @@ fun AdminDashboardTab(
         // Section: Financial & Society Metrics Overview Cards
         item {
             Text(
-                text = "Society Overview & Collections",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                text = "Society Collections & Dues Breakdown",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Row 1: Today and Monthly Collections
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -678,6 +692,7 @@ fun AdminDashboardTab(
                     }
                 }
 
+                // Row 2: Total Loan and Total Members
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -689,12 +704,12 @@ fun AdminDashboardTab(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Total Loan Outstanding", fontSize = 11.sp, color = Color.Gray)
+                            Text("Total Loan Balance", fontSize = 11.sp, color = Color.Gray)
                             Text(
                                 text = formatRupees(totalLoanOutstanding),
                                 fontWeight = FontWeight.Black,
                                 fontSize = 18.sp,
-                                color = GullakNavyDark
+                                color = GullakGold
                             )
                         }
                     }
@@ -715,6 +730,148 @@ fun AdminDashboardTab(
                                 fontSize = 18.sp,
                                 color = GullakClay
                             )
+                        }
+                    }
+                }
+
+                // Row 3: 4 Clickable Outstanding Defaulter Categories
+                Text(
+                    text = "Outstanding Dues Categories (Click to Send Reminders 📢)",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = GullakPrimary),
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+
+                val rdDuesList = remember(membersWithFinancials) {
+                    membersWithFinancials.mapNotNull {
+                        if (it.financials != null && it.financials!!.currentRdDue > 0) it.user to it.financials!! else null
+                    }
+                }
+                val intDuesList = remember(membersWithFinancials) {
+                    membersWithFinancials.mapNotNull {
+                        if (it.financials != null && it.financials!!.interestDue > 0) it.user to it.financials!! else null
+                    }
+                }
+                val penDuesList = remember(membersWithFinancials) {
+                    membersWithFinancials.mapNotNull {
+                        if (it.financials != null && it.financials!!.calculateLivePenalty() > 0) it.user to it.financials!! else null
+                    }
+                }
+                val loanDuesList = remember(membersWithFinancials) {
+                    membersWithFinancials.mapNotNull {
+                        if (it.financials != null && it.financials!!.loanOutstanding > 0) it.user to it.financials!! else null
+                    }
+                }
+
+                val totalRdDue = remember(membersWithFinancials) { membersWithFinancials.sumOf { it.financials?.currentRdDue ?: 0.0 } }
+                val totalIntDue = remember(membersWithFinancials) { membersWithFinancials.sumOf { it.financials?.interestDue ?: 0.0 } }
+                val totalPenDue = remember(membersWithFinancials) { membersWithFinancials.sumOf { it.financials?.calculateLivePenalty() ?: 0.0 } }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // RD Dues Card
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onViewDefaultersClick("RD Dues Defaulters (${rdDuesList.size})", rdDuesList) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, GullakDanger.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("RD Dues", fontSize = 11.sp, color = Color.Gray)
+                                Surface(shape = CircleShape, color = GullakDanger) {
+                                    Text("${rdDuesList.size}", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                }
+                            }
+                            Text(formatRupees(totalRdDue), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = GullakDanger)
+                            Text("Click to view ↗", fontSize = 9.sp, color = GullakPrimary)
+                        }
+                    }
+
+                    // Interest Dues Card
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onViewDefaultersClick("Interest Dues Defaulters (${intDuesList.size})", intDuesList) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, GullakWarning.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Interest Due", fontSize = 11.sp, color = Color.Gray)
+                                Surface(shape = CircleShape, color = GullakWarning) {
+                                    Text("${intDuesList.size}", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                }
+                            }
+                            Text(formatRupees(totalIntDue), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = GullakWarning)
+                            Text("Click to view ↗", fontSize = 9.sp, color = GullakPrimary)
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Penalty Dues Card
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onViewDefaultersClick("Penalty Dues Defaulters (${penDuesList.size})", penDuesList) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, GullakClay.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Penalty Dues", fontSize = 11.sp, color = Color.Gray)
+                                Surface(shape = CircleShape, color = GullakClay) {
+                                    Text("${penDuesList.size}", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                }
+                            }
+                            Text(formatRupees(totalPenDue), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = GullakClay)
+                            Text("Click to view ↗", fontSize = 9.sp, color = GullakPrimary)
+                        }
+                    }
+
+                    // Active Loans Card
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onViewDefaultersClick("Active Loan Members (${loanDuesList.size})", loanDuesList) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, GullakGold.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Active Loans", fontSize = 11.sp, color = Color.Gray)
+                                Surface(shape = CircleShape, color = GullakGold) {
+                                    Text("${loanDuesList.size}", color = Color(0xFF0F172A), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                }
+                            }
+                            Text(formatRupees(totalLoanOutstanding), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = GullakGold)
+                            Text("Click to view ↗", fontSize = 9.sp, color = GullakPrimary)
                         }
                     }
                 }
@@ -799,7 +956,7 @@ fun AdminPendingPaymentCard(
                     Text(
                         text = "Remarks: ${payment.remarks}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.DarkGray,
+                        color = GullakTextSecondary,
                         maxLines = 2
                     )
                 }
@@ -858,7 +1015,8 @@ fun AdminMembersTab(
     onEditMemberClick: (MemberWithFinancials) -> Unit,
     onDeleteMemberClick: (MemberWithFinancials) -> Unit,
     onResetPinClick: (MemberWithFinancials) -> Unit,
-    onToggleStatusClick: (MemberWithFinancials) -> Unit
+    onToggleStatusClick: (MemberWithFinancials) -> Unit,
+    onViewLedger: (MemberWithFinancials) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") }
@@ -992,7 +1150,8 @@ fun AdminMembersTab(
                         onEdit = { onEditMemberClick(item) },
                         onDelete = { onDeleteMemberClick(item) },
                         onResetPin = { onResetPinClick(item) },
-                        onToggleStatus = { onToggleStatusClick(item) }
+                        onToggleStatus = { onToggleStatusClick(item) },
+                        onViewLedger = { onViewLedger(item) }
                     )
                 }
             }
@@ -1006,7 +1165,8 @@ fun AdminMemberCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onResetPin: () -> Unit,
-    onToggleStatus: () -> Unit
+    onToggleStatus: () -> Unit,
+    onViewLedger: () -> Unit
 ) {
     val user = member.user
     val fin = member.financials
@@ -1017,7 +1177,9 @@ fun AdminMemberCard(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onViewLedger() }
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -1039,9 +1201,9 @@ fun AdminMemberCard(
                         AccountStatusBadge(status = user.status)
                     }
                     Text(
-                        text = "${user.userId} • Mobile: ${user.mobile}",
+                        text = "${user.userId} • Mobile: ${user.mobile} • Click for Ledger 📜",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray,
+                        color = GullakPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1056,7 +1218,14 @@ fun AdminMemberCard(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Edit Member & Loan") },
+                            text = { Text("View Full Ledger 📜") },
+                            onClick = {
+                                showMenu = false
+                                onViewLedger()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Edit Member & Loan ✏️") },
                             onClick = {
                                 showMenu = false
                                 onEdit()
@@ -1126,7 +1295,7 @@ fun AdminMemberCard(
                             fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = if ((fin?.interestDue ?: 0.0) > 0) GullakDanger else GullakNavyDark
+                            color = if ((fin?.interestDue ?: 0.0) > 0) GullakDanger else GullakTextPrimary
                         )
                     }
                     Column(
@@ -1140,7 +1309,7 @@ fun AdminMemberCard(
                             fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = GullakNavyDark
+                            color = GullakGold
                         )
                     }
                     Column(
@@ -1229,7 +1398,23 @@ fun AdminPaymentsTab(
                             onApproveEdit = { onApproveEditClick(payment) }
                         )
                     } else {
-                        com.example.ui.screens.member.PaymentItemCard(payment = payment)
+                        Column {
+                            com.example.ui.screens.member.PaymentItemCard(payment = payment)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = { onApproveEditClick(payment) }
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = GullakPrimary)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Re-adjust / Edit Breakdown ✏️", fontSize = 11.sp, color = GullakPrimary)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1282,13 +1467,13 @@ fun AdminNotificationsTab(
                     Text(
                         text = "⏰ Scheduled Reminder Engine",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF78350F),
+                        color = GullakGoldLight,
                         fontSize = 16.sp
                     )
                     Text(
                         text = "Frequency: ${settings?.reminderFrequencyPerDay ?: 2} times/day (${settings?.reminderTimes ?: "09:00 AM, 06:00 PM"})",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF78350F).copy(alpha = 0.85f)
+                        color = GullakGoldLight.copy(alpha = 0.85f)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Button(
@@ -1495,7 +1680,7 @@ fun AdminExcelAndSettingsTab(
                                 .weight(1f)
                                 .testTag("export_excel_btn")
                         ) {
-                            Text("Export Excel CSV 📋")
+                            Text("Export Ledger CSV 📋", fontSize = 12.sp)
                         }
 
                         Button(
@@ -1514,8 +1699,25 @@ Rahul Kumar,9810011111,CASH,400.0,27-08-2026 12:00,August RD,TXN-20260827-000001
                                 .weight(1f)
                                 .testTag("load_sample_csv_btn")
                         ) {
-                            Text("Load Sample CSV 📥")
+                            Text("Load Sample CSV 📥", fontSize = 12.sp)
                         }
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val sampleMasterTemplate = """
+Name,Mobile Number,PIN,Monthly RD,Loan Outstanding,Loan Eligibility,Status,Remarks
+Sunita Sharma,9810012345,1234,400,0,50000,ACTIVE,New Member
+Vikram Patel,9810067890,5678,400,10000,50000,ACTIVE,Loan Active
+Ramesh Verma,9810099999,9999,400,0,50000,INACTIVE,Inactive Account
+""".trimIndent()
+                            clipboardManager.setText(AnnotatedString(sampleMasterTemplate))
+                            Toast.makeText(context, "Sample Member Master Template copied!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GullakPrimary),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Copy Blank Member Template (Excel Format) 📄", fontSize = 12.sp)
                     }
 
                     OutlinedTextField(
@@ -1692,7 +1894,7 @@ Rahul Kumar,9810011111,CASH,400.0,27-08-2026 12:00,August RD,TXN-20260827-000001
                     Text(
                         text = log.details,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.DarkGray
+                        color = GullakTextSecondary
                     )
                 }
             }

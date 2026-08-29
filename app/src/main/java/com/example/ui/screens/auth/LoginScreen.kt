@@ -2,6 +2,7 @@ package com.example.ui.screens.auth
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import com.example.ui.theme.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -284,13 +285,13 @@ fun LoginScreen(
                             text = "⚡ Demo & Quick Testing Accounts (टैप करके लॉगिन करें):",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF78350F)
+                                color = GullakGoldLight
                             )
                         )
                         Text(
                             text = "Default PIN for all sample accounts: 1234",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF78350F).copy(alpha = 0.8f)
+                                color = GullakGoldLight.copy(alpha = 0.8f)
                             )
                         )
                     }
@@ -432,13 +433,13 @@ fun LoginScreen(
                     )
 
                     Surface(
-                        color = Color(0xFFF1F5F9),
+                        color = Color(0xFF1E293B),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            Text("Admin Mobile: $adminMobile", fontWeight = FontWeight.SemiBold)
-                            Text("Prefilled Message: 'Mera naya app PIN de dijiye.'", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            Text("Admin Mobile: $adminMobile", fontWeight = FontWeight.SemiBold, color = GullakGold)
+                            Text("Prefilled Message: 'Mera naya app PIN de dijiye.'", style = MaterialTheme.typography.bodySmall, color = GullakTextSecondary)
                         }
                     }
                 }

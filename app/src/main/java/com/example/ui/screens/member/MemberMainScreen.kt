@@ -2,6 +2,7 @@ package com.example.ui.screens.member
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import com.example.ui.theme.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -350,12 +351,12 @@ fun MemberMainScreen(
                                     text = "Option 1: CASH / नकद",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF78350F)
+                                        color = GullakGoldLight
                                     )
                                 )
                                 Text(
                                     text = "सोसाइटी में Cash जमा करके Request भेजें",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF78350F).copy(alpha = 0.8f))
+                                    style = MaterialTheme.typography.bodySmall.copy(color = GullakGoldLight.copy(alpha = 0.8f))
                                 )
                             }
                         }
@@ -402,7 +403,7 @@ fun MemberMainScreen(
                                 )
                                 Text(
                                     text = "UPI QR Code स्कैन करके तुरंत पेमेंट करें",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = GullakNavyDark.copy(alpha = 0.8f))
+                                    style = MaterialTheme.typography.bodySmall.copy(color = GullakTextSecondary)
                                 )
                             }
                         }
@@ -604,7 +605,7 @@ fun MemberDashboardView(
                             text = formatRupees(currentInterestDue),
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 16.sp,
-                            color = if (currentInterestDue > 0) GullakDanger else GullakNavyDark
+                            color = if (currentInterestDue > 0) GullakDanger else GullakTextPrimary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -628,14 +629,14 @@ fun MemberDashboardView(
                         modifier = Modifier.padding(12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Loan", fontWeight = FontWeight.Bold, color = GullakNavyDark, fontSize = 14.sp)
+                        Text("Loan", fontWeight = FontWeight.Bold, color = GullakGold, fontSize = 14.sp)
                         Text("Outstanding", fontSize = 11.sp, color = Color.Gray)
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = formatRupees(loanOutstanding),
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 16.sp,
-                            color = GullakNavyDark
+                            color = GullakGold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("View Details →", fontSize = 10.sp, color = GullakPrimaryLight, fontWeight = FontWeight.SemiBold)
@@ -701,13 +702,13 @@ fun MemberDashboardView(
                             text = "आपकी Loan Eligibility: ${formatRupees(loanEligibility)}",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF78350F)
+                                color = GullakGoldLight
                             )
                         )
                         Text(
                             text = "Final Loan Approval Society के नियमों के आधार पर Admin द्वारा तय होगा।",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF78350F).copy(alpha = 0.85f)
+                                color = GullakGoldLight.copy(alpha = 0.85f)
                             )
                         )
                     }
@@ -857,7 +858,7 @@ fun PaymentItemCard(payment: com.example.data.model.PaymentEntity) {
                         text = formatRupees(payment.approvedAmount ?: payment.amount),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = GullakNavyDark
+                            color = GullakGold
                         )
                     )
                     if (payment.approvedAmount != null && payment.approvedAmount != payment.amount) {
@@ -1006,13 +1007,13 @@ fun MemberLoanView(
                     Text(
                         text = "आपकी Loan Eligibility: ${formatRupees(loanEligibility)}",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF78350F),
+                        color = GullakGoldLight,
                         fontSize = 16.sp
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "नया लोन प्राप्त करने के लिए कृपया Admin से WhatsApp या ऑफलाइन संपर्क करें।",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF78350F).copy(alpha = 0.85f))
+                        style = MaterialTheme.typography.bodySmall.copy(color = GullakGoldLight.copy(alpha = 0.85f))
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Button(
@@ -1180,7 +1181,7 @@ fun MemberProfileView(
 
         item {
             Surface(
-                color = Color(0xFFF1F5F9),
+                color = Color(0xFF1E293B),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -1188,11 +1189,11 @@ fun MemberProfileView(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Info, contentDescription = null, tint = GullakPrimary)
+                    Icon(Icons.Default.Info, contentDescription = null, tint = GullakGold)
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "सुरक्षा कारणों से संवेदनशील वित्तीय जानकारी केवल Admin द्वारा बदली जा सकती है।",
-                        style = MaterialTheme.typography.bodySmall.copy(color = GullakNavyDark)
+                        style = MaterialTheme.typography.bodySmall.copy(color = GullakTextSecondary)
                     )
                 }
             }
