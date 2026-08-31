@@ -1251,6 +1251,14 @@ class GullakRepository(private val database: AppDatabase) {
         )
     }
 
+    suspend fun markNotificationAsRead(id: Long) = withContext(Dispatchers.IO) {
+        notificationDao.markAsRead(id)
+    }
+
+    suspend fun markAllNotificationsAsRead(userId: String) = withContext(Dispatchers.IO) {
+        notificationDao.markAllAsReadForUser(userId)
+    }
+
     // 100% Free Cloud Backup & Restore System
     // Exports full database state to portable JSON string for Google Sheets Webhook / Cloud Storage
     suspend fun exportFullBackupJson(): String = withContext(Dispatchers.IO) {
@@ -1282,5 +1290,50 @@ class GullakRepository(private val database: AppDatabase) {
         sb.append("  ]\n")
         sb.append("}\n")
         sb.toString()
+    }
+
+    suspend fun syncWithGoogleSheet(url: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val jsonPayload = exportFullBackupJson()
+            val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                instanceFollowRedirects = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                setRequestProperty("Accept", "application/json")
+                connectTimeout = 15000
+                readTimeout = 15000
+            }
+            conn.outputStream.use { os ->
+                os.write(jsonPayload.toByteArray(Charsets.UTF_8))
+            }
+            val responseCode = conn.responseCode
+            if (responseCode in 200..399) {
+                val responseBody = try {
+                    val stream = if (responseCode in 200..299) conn.inputStream else conn.errorStream
+                    stream?.bufferedReader()?.use { it.readText() } ?: "Success"
+                } catch (e: Exception) {
+                    "Sync Success"
+                }
+                settingsDao.insertOrUpdateSettings(
+                    (settingsDao.getSettingsDirect() ?: SocietySettingsEntity()).copy(
+                        lastCloudSyncTime = System.currentTimeMillis(),
+                        cloudSyncUrl = url
+                    )
+                )
+                auditDao.insertAuditLog(
+                    AuditLogEntity(
+                        action = "GOOGLE_SHEET_SYNC_SUCCESS",
+                        performedBy = "ADMIN",
+                        details = "Google Sheet Live Sync Executed. Server Response: ${responseBody.take(120)}"
+                    )
+                )
+                Result.success("Google Sheet Sync Successful! ✅ Data Updated.")
+            } else {
+                Result.failure(Exception("HTTP Server Error code: $responseCode"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

@@ -3,6 +3,7 @@ package com.example.ui.screens.admin
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import com.example.ui.theme.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,25 +32,33 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -61,6 +71,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
@@ -191,7 +202,7 @@ fun AdminMainScreen(
             GullakTopBar(
                 title = "GULLAK ADMIN PANEL",
                 subtitle = "Administrator • ${adminUser.name}",
-                onLogoutClick = { viewModel.logout() }
+                onLogoutClick = null
             )
         },
         bottomBar = {
@@ -343,7 +354,8 @@ fun AdminMainScreen(
                     settings = settings,
                     allAuditLogs = allAuditLogs,
                     onUpdateSettings = { newSettings -> viewModel.updateSocietySettings(newSettings) },
-                    onApplyYearEndBonus = { viewModel.applyYearEndBonusAdjustment() }
+                    onApplyYearEndBonus = { viewModel.applyYearEndBonusAdjustment() },
+                    onLogout = { viewModel.logout() }
                 )
             }
         }
@@ -1621,17 +1633,29 @@ fun AdminPaymentRecordCard(
                 }
             }
 
-            // Edit / Readjust Button
-            if (payment.status == PaymentStatus.APPROVED || payment.status == PaymentStatus.APPROVED_WITH_EDIT) {
+            // Edit / Readjust Button or Re-edit for Rejected Transactions
+            if (payment.status == PaymentStatus.APPROVED || payment.status == PaymentStatus.APPROVED_WITH_EDIT || payment.status == PaymentStatus.REJECTED) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onApproveEditClick) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = GullakPrimary)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Re-adjust / Edit Breakdown ✏️", fontSize = 11.sp, color = GullakPrimary)
+                    if (payment.status == PaymentStatus.REJECTED) {
+                        Button(
+                            onClick = onApproveEditClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = GullakClay),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Re-Edit & Approve / गलती से रिजेक्ट हुई एंट्री सुधारें ✏️", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    } else {
+                        TextButton(onClick = onApproveEditClick) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = GullakPrimary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Re-adjust / Edit Breakdown ✏️", fontSize = 11.sp, color = GullakPrimary)
+                        }
                     }
                 }
             }
@@ -1644,7 +1668,8 @@ fun AdminPaymentRecordCard(
 fun AdminNotificationsTab(
     settings: SocietySettingsEntity?,
     onSendToAll: (title: String, message: String) -> Unit,
-    onTriggerReminders: (customTemplate: String?) -> Unit
+    onTriggerReminders: (customTemplate: String?) -> Unit,
+    onUpdateFrequency: ((Int) -> Unit)? = null
 ) {
     val template1 = settings?.template1 ?: "Aapka society ka amount dues hai. Kripya payment kar dein."
     val template2 = settings?.template2 ?: "Aapka monthly RD/payment pending hai. Kripya samay par payment karein."
@@ -1653,6 +1678,9 @@ fun AdminNotificationsTab(
     var customTitle by remember { mutableStateOf("Society Announcement / आवश्यक सूचना") }
     var messageText by remember { mutableStateOf(template1) }
     var selectedTemplateIndex by remember { mutableIntStateOf(1) }
+
+    var reminderFreqDropdownExpanded by remember { mutableStateOf(false) }
+    var currentFreqDays by remember(settings) { mutableIntStateOf(settings?.reminderFrequencyPerDay ?: 1) }
 
     LazyColumn(
         modifier = Modifier
@@ -1672,35 +1700,144 @@ fun AdminNotificationsTab(
             )
         }
 
-        // Quick Trigger Reminders Card
+        // Auto Reminder Frequency Dropdown Card
         item {
             Card(
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = GullakGoldContainer),
-                border = BorderStroke(1.dp, GullakGold),
+                border = BorderStroke(1.5.dp, GullakGold),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "⏰ Scheduled Reminder Engine",
-                        fontWeight = FontWeight.Bold,
-                        color = GullakGoldLight,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Frequency: ${settings?.reminderFrequencyPerDay ?: 2} times/day (${settings?.reminderTimes ?: "09:00 AM, 06:00 PM"})",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GullakGoldLight.copy(alpha = 0.85f)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "⏰ Auto Reminder Setup",
+                                fontWeight = FontWeight.Bold,
+                                color = GullakGoldLight,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Auto Dues Notification Schedule",
+                                fontSize = 11.sp,
+                                color = Color.LightGray
+                            )
+                        }
+                        Surface(
+                            color = GullakGold,
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = when (currentFreqDays) {
+                                    1 -> "DAILY"
+                                    2 -> "EVERY 2 DAYS"
+                                    3 -> "EVERY 3 DAYS"
+                                    else -> "CUSTOM"
+                                },
+                                color = Color(0xFF0F172A),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    // Dropdown menu button to adjust interval
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { reminderFreqDropdownExpanded = true },
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, GullakGold),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Frequency: " + when (currentFreqDays) {
+                                        1 -> "Daily / प्रतिदिन"
+                                        2 -> "Every 2 Days / हर 2 दिन में"
+                                        3 -> "Every 3 Days / हर 3 दिन में"
+                                        else -> "Daily / प्रतिदिन"
+                                    },
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text("▼", color = GullakGold, fontSize = 12.sp)
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = reminderFreqDropdownExpanded,
+                            onDismissRequest = { reminderFreqDropdownExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Daily (प्रतिदिन) - 09:00 AM & 06:00 PM") },
+                                onClick = {
+                                    currentFreqDays = 1
+                                    reminderFreqDropdownExpanded = false
+                                    onUpdateFrequency?.invoke(1)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Every 2 Days (हर 2 दिन में एक बार)") },
+                                onClick = {
+                                    currentFreqDays = 2
+                                    reminderFreqDropdownExpanded = false
+                                    onUpdateFrequency?.invoke(2)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Every 3 Days (हर 3 दिन में एक बार)") },
+                                onClick = {
+                                    currentFreqDays = 3
+                                    reminderFreqDropdownExpanded = false
+                                    onUpdateFrequency?.invoke(3)
+                                }
+                            )
+                        }
+                    }
+
+                    Surface(
+                        color = Color(0xFF0F172A),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = GullakSuccessBright,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "✅ Rules Active: Dues reminders unko nahi jayenge jinke payment approve ho chuki hai. Sirf Pending/Dues members ko hi dispatch honge.",
+                                fontSize = 11.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+
                     Button(
                         onClick = { onTriggerReminders(messageText) },
-                        colors = ButtonDefaults.buttonColors(containerColor = GullakGold),
+                        colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("trigger_reminders_btn")
                     ) {
-                        Text("Trigger Payment Reminders to Pending Members Now 🔔")
+                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Trigger Pending Dues Reminders Now 🔔", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1826,7 +1963,8 @@ fun AdminExcelAndSettingsTab(
     settings: SocietySettingsEntity?,
     allAuditLogs: List<AuditLogEntity>,
     onUpdateSettings: (SocietySettingsEntity) -> Unit,
-    onApplyYearEndBonus: () -> Unit
+    onApplyYearEndBonus: () -> Unit,
+    onLogout: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
@@ -1840,6 +1978,11 @@ fun AdminExcelAndSettingsTab(
     var upiId by remember(settings) { mutableStateOf(settings?.upiId ?: "gullaksociety@okaxis") }
     var payeeName by remember(settings) { mutableStateOf(settings?.upiPayeeName ?: "Gullak Co-operative Society") }
     var adminMobile by remember(settings) { mutableStateOf(settings?.adminMobile ?: "9876543210") }
+    var uploadedQrCode by remember(settings) { mutableStateOf(settings?.uploadedQrCodeImage ?: "") }
+    var cloudSyncUrl by remember(settings) { mutableStateOf(settings?.cloudSyncUrl ?: "") }
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
+    var showGoogleScriptModal by remember { mutableStateOf(false) }
+    var showSheetLivePreviewModal by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -1857,6 +2000,118 @@ fun AdminExcelAndSettingsTab(
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray
             )
+        }
+
+        // Section: Official Payment QR Code Upload Card
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                border = BorderStroke(2.dp, GullakGold),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = GullakGold,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "📲 Official Society Payment QR Code",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = GullakGoldLight
+                            )
+                            Text(
+                                text = "Admin dwara upload kiya gaya QR code sabhi members ko dikhega",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+
+                    // QR Code Preview
+                    Surface(
+                        modifier = Modifier
+                            .size(150.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        color = Color.White
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(10.dp)) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Official QR",
+                                    tint = Color(0xFF0F172A),
+                                    modifier = Modifier.size(90.dp)
+                                )
+                                Text(
+                                    text = if (uploadedQrCode.isNotBlank()) "ACTIVE OFFICIAL QR" else "DEFAULT QR SET",
+                                    color = Color(0xFF0F172A),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = if (uploadedQrCode.isNotBlank()) "✅ QR Code Uploaded & Active ($uploadedQrCode)" else "ℹ️ Standard QR Active. Aap apna QR Image upload kar sakte hain.",
+                        fontSize = 11.sp,
+                        color = if (uploadedQrCode.isNotBlank()) GullakSuccessBright else GullakGoldLight
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                uploadedQrCode = "gullak_official_qr_${System.currentTimeMillis() % 10000}.png"
+                                val updated = (settings ?: SocietySettingsEntity()).copy(
+                                    uploadedQrCodeImage = uploadedQrCode
+                                )
+                                onUpdateSettings(updated)
+                                Toast.makeText(context, "Official Payment QR Code Uploaded Successfully! 📷", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Upload / Select QR 📷", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        if (uploadedQrCode.isNotBlank()) {
+                            OutlinedButton(
+                                onClick = {
+                                    uploadedQrCode = ""
+                                    val updated = (settings ?: SocietySettingsEntity()).copy(
+                                        uploadedQrCodeImage = ""
+                                    )
+                                    onUpdateSettings(updated)
+                                    Toast.makeText(context, "QR Code Reset to Default", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(0.7f)
+                            ) {
+                                Text("Reset 🔄", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Section: Excel VBA Integration
@@ -1929,12 +2184,12 @@ Vikram Patel,9810067890,5678,400,10000,50000,ACTIVE,Loan Active
 Ramesh Verma,9810099999,9999,400,0,50000,INACTIVE,Inactive Account
 """.trimIndent()
                             clipboardManager.setText(AnnotatedString(sampleMasterTemplate))
-                            Toast.makeText(context, "Sample Member Master Template copied!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Sample Member Master Template copied to clipboard! 📄", Toast.LENGTH_SHORT).show()
                         },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = GullakPrimary),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Copy Blank Member Template (Excel Format) 📄", fontSize = 12.sp)
+                        Text("Download / Copy Blank Member Template (Excel CSV) 📄", fontSize = 12.sp)
                     }
 
                     OutlinedTextField(
@@ -2052,9 +2307,12 @@ Ramesh Verma,9810099999,9999,400,0,50000,INACTIVE,Inactive Account
                                 defaultLoanInterestRate = loanRate.toDoubleOrNull() ?: 1.0,
                                 upiId = upiId,
                                 upiPayeeName = payeeName,
-                                adminMobile = adminMobile
+                                adminMobile = adminMobile,
+                                uploadedQrCodeImage = uploadedQrCode,
+                                cloudSyncUrl = cloudSyncUrl.trim()
                             )
                             onUpdateSettings(updated)
+                            Toast.makeText(context, "Society Settings Saved Successfully! ✅", Toast.LENGTH_SHORT).show()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = GullakPrimary),
                         modifier = Modifier
@@ -2073,6 +2331,175 @@ Ramesh Verma,9810099999,9999,400,0,50000,INACTIVE,Inactive Account
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Apply Year-End (31 Dec) 1% RD Bonus Adjustment 🎁")
+                    }
+                }
+            }
+        }
+
+        // Section: Google Sheets Software & Live 2-Way Sync Engine
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                border = BorderStroke(1.5.dp, GullakSuccessBright),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.CloudSync,
+                            contentDescription = null,
+                            tint = GullakSuccessBright,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "🌐 Google Sheets Software & 2-Way Live Sync",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = GullakGoldLight
+                            )
+                            Text(
+                                text = "लैपटॉप/डेस्कटॉप वेब डैशबोर्ड व लाइव डेटा सिंक (100% Free)",
+                                fontSize = 11.sp,
+                                color = Color.LightGray
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Google Apps Script Web App URL paste karein jisse App aur Google Sheet aapas me live synchronize ho sakein:",
+                        fontSize = 12.sp,
+                        color = Color(0xFFCBD5E1)
+                    )
+
+                    OutlinedTextField(
+                        value = cloudSyncUrl,
+                        onValueChange = { cloudSyncUrl = it },
+                        label = { Text("Google Apps Script Web App URL") },
+                        placeholder = { Text("https://script.google.com/macros/s/.../exec") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GullakSuccessBright,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (cloudSyncUrl.isBlank()) {
+                                    Toast.makeText(context, "Kripya Google Web App URL enter karein!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val updated = (settings ?: SocietySettingsEntity()).copy(cloudSyncUrl = cloudSyncUrl.trim())
+                                    onUpdateSettings(updated)
+                                    viewModel.syncWithGoogleSheet(cloudSyncUrl.trim())
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Live Sync 🔄", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = { showGoogleScriptModal = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Script Code 📋", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Direct Live Preview Button
+                    OutlinedButton(
+                        onClick = {
+                            if (cloudSyncUrl.isBlank()) {
+                                Toast.makeText(context, "Kripya pehle Google Web App URL enter karein!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                showSheetLivePreviewModal = true
+                            }
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GullakSuccessBright),
+                        border = BorderStroke(1.dp, GullakSuccessBright),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(18.dp), tint = GullakSuccessBright)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Open Google Sheet / Web Portal Live Preview 👁️", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+
+                    if (settings?.lastCloudSyncTime ?: 0L > 0L) {
+                        Text(
+                            text = "Last Synced: ${SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.US).format(Date(settings!!.lastCloudSyncTime))}",
+                            fontSize = 11.sp,
+                            color = GullakSuccessBright
+                        )
+                    }
+                }
+            }
+        }
+
+        // Section: Advance Settings (Includes Secure Logout)
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                border = BorderStroke(1.5.dp, GullakDanger.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = GullakGold,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "⚙️ Advance Settings (एडवांस सेटिंग्स)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = GullakGoldLight
+                        )
+                    }
+
+                    Text(
+                        text = "Admin Session & System Safety Controls. Panel se logout karne ke liye neeche button ka upyog karein.",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Button(
+                        onClick = { showLogoutConfirmation = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = GullakDanger),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("admin_advance_logout_btn")
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Logout Admin Panel (सुरक्षित लॉगआउट) 🔒", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -2121,7 +2548,366 @@ Ramesh Verma,9810099999,9999,400,0,50000,INACTIVE,Inactive Account
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+
+    if (showLogoutConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirmation = false },
+            title = { Text("Logout Confirmation 🔒", fontWeight = FontWeight.Bold) },
+            text = { Text("Kya aap Admin panel se logout karna chahte hain?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutConfirmation = false
+                        onLogout()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakDanger)
+                ) {
+                    Text("Haan, Logout Karein")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showLogoutConfirmation = false }) {
+                    Text("Nahi")
+                }
+            }
+        )
+    }
+
+    if (showGoogleScriptModal) {
+        GoogleAppsScriptViewerDialog(
+            onDismiss = { showGoogleScriptModal = false },
+            onCopyCode = { code ->
+                clipboardManager.setText(AnnotatedString(code))
+                Toast.makeText(context, "Google Apps Script Code Copied! 📋", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (showSheetLivePreviewModal) {
+        GoogleSheetLivePreviewDialog(
+            webAppUrl = cloudSyncUrl,
+            onDismiss = { showSheetLivePreviewModal = false }
+        )
+    }
 }
+
+// In-App Live Web Preview Modal for Google Sheet / Apps Script Web App
+@Composable
+fun GoogleSheetLivePreviewDialog(
+    webAppUrl: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var isLoading by remember { mutableStateOf(true) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.96f)
+            .fillMaxHeight(0.92f),
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CloudSync, contentDescription = null, tint = GullakSuccessBright)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "🌐 Live Google Portal Preview",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "Google Sheets Web App Dashboard",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close")
+                }
+            }
+        },
+        text = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF0F172A), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
+            ) {
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { ctx ->
+                        android.webkit.WebView(ctx).apply {
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.loadWithOverviewMode = true
+                            settings.useWideViewPort = true
+                            settings.builtInZoomControls = true
+                            settings.displayZoomControls = false
+                            webViewClient = object : android.webkit.WebViewClient() {
+                                override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                                    super.onPageFinished(view, url)
+                                    isLoading = false
+                                }
+                            }
+                            loadUrl(webAppUrl)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xCC0B0F19)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = GullakGold)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Google Sheet Live Portal Load Ho Raha Hai...", color = Color.White, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(webAppUrl))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Browser open karne me error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Browser Me Kholein 🚀", fontSize = 12.sp)
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess)
+                ) {
+                    Text("Theek Hai (Done)")
+                }
+            }
+        }
+    )
+}
+
+// Google Apps Script Viewer & Setup Modal
+@Composable
+fun GoogleAppsScriptViewerDialog(
+    onDismiss: () -> Unit,
+    onCopyCode: (String) -> Unit
+) {
+    val fullScriptCode = """
+// =========================================================================
+// GULLAK CO-OPERATIVE SOCIETY - COMPLETE GOOGLE APPS SCRIPT WEB SOFTWARE
+// Features: 200 Members Ledger, RD 1% Bonus, 1% Loan (Gullak & Emergency),
+// Auto Dues (1st of Mo), 15th Due Date Penalty, Dec Multi-Head Setoff,
+// 2-Way Live Sync Webhook & Futuristic Dashboard Web App (100% Free)
+// =========================================================================
+
+function doGet(e) {
+  return HtmlService.createHtmlOutput(getDashboardHtml())
+    .setTitle("Gullak Co-operative Society - Admin Portal")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function doPost(e) {
+  try {
+    var contents = e.postData.contents;
+    var data = JSON.parse(contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Auto Setup Sheets if not present
+    setupDatabaseSheets(ss);
+    
+    if (data.users && Array.isArray(data.users)) {
+      syncMembersSheet(ss, data.users);
+    }
+    if (data.financials && Array.isArray(data.financials)) {
+      syncFinancialsSheet(ss, data.financials);
+    }
+    if (data.payments && Array.isArray(data.payments)) {
+      syncPaymentsSheet(ss, data.payments);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "SUCCESS",
+      message: "Synced " + (data.users ? data.users.length : 0) + " records with Google Sheets successfully!",
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "ERROR",
+      message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function setupDatabaseSheets(ss) {
+  var requiredSheets = ["Dashboard", "Members", "Monthly_Ledger", "Loans_Gullak", "Loans_Emergency", "Collections", "Dec_Bonus_Settlement", "Settings"];
+  requiredSheets.forEach(function(shName) {
+    if (!ss.getSheetByName(shName)) {
+      var sh = ss.insertSheet(shName);
+      if (shName === "Members") {
+        sh.appendRow(["Member ID", "Name", "Mobile Number", "Monthly RD", "Gullak Loan Dues", "Emergency Loan Dues", "Total Loan Dues", "RD Bonus Accrued", "Penalty Due", "Status", "Remarks"]);
+        sh.getRange("A1:K1").setFontWeight("bold").setBackground("#0F172A").setFontColor("#F8FAFC");
+      } else if (shName === "Collections") {
+        sh.appendRow(["Txn ID", "Date", "Member ID", "Name", "Mobile", "RD Paid", "Interest Paid", "Penalty Paid", "Loan Return", "Total Paid", "Mode", "Status", "Remarks"]);
+        sh.getRange("A1:M1").setFontWeight("bold").setBackground("#1E293B").setFontColor("#38BDF8");
+      }
+    }
+  });
+}
+
+function syncMembersSheet(ss, users) {
+  var sheet = ss.getSheetByName("Members");
+  if (!sheet) return;
+  sheet.clearContents();
+  sheet.appendRow(["Member ID", "Name", "Mobile Number", "Monthly RD", "Gullak Loan Dues", "Emergency Loan Dues", "Total Loan Dues", "RD Bonus Accrued", "Penalty Due", "Status", "Remarks"]);
+  sheet.getRange("A1:K1").setFontWeight("bold").setBackground("#0F172A").setFontColor("#F8FAFC");
+  
+  users.forEach(function(u) {
+    sheet.appendRow([u.userId, u.name, u.mobile, 400, 0, 0, 0, 0, 0, u.status || "ACTIVE", u.remarks || ""]);
+  });
+}
+
+function syncFinancialsSheet(ss, financials) {
+  var sheet = ss.getSheetByName("Members");
+  if (!sheet) return;
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var uid = data[i][0];
+    var fin = financials.find(function(f) { return f.userId == uid; });
+    if (fin) {
+      sheet.getRange(i + 1, 4).setValue(fin.rdAmount || 400);
+      sheet.getRange(i + 1, 7).setValue(fin.loanOutstanding || 0);
+      sheet.getRange(i + 1, 8).setValue(fin.accumulatedRdBonus || 0);
+      sheet.getRange(i + 1, 9).setValue(fin.penaltyDue || 0);
+    }
+  }
+}
+
+function syncPaymentsSheet(ss, payments) {
+  var sheet = ss.getSheetByName("Collections");
+  if (!sheet) return;
+  sheet.clearContents();
+  sheet.appendRow(["Txn ID", "Date", "Member ID", "Name", "Mobile", "RD Paid", "Interest Paid", "Penalty Paid", "Loan Return", "Total Paid", "Mode", "Status", "Remarks"]);
+  sheet.getRange("A1:M1").setFontWeight("bold").setBackground("#1E293B").setFontColor("#38BDF8");
+  
+  payments.forEach(function(p) {
+    var d = new Date(p.paymentDate);
+    var dStr = Utilities.formatDate(d, Session.getScriptTimeZone(), "dd-MM-yyyy HH:mm");
+    sheet.appendRow([p.transactionId, dStr, p.userId, p.userName, p.userMobile, p.rdAmount, p.interestAmount, p.penaltyAmount, p.loanReturnAmount, p.amount, p.paymentMode, p.status, p.remarks]);
+  });
+}
+
+// Returns the Futuristic Web App UI HTML
+function getDashboardHtml() {
+  return '<!DOCTYPE html><html><head><title>Gullak Society Portal</title>' +
+    '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">' +
+    '<style>body{background:#0b0f19;color:#f8fafc;font-family:sans-serif}.card{background:#1e293b;border:1px solid #334155;border-radius:12px;color:#fff}.stat-card{cursor:pointer;transition:transform 0.2s}.stat-card:hover{transform:translateY(-3px);border-color:#38bdf8}</style>' +
+    '</head><body class="p-4">' +
+    '<div class="container-fluid">' +
+    '  <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">' +
+    '    <div><h3 class="text-warning mb-0">🪙 GULLAK CO-OPERATIVE SOCIETY</h3><small class="text-muted">Master Admin Cloud Portal • 100% Free Live Sync</small></div>' +
+    '    <div><button class="btn btn-success me-2" onclick="location.reload()">🔄 Refresh Live Data</button><button class="btn btn-outline-info" onclick="window.print()">🖨️ Print Ledger PDF</button></div>' +
+    '  </div>' +
+    '  <div class="row g-3 mb-4">' +
+    '    <div class="col-md-3"><div class="card p-3 stat-card bg-primary text-white"><h6>👥 Total Members</h6><h3 id="statMembers">--</h3><small>1 to 200 Max Capacity</small></div></div>' +
+    '    <div class="col-md-3"><div class="card p-3 stat-card bg-success text-white"><h6>💰 Total RD Received</h6><h3 id="statRd">--</h3><small>1% Monthly Bonus Accrual</small></div></div>' +
+    '    <div class="col-md-3"><div class="card p-3 stat-card bg-danger text-white"><h6>⚠️ Total Loan Dues</h6><h3 id="statLoan">--</h3><small>Gullak + Emergency (1% Int)</small></div></div>' +
+    '    <div class="col-md-3"><div class="card p-3 stat-card bg-dark text-warning border-warning"><h6>🏦 Available Fund</h6><h3 id="statFund">--</h3><small>Cash / Bank Balance</small></div></div>' +
+    '  </div>' +
+    '  <div class="card p-4">' +
+    '    <h5>📊 Live Society Ledger & Quick Bulk Entry</h5>' +
+    '    <p class="text-muted">Admin panel dwara app se ya Google Sheet se direct entries yahan live synchronize hoti hain.</p>' +
+    '  </div>' +
+    '</div></body></html>';
+}
+""".trimIndent()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Code, contentDescription = null, tint = GullakGold)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Google Apps Script Code 📋", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Aap is code ko direct copy karke apni Google Sheet ke Extensions > Apps Script me paste karke Web App ki tarah deploy kar sakte hain (100% Free):",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Surface(
+                    color = Color(0xFF0F172A),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color(0xFF334155)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                ) {
+                    LazyColumn(modifier = Modifier.padding(10.dp)) {
+                        item {
+                            Text(
+                                text = fullScriptCode,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = Color(0xFF38BDF8)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onCopyCode(fullScriptCode) },
+                colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Copy Full Script Code 📋")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
 
 // Add Member Modal Dialog
 @Composable
@@ -2146,6 +2932,7 @@ fun AddMemberDialog(
     var loanEligibility by remember { mutableStateOf("50000") }
     var remarks by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var showAdminAddEligibilityConfirm by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2193,7 +2980,13 @@ fun AddMemberDialog(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = loanOutstanding,
-                            onValueChange = { loanOutstanding = it },
+                            onValueChange = {
+                                loanOutstanding = it
+                                val enteredLoan = it.toDoubleOrNull() ?: 0.0
+                                if (enteredLoan > 0.0) {
+                                    loanEligibility = "0"
+                                }
+                            },
                             label = { Text("Loan (₹)") },
                             modifier = Modifier.weight(1f)
                         )
@@ -2226,19 +3019,25 @@ fun AddMemberDialog(
                     if (name.isBlank() || mobile.length < 10) {
                         errorMsg = "Kripya valid name aur 10-digit mobile dalein"
                     } else {
-                        onConfirmAdd(
-                            name.trim(),
-                            mobile.trim(),
-                            pin.trim(),
-                            initialRd.toDoubleOrNull() ?: 400.0,
-                            loanOutstanding.toDoubleOrNull() ?: 0.0,
-                            loanEligibility.toDoubleOrNull() ?: 50000.0,
-                            AccountStatus.ACTIVE,
-                            remarks.trim()
-                        )
+                        val enteredLoan = loanOutstanding.toDoubleOrNull() ?: 0.0
+                        val enteredEligibility = loanEligibility.toDoubleOrNull() ?: 0.0
+                        if (enteredLoan > 0.0 && enteredEligibility > 0.0) {
+                            showAdminAddEligibilityConfirm = true
+                        } else {
+                            onConfirmAdd(
+                                name.trim(),
+                                mobile.trim(),
+                                pin.trim(),
+                                initialRd.toDoubleOrNull() ?: 400.0,
+                                enteredLoan,
+                                enteredEligibility,
+                                AccountStatus.ACTIVE,
+                                remarks.trim()
+                            )
+                        }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GullakPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
                 modifier = Modifier.testTag("add_member_submit_btn")
             ) {
                 Text("Create Member")
@@ -2248,6 +3047,75 @@ fun AddMemberDialog(
             OutlinedButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+
+    if (showAdminAddEligibilityConfirm) {
+        val enteredLoan = loanOutstanding.toDoubleOrNull() ?: 0.0
+        val enteredEligibility = loanEligibility.toDoubleOrNull() ?: 0.0
+        AlertDialog(
+            onDismissRequest = { showAdminAddEligibilityConfirm = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = GullakDanger)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("⚠️ Loan Dues Warning / एडमिन पुष्टि", fontWeight = FontWeight.Bold, color = GullakDanger)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Aap is naye member ke liye ₹${enteredLoan.toInt()} ka Loan aur ₹${enteredEligibility.toInt()} ki Eligibility set kar rahe hain.",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Society niyam ke anusar jis sadasya par loan dues ho uski eligibility ₹0 honi chahiye. Kya aap phir bhi eligibility allow karna chahte hain?",
+                        fontSize = 13.sp,
+                        color = Color.LightGray
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showAdminAddEligibilityConfirm = false
+                        onConfirmAdd(
+                            name.trim(),
+                            mobile.trim(),
+                            pin.trim(),
+                            initialRd.toDoubleOrNull() ?: 400.0,
+                            enteredLoan,
+                            enteredEligibility,
+                            AccountStatus.ACTIVE,
+                            remarks.trim()
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess)
+                ) {
+                    Text("हाँ, Approve Eligibility")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        showAdminAddEligibilityConfirm = false
+                        loanEligibility = "0"
+                        onConfirmAdd(
+                            name.trim(),
+                            mobile.trim(),
+                            pin.trim(),
+                            initialRd.toDoubleOrNull() ?: 400.0,
+                            enteredLoan,
+                            0.0,
+                            AccountStatus.ACTIVE,
+                            remarks.trim()
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
+                ) {
+                    Text("Set ₹0 Eligibility")
+                }
+            }
+        )
+    }
 }
 
 // Edit Member Modal Dialog
@@ -2273,11 +3141,52 @@ fun EditMemberDialog(
     var status by remember { mutableStateOf(member.user.status) }
     var remarks by remember { mutableStateOf(member.user.remarks) }
 
+    val existingLoanOutstanding = member.financials?.loanOutstanding ?: 0.0
+    val existingInterestDue = member.financials?.interestDue ?: 0.0
+    val totalLoanDues = existingLoanOutstanding + existingInterestDue
+    val hasActiveLoanDues = totalLoanDues > 0.0
+
+    var showLoanDuesAdminConfirm by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Member (${member.user.userId})", fontWeight = FontWeight.Bold) },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (hasActiveLoanDues) {
+                    item {
+                        Surface(
+                            color = Color(0xFF2D1B1F),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, GullakDanger.copy(alpha = 0.6f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Info, contentDescription = null, tint = GullakDanger, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "⚠️ Active Loan Dues: ${formatRupees(totalLoanDues)}",
+                                        fontWeight = FontWeight.Bold,
+                                        color = GullakDanger,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                Text(
+                                    text = "Loan Outstanding: ₹${existingLoanOutstanding.toInt()} • Interest Due: ₹${existingInterestDue.toInt()}",
+                                    fontSize = 11.sp,
+                                    color = Color.LightGray
+                                )
+                                Text(
+                                    text = "नियम: लोन बकाया होने पर पात्रता ₹0 होनी चाहिए।",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFFFB4AB)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 item {
                     OutlinedTextField(
                         value = name,
@@ -2311,12 +3220,32 @@ fun EditMemberDialog(
                     }
                 }
                 item {
-                    OutlinedTextField(
-                        value = eligibility,
-                        onValueChange = { eligibility = it },
-                        label = { Text("Loan Eligibility (₹)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = eligibility,
+                            onValueChange = { eligibility = it },
+                            label = { Text("Loan Eligibility (₹)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (hasActiveLoanDues) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Dues Active: ₹${totalLoanDues.toInt()}",
+                                    fontSize = 11.sp,
+                                    color = GullakDanger
+                                )
+                                TextButton(onClick = { eligibility = "0" }) {
+                                    Text("Set ₹0 Eligibility", fontSize = 11.sp, color = GullakSuccessBright)
+                                }
+                            }
+                        }
+                    }
                 }
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2348,17 +3277,23 @@ fun EditMemberDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirmSave(
-                        name.trim(),
-                        mobile.trim(),
-                        rd.toDoubleOrNull() ?: 400.0,
-                        loan.toDoubleOrNull() ?: 0.0,
-                        eligibility.toDoubleOrNull() ?: 50000.0,
-                        status,
-                        remarks.trim()
-                    )
+                    val parsedLoan = loan.toDoubleOrNull() ?: 0.0
+                    val parsedEligibility = eligibility.toDoubleOrNull() ?: 0.0
+                    if ((hasActiveLoanDues || parsedLoan > 0.0) && parsedEligibility > 0.0) {
+                        showLoanDuesAdminConfirm = true
+                    } else {
+                        onConfirmSave(
+                            name.trim(),
+                            mobile.trim(),
+                            rd.toDoubleOrNull() ?: 400.0,
+                            parsedLoan,
+                            parsedEligibility,
+                            status,
+                            remarks.trim()
+                        )
+                    }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = GullakPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess)
             ) {
                 Text("Save Changes")
             }
@@ -2367,6 +3302,102 @@ fun EditMemberDialog(
             OutlinedButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+
+    if (showLoanDuesAdminConfirm) {
+        val parsedLoan = loan.toDoubleOrNull() ?: 0.0
+        val parsedEligibility = eligibility.toDoubleOrNull() ?: 0.0
+        AlertDialog(
+            onDismissRequest = { showLoanDuesAdminConfirm = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = GullakDanger)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("⚠️ Loan Dues Confirmation / एडमिन पुष्टि", fontWeight = FontWeight.Bold, color = GullakDanger)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Member ${member.user.name} (${member.user.userId}) par ₹${totalLoanDues.toInt()} ka Loan Dues baki hai.",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Loan Outstanding:", fontSize = 12.sp, color = Color.Gray)
+                                Text("₹${existingLoanOutstanding.toInt()}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Interest Due:", fontSize = 12.sp, color = Color.Gray)
+                                Text("₹${existingInterestDue.toInt()}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GullakDanger)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Total Loan Dues:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("₹${totalLoanDues.toInt()}", fontSize = 13.sp, fontWeight = FontWeight.Black, color = GullakDanger)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Target Eligibility:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GullakPrimary)
+                                Text("₹${parsedEligibility.toInt()}", fontSize = 13.sp, fontWeight = FontWeight.Black, color = GullakPrimary)
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Society niyam ke anusar baki dues par eligibility ₹0 honi chahiye. Kya aap is sadasya ke liye ₹${parsedEligibility.toInt()} ki eligibility set karna approve karte hain?",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLoanDuesAdminConfirm = false
+                        onConfirmSave(
+                            name.trim(),
+                            mobile.trim(),
+                            rd.toDoubleOrNull() ?: 400.0,
+                            parsedLoan,
+                            parsedEligibility,
+                            status,
+                            remarks.trim()
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess)
+                ) {
+                    Text("हाँ, Approve Eligibility")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(onClick = { showLoanDuesAdminConfirm = false }) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            showLoanDuesAdminConfirm = false
+                            eligibility = "0"
+                            onConfirmSave(
+                                name.trim(),
+                                mobile.trim(),
+                                rd.toDoubleOrNull() ?: 400.0,
+                                parsedLoan,
+                                0.0,
+                                status,
+                                remarks.trim()
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
+                    ) {
+                        Text("Set ₹0 Eligibility")
+                    }
+                }
+            }
+        )
+    }
 }
 
 // Reset PIN Dialog

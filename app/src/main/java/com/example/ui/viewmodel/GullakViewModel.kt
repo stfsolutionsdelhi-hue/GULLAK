@@ -540,4 +540,35 @@ class GullakViewModel(application: Application) : AndroidViewModel(application) 
             _userMessage.value = "Import Completed: ${summary.newRecords} new, ${summary.updatedRecords} updated records added! ✅"
         }
     }
+
+    // Member & Admin: Mark Notification Read
+    fun markNotificationAsRead(notificationId: Long) {
+        viewModelScope.launch {
+            repository.markNotificationAsRead(notificationId)
+        }
+    }
+
+    fun markAllNotificationsAsRead() {
+        val user = _currentUser.value ?: return
+        viewModelScope.launch {
+            repository.markAllNotificationsAsRead(user.userId)
+        }
+    }
+
+    // Google Sheets Live Sync
+    fun syncWithGoogleSheet(url: String) {
+        if (url.isBlank()) {
+            _errorMessage.value = "Kripya valid Google Apps Script Web App URL dalein!"
+            return
+        }
+        viewModelScope.launch {
+            _userMessage.value = "Google Sheet se sync ho raha hai... Kripya pratiksha karein ⏳"
+            val result = repository.syncWithGoogleSheet(url.trim())
+            result.onSuccess { msg ->
+                _userMessage.value = msg
+            }.onFailure { err ->
+                _errorMessage.value = "Sync Failed: ${err.localizedMessage ?: "Unknown Error"}"
+            }
+        }
+    }
 }

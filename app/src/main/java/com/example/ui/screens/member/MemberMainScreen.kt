@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,17 +22,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.CurrencyRupee
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -116,8 +126,19 @@ fun MemberMainScreen(
     val userMsg by viewModel.userMessage.collectAsStateWithLifecycle()
     val errorMsg by viewModel.errorMessage.collectAsStateWithLifecycle()
 
+    var showMemberNotificationsPopup by remember { mutableStateOf(false) }
+    var hasAutoShownNotificationsPopup by remember { mutableStateOf(false) }
+
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+
+    // Automatically trigger notification popup when member enters app ONLY if there are genuine UNREAD notifications
+    LaunchedEffect(unreadCount) {
+        if (!hasAutoShownNotificationsPopup && unreadCount > 0) {
+            showMemberNotificationsPopup = true
+            hasAutoShownNotificationsPopup = true
+        }
+    }
 
     LaunchedEffect(userMsg, errorMsg) {
         userMsg?.let {
@@ -145,8 +166,8 @@ fun MemberMainScreen(
                 title = "GULLAK CO OPRATIVE SOCIETY",
                 subtitle = "नमस्ते, ${user.name} (${user.userId})",
                 unreadNotificationCount = unreadCount,
-                onNotificationClick = { selectedTab = 3 },
-                onLogoutClick = { viewModel.logout() }
+                onNotificationClick = { showMemberNotificationsPopup = true },
+                onLogoutClick = null
             )
         },
         bottomBar = {
@@ -244,27 +265,70 @@ fun MemberMainScreen(
                     currentInterestDue = currentInterestDue,
                     totalDue = totalDue,
                     loanOutstanding = loanOutstanding,
-                    loanEligibility = loanEligibility,
                     recentPayments = payments.take(3),
                     onPayNowClick = { showComprehensivePayDialog = true },
                     onViewAllHistory = { selectedTab = 1 },
-                    onViewLoanDetails = { selectedTab = 2 }
+                    onViewLoanDetails = { selectedTab = 2 },
+                    onChatWhatsApp = {
+                        openWhatsApp(context, settings?.adminMobile ?: "9876543210", "Namaste Admin, mera Gullak app query:")
+                    }
                 )
                 1 -> MemberHistoryView(payments = payments)
                 2 -> MemberLoanView(
                     financials = financials,
                     onOpenWhatsApp = {
                         openWhatsApp(context, settings?.adminMobile ?: "9876543210", "Gullak Society Loan Jankari:")
-                    }
+                    },
+                    onPayDuesClick = { showComprehensivePayDialog = true }
                 )
-                3 -> MemberNotificationsView(notifications = notifications)
+                3 -> MemberNotificationsView(
+                    notifications = notifications,
+                    onMarkAsRead = { viewModel.markNotificationAsRead(it) },
+                    onMarkAllAsRead = { viewModel.markAllNotificationsAsRead() },
+                    onPayDuesClick = { showComprehensivePayDialog = true }
+                )
                 4 -> MemberProfileView(
                     user = user,
+                    financials = financials,
                     adminMobile = settings?.adminMobile ?: "9876543210",
+                    onPayDuesClick = { showComprehensivePayDialog = true },
                     onLogout = { viewModel.logout() }
                 )
             }
         }
+    }
+
+    // Member App Open Popup Notifications Dialog
+    if (showMemberNotificationsPopup) {
+        MemberNotificationsPopupDialog(
+            notifications = notifications,
+            unreadCount = unreadCount,
+            currentRdDue = currentRdDue,
+            currentInterestDue = currentInterestDue,
+            totalDue = totalDue,
+            onDismiss = {
+                if (unreadCount > 0) {
+                    viewModel.markAllNotificationsAsRead()
+                }
+                showMemberNotificationsPopup = false
+            },
+            onMarkAsRead = { viewModel.markNotificationAsRead(it) },
+            onMarkAllAsRead = { viewModel.markAllNotificationsAsRead() },
+            onPayDuesClick = {
+                if (unreadCount > 0) {
+                    viewModel.markAllNotificationsAsRead()
+                }
+                showMemberNotificationsPopup = false
+                showComprehensivePayDialog = true
+            },
+            onViewAllNoticesClick = {
+                if (unreadCount > 0) {
+                    viewModel.markAllNotificationsAsRead()
+                }
+                showMemberNotificationsPopup = false
+                selectedTab = 3
+            }
+        )
     }
 
     // 4-Column Comprehensive Member Payment Dialog
@@ -437,6 +501,7 @@ fun MemberMainScreen(
             defaultAmount = if (totalDue > 0) totalDue else defaultRd,
             upiId = settings?.upiId ?: "gullaksociety@okaxis",
             payeeName = settings?.upiPayeeName ?: "Gullak Co-operative Society",
+            uploadedQrImage = settings?.uploadedQrCodeImage ?: "",
             onDismiss = { showOnlineModal = false },
             onSubmit = { amount, remarks ->
                 viewModel.submitPayment(amount, PaymentType.ONLINE, remarks)
@@ -455,11 +520,11 @@ fun MemberDashboardView(
     currentInterestDue: Double,
     totalDue: Double,
     loanOutstanding: Double,
-    loanEligibility: Double,
     recentPayments: List<com.example.data.model.PaymentEntity>,
     onPayNowClick: () -> Unit,
     onViewAllHistory: () -> Unit,
-    onViewLoanDetails: () -> Unit
+    onViewLoanDetails: () -> Unit,
+    onChatWhatsApp: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -678,38 +743,69 @@ fun MemberDashboardView(
             }
         }
 
-        // Loan Eligibility Banner Card
+        // Chat with Admin on WhatsApp Card (Moved from Profile to Home)
         item {
             Card(
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = GullakGoldContainer),
-                border = BorderStroke(1.dp, GullakGold.copy(alpha = 0.5f)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                border = BorderStroke(1.2.dp, GullakSuccess.copy(alpha = 0.6f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Savings,
-                        contentDescription = null,
-                        tint = GullakClay,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "आपकी Loan Eligibility: ${formatRupees(loanEligibility)}",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = GullakGoldLight
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = GullakSuccess.copy(alpha = 0.2f),
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                                    contentDescription = "WhatsApp",
+                                    tint = GullakSuccess,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Chat with Admin on WhatsApp",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White
                             )
+                            Text(
+                                text = "सोसाइटी एडमिन से किसी भी सहायता या प्रश्न हेतु व्हाट्सएप पर बात करें",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.LightGray
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = onChatWhatsApp,
+                        colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("home_chat_admin_whatsapp_btn"),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Chat,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = Color.White
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Final Loan Approval Society के नियमों के आधार पर Admin द्वारा तय होगा।",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = GullakGoldLight.copy(alpha = 0.85f)
-                            )
+                            text = "WhatsApp Chat With Admin (व्हाट्सएप संपर्क) 💬",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
                 }
@@ -974,12 +1070,18 @@ fun PaymentItemCard(payment: com.example.data.model.PaymentEntity) {
 @Composable
 fun MemberLoanView(
     financials: com.example.data.model.MemberFinancialEntity?,
-    onOpenWhatsApp: () -> Unit
+    onOpenWhatsApp: () -> Unit,
+    onPayDuesClick: () -> Unit
 ) {
     val loanOutstanding = financials?.loanOutstanding ?: 0.0
     val interestDue = financials?.interestDue ?: 0.0
-    val loanEligibility = financials?.loanEligibility ?: 50000.0
+    val totalLoanDues = loanOutstanding + interestDue
+    val hasLoanDues = (loanOutstanding > 0.0 || interestDue > 0.0)
+    val configuredEligibility = financials?.loanEligibility ?: 50000.0
+    val effectiveEligibility = if (hasLoanDues) 0.0 else configuredEligibility
     val lastMonthEnd = financials?.lastMonthEndBalance ?: loanOutstanding
+
+    var showLoanDuesAlert by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -1053,7 +1155,7 @@ fun MemberLoanView(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = "3. Loan Eligibility Member Edit नहीं कर सकता। यह केवल Admin द्वारा सेट की जाती है।",
+                        text = "3. Loan Eligibility Member Edit नहीं कर सकता। अगर पिछला कोई भी लोन बकाया है तो पात्रता स्वतः ₹0 हो जाती है।",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
@@ -1067,67 +1169,225 @@ fun MemberLoanView(
         item {
             Card(
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = GullakGoldContainer),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (hasLoanDues) Color(0xFF2D1B1F) else GullakGoldContainer
+                ),
+                border = BorderStroke(1.dp, if (hasLoanDues) GullakDanger.copy(alpha = 0.6f) else GullakGold.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "आपकी Loan Eligibility: ${formatRupees(loanEligibility)}",
-                        fontWeight = FontWeight.Bold,
-                        color = GullakGoldLight,
-                        fontSize = 16.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "नया लोन प्राप्त करने के लिए कृपया Admin से WhatsApp या ऑफलाइन संपर्क करें।",
-                        style = MaterialTheme.typography.bodySmall.copy(color = GullakGoldLight.copy(alpha = 0.85f))
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Button(
-                        onClick = onOpenWhatsApp,
-                        colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
-                        shape = RoundedCornerShape(8.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = "आपकी Loan Eligibility: ${formatRupees(effectiveEligibility)}",
+                            fontWeight = FontWeight.Bold,
+                            color = if (hasLoanDues) GullakDanger else GullakGoldLight,
+                            fontSize = 16.sp
+                        )
+                        if (hasLoanDues) {
+                            Surface(
+                                color = GullakDanger.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "Dues Active",
+                                    color = GullakDanger,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (hasLoanDues) {
+                        Text(
+                            text = "⚠️ सक्रिय लोन बकाया (Loan: ₹${loanOutstanding.toInt()}, Interest: ₹${interestDue.toInt()}) होने के कारण आपकी पात्रता स्वतः ₹0 है। नया लोन प्राप्त करने के लिए पहले बकाया लोन चुकता करें।",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFFFB4AB))
+                        )
+                    } else {
+                        Text(
+                            text = "✅ कोई सक्रिय लोन बकाया नहीं है। आप ₹${formatRupees(effectiveEligibility)} तक के नए लोन के लिए पात्र हैं। Final approval Admin द्वारा तय होगा।",
+                            style = MaterialTheme.typography.bodySmall.copy(color = GullakGoldLight.copy(alpha = 0.85f))
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = {
+                            if (hasLoanDues) {
+                                showLoanDuesAlert = true
+                            } else {
+                                onOpenWhatsApp()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (hasLoanDues) GullakDanger else GullakSuccess
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = if (hasLoanDues) Icons.Default.Info else Icons.AutoMirrored.Filled.Chat,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White
+                        )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Contact Admin on WhatsApp")
+                        Text(
+                            text = if (hasLoanDues) "Check Loan Dues Alert (लोन बकाया स्थिति देखें)" else "Contact Admin on WhatsApp (लोन आवेदन)",
+                            color = Color.White
+                        )
                     }
                 }
             }
         }
+    }
+
+    if (showLoanDuesAlert) {
+        AlertDialog(
+            onDismissRequest = { showLoanDuesAlert = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = GullakDanger)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("⚠️ Loan Eligibility Alert / पात्रता शून्य", fontWeight = FontWeight.Bold, color = GullakDanger)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Aapka pehle se loan balance baki hone ke karan aapki Loan Eligibility abhi ₹0 hai.",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Loan Outstanding:", fontSize = 13.sp, color = Color.Gray)
+                                Text("₹${loanOutstanding.toInt()}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Interest Due:", fontSize = 13.sp, color = Color.Gray)
+                                Text("₹${interestDue.toInt()}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = GullakDanger)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Total Loan Dues:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("₹${totalLoanDues.toInt()}", fontSize = 14.sp, fontWeight = FontWeight.Black, color = GullakDanger)
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Naya loan tabhi approve ho sakega jab purana loan poora chukta ho jaye.",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLoanDuesAlert = false
+                        onPayDuesClick()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess)
+                ) {
+                    Text("Pay Dues Now / बकाया जमा करें")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showLoanDuesAlert = false }) {
+                    Text("OK / समझ गया")
+                }
+            }
+        )
     }
 }
 
 // 4. Member Notifications View
 @Composable
 fun MemberNotificationsView(
-    notifications: List<com.example.data.model.NotificationEntity>
+    notifications: List<com.example.data.model.NotificationEntity>,
+    onMarkAsRead: (Long) -> Unit = {},
+    onMarkAllAsRead: () -> Unit = {},
+    onPayDuesClick: () -> Unit = {}
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.US) }
+    val unreadCount = notifications.count { !it.isRead }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Text(
-            text = "Notifications / सूचनाएँ",
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-        )
-        Text(
-            text = "सोसाइटी द्वारा भेजे गए संदेश, रिमाइंडर और सूचनाएँ",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Notifications / सूचनाएँ",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                )
+                Text(
+                    text = "सोसाइटी द्वारा भेजे गए संदेश, रिमाइंडर और सूचनाएँ",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+            if (unreadCount > 0) {
+                Surface(
+                    color = GullakDanger.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, GullakDanger.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = "$unreadCount New",
+                        color = GullakDanger,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        if (unreadCount > 0) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onMarkAllAsRead) {
+                    Icon(Icons.Default.DoneAll, contentDescription = null, modifier = Modifier.size(16.dp), tint = GullakSuccessBright)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Mark All as Read / सभी पढ़े", fontSize = 12.sp, color = GullakSuccessBright)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         if (notifications.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Abhi koi notification nahi hai.", color = Color.Gray)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(48.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Abhi koi notification nahi hai.", color = Color.Gray)
+                }
             }
         } else {
             LazyColumn(
@@ -1135,13 +1395,30 @@ fun MemberNotificationsView(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(notifications) { notif ->
+                    val (icon, iconTint, borderClr, bgClr) = when (notif.type) {
+                        com.example.data.model.NotificationType.PAYMENT_APPROVAL ->
+                            listOf(Icons.Default.CheckCircle, GullakSuccess, GullakSuccess.copy(alpha = 0.3f), GullakSuccess.copy(alpha = 0.08f))
+                        com.example.data.model.NotificationType.PAYMENT_REJECTION ->
+                            listOf(Icons.Default.Error, GullakDanger, GullakDanger.copy(alpha = 0.3f), GullakDanger.copy(alpha = 0.08f))
+                        com.example.data.model.NotificationType.DUES_REMINDER ->
+                            listOf(Icons.Default.AccessTime, GullakWarning, GullakWarning.copy(alpha = 0.3f), GullakWarning.copy(alpha = 0.08f))
+                        com.example.data.model.NotificationType.ANNOUNCEMENT ->
+                            listOf(Icons.Default.Campaign, GullakPrimary, GullakPrimary.copy(alpha = 0.3f), GullakPrimary.copy(alpha = 0.08f))
+                        else ->
+                            listOf(Icons.Default.Info, GullakGold, GullakGold.copy(alpha = 0.3f), GullakGold.copy(alpha = 0.08f))
+                    }
+
                     Card(
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (!notif.isRead) GullakPrimary.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surface
+                            containerColor = if (!notif.isRead) (bgClr as Color) else MaterialTheme.colorScheme.surface
                         ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                        modifier = Modifier.fillMaxWidth()
+                        border = BorderStroke(1.dp, if (!notif.isRead) (borderClr as Color) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (!notif.isRead) onMarkAsRead(notif.id)
+                            }
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Row(
@@ -1149,16 +1426,47 @@ fun MemberNotificationsView(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = notif.title,
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = GullakPrimary
-                                )
-                                Text(
-                                    text = dateFormat.format(Date(notif.createdAt)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.Gray
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
+                                    Icon(
+                                        imageVector = icon as androidx.compose.ui.graphics.vector.ImageVector,
+                                        contentDescription = null,
+                                        tint = iconTint as Color,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = notif.title,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = if (!notif.isRead) MaterialTheme.colorScheme.onSurface else Color.Gray,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (!notif.isRead) {
+                                        Surface(
+                                            color = GullakPrimary,
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "NEW",
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        text = dateFormat.format(Date(notif.createdAt)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.Gray
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
@@ -1174,16 +1482,293 @@ fun MemberNotificationsView(
     }
 }
 
+// Member App Open Popup Notifications Modal Dialog
+@Composable
+fun MemberNotificationsPopupDialog(
+    notifications: List<com.example.data.model.NotificationEntity>,
+    unreadCount: Int,
+    currentRdDue: Double,
+    currentInterestDue: Double,
+    totalDue: Double,
+    onDismiss: () -> Unit,
+    onMarkAsRead: (Long) -> Unit,
+    onMarkAllAsRead: () -> Unit,
+    onPayDuesClick: () -> Unit,
+    onViewAllNoticesClick: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.US) }
+    val displayNotifications = notifications.take(4)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(GullakPrimary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsActive,
+                            contentDescription = null,
+                            tint = GullakPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "सूचनाएँ व अपडेट्स",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
+                        )
+                        Text(
+                            text = "Society Notices & Alerts",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+                if (unreadCount > 0) {
+                    Surface(
+                        color = GullakDanger,
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = "$unreadCount NEW",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Section 1: Active Dues Banner if any
+                if (totalDue > 0.0) {
+                    Surface(
+                        color = Color(0xFF2D1B1F),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GullakDanger.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(10.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.AccessTime,
+                                        contentDescription = null,
+                                        tint = GullakDanger,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "कुल बकाया: ${formatRupees(totalDue)}",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = GullakDanger
+                                    )
+                                }
+                                Text(
+                                    text = "RD: ₹${currentRdDue.toInt()} • ब्याज: ₹${currentInterestDue.toInt()}",
+                                    fontSize = 11.sp,
+                                    color = Color.LightGray
+                                )
+                            }
+                            Button(
+                                onClick = onPayDuesClick,
+                                colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Pay Now", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // Section 2: Recent / Unread Notifications
+                if (displayNotifications.isEmpty()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GullakSuccess, modifier = Modifier.size(28.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Aapka account bilkul up-to-date hai!",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = "Koi naya pending notice ya alert nahi hai.",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 280.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(displayNotifications) { notif ->
+                            val (icon, iconTint, bgClr, borderClr) = when (notif.type) {
+                                com.example.data.model.NotificationType.PAYMENT_APPROVAL ->
+                                    listOf(Icons.Default.CheckCircle, GullakSuccess, GullakSuccess.copy(alpha = 0.08f), GullakSuccess.copy(alpha = 0.4f))
+                                com.example.data.model.NotificationType.PAYMENT_REJECTION ->
+                                    listOf(Icons.Default.Error, GullakDanger, GullakDanger.copy(alpha = 0.08f), GullakDanger.copy(alpha = 0.4f))
+                                com.example.data.model.NotificationType.DUES_REMINDER ->
+                                    listOf(Icons.Default.AccessTime, GullakWarning, GullakWarning.copy(alpha = 0.08f), GullakWarning.copy(alpha = 0.4f))
+                                com.example.data.model.NotificationType.ANNOUNCEMENT ->
+                                    listOf(Icons.Default.Campaign, GullakPrimary, GullakPrimary.copy(alpha = 0.08f), GullakPrimary.copy(alpha = 0.4f))
+                                else ->
+                                    listOf(Icons.Default.Info, GullakGold, GullakGold.copy(alpha = 0.08f), GullakGold.copy(alpha = 0.4f))
+                            }
+
+                            Card(
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (!notif.isRead) (bgClr as Color) else MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                                border = BorderStroke(1.dp, if (!notif.isRead) (borderClr as Color) else Color.Transparent),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (!notif.isRead) onMarkAsRead(notif.id)
+                                    }
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        ) {
+                                            Icon(
+                                                imageVector = icon as androidx.compose.ui.graphics.vector.ImageVector,
+                                                contentDescription = null,
+                                                tint = iconTint as Color,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = notif.title,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        if (!notif.isRead) {
+                                            Surface(
+                                                color = GullakPrimary,
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "NEW",
+                                                    color = Color.White,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = notif.message,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = dateFormat.format(Date(notif.createdAt)),
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (unreadCount > 0) {
+                    TextButton(onClick = onMarkAllAsRead) {
+                        Text("Mark Read", fontSize = 12.sp, color = GullakSuccessBright)
+                    }
+                }
+                if (notifications.size > 2) {
+                    TextButton(onClick = onViewAllNoticesClick) {
+                        Text("All Notices", fontSize = 12.sp, color = GullakPrimary)
+                    }
+                }
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("OK / समझ गया")
+                }
+            }
+        },
+        dismissButton = null
+    )
+}
+
 // 5. Member Profile View
 @Composable
 fun MemberProfileView(
     user: UserEntity,
+    financials: com.example.data.model.MemberFinancialEntity?,
     adminMobile: String,
+    onPayDuesClick: () -> Unit,
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
     val joinDateFormat = remember { SimpleDateFormat("dd MMMM yyyy", Locale.US) }
     val formattedJoinDate = remember(user.createdAt) { joinDateFormat.format(Date(user.createdAt)) }
+
+    val loanOutstanding = financials?.loanOutstanding ?: 0.0
+    val interestDue = financials?.interestDue ?: 0.0
+    val totalLoanDues = loanOutstanding + interestDue
+    val hasLoanDues = (loanOutstanding > 0.0 || interestDue > 0.0)
+    val configuredEligibility = financials?.loanEligibility ?: 50000.0
+    val effectiveEligibility = if (hasLoanDues) 0.0 else configuredEligibility
+
+    var showProfileLoanDuesAlert by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -1246,6 +1831,112 @@ fun MemberProfileView(
             }
         }
 
+        // Loan Eligibility Card in Profile
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (hasLoanDues) Color(0xFF2D1B1F) else GullakGoldContainer
+                ),
+                border = BorderStroke(1.2.dp, if (hasLoanDues) GullakDanger.copy(alpha = 0.6f) else GullakGold.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Savings,
+                                contentDescription = null,
+                                tint = if (hasLoanDues) GullakDanger else GullakGold,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Loan Eligibility (लोन पात्रता)",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (hasLoanDues) GullakDanger else GullakGoldLight
+                                )
+                            )
+                        }
+
+                        Surface(
+                            color = if (hasLoanDues) GullakDanger.copy(alpha = 0.2f) else GullakSuccess.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = if (hasLoanDues) "Dues: ₹${totalLoanDues.toInt()}" else "Eligible ✅",
+                                color = if (hasLoanDues) GullakDanger else GullakSuccess,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = formatRupees(effectiveEligibility),
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (hasLoanDues) GullakDanger else GullakGoldLight
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (hasLoanDues) {
+                        Text(
+                            text = "⚠️ आपके खाते में पुराना लोन बकाया (₹${loanOutstanding.toInt()}) + ब्याज (₹${interestDue.toInt()}) होने के कारण लोन पात्रता स्वतः ₹0 है।",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFFFB4AB))
+                        )
+                    } else {
+                        Text(
+                            text = "✅ कोई सक्रिय लोन बकाया नहीं है। आप ₹${formatRupees(effectiveEligibility)} तक के नए लोन के लिए पात्र हैं। Final approval Admin द्वारा तय होगा।",
+                            style = MaterialTheme.typography.bodySmall.copy(color = GullakGoldLight.copy(alpha = 0.85f))
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            if (hasLoanDues) {
+                                showProfileLoanDuesAlert = true
+                            } else {
+                                openWhatsApp(context, adminMobile, "Namaste Admin, main ₹${effectiveEligibility.toInt()} tak ke naye loan ke liye apply karna chahta hoon.")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (hasLoanDues) GullakDanger else GullakPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("profile_loan_eligibility_action_btn"),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (hasLoanDues) Icons.Default.Info else Icons.Default.Savings,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (hasLoanDues) "Check Loan Dues Alert (बकाया विवरण देखें)" else "Apply for Loan / लोन आवेदन करें",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
         item {
             Surface(
                 color = Color(0xFF1E293B),
@@ -1259,38 +1950,152 @@ fun MemberProfileView(
                     Icon(Icons.Default.Info, contentDescription = null, tint = GullakGold)
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "सुरक्षा कारणों से संवेदनशील वित्तीय जानकारी केवल Admin द्वारा बदली जा सकती है।",
+                        text = "सुरक्षा कारणों से संवेदनशील वित्तीय जानकारी व लोन पात्रता केवल Admin द्वारा अपडेट की जा सकती है।",
                         style = MaterialTheme.typography.bodySmall.copy(color = GullakTextSecondary)
                     )
                 }
             }
         }
 
+        // Section: Advance Settings (Includes Secure Logout)
         item {
-            Button(
-                onClick = {
-                    openWhatsApp(context, adminMobile, "Namaste Admin, mera Gullak app PIN help:")
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+            var showMemberLogoutConfirm by remember { mutableStateOf(false) }
+
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                border = BorderStroke(1.5.dp, GullakDanger.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Chat with Admin on WhatsApp")
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = GullakGold,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "⚙️ Advance Settings (एडवांस सेटिंग्स)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = GullakGoldLight
+                        )
+                    }
+
+                    Text(
+                        text = "Member account session security. App se logout karne ke liye neeche diye gaye button ka upyog karein.",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = { showMemberLogoutConfirm = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = GullakDanger),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("member_advance_logout_btn")
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("LOGOUT / सुरक्षित लॉगआउट करें 🔒", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedButton(
-                onClick = onLogout,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = GullakDanger),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("LOGOUT / लॉगआउट करें", fontWeight = FontWeight.Bold)
+            if (showMemberLogoutConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showMemberLogoutConfirm = false },
+                    title = { Text("Logout Confirmation 🔒", fontWeight = FontWeight.Bold) },
+                    text = { Text("Kya aap Gullak account se logout karna chahte hain?") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showMemberLogoutConfirm = false
+                                onLogout()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GullakDanger)
+                        ) {
+                            Text("Haan, Logout Karein")
+                        }
+                    },
+                    dismissButton = {
+                        OutlinedButton(onClick = { showMemberLogoutConfirm = false }) {
+                            Text("Nahi")
+                        }
+                    }
+                )
             }
         }
+    }
+
+    if (showProfileLoanDuesAlert) {
+        AlertDialog(
+            onDismissRequest = { showProfileLoanDuesAlert = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = GullakDanger)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("⚠️ Loan Eligibility Alert / पात्रता शून्य (₹0)", fontWeight = FontWeight.Bold, color = GullakDanger)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Aapka pehle se loan balance baki hone ke karan aapki Loan Eligibility abhi ₹0 hai.",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Loan Outstanding:", fontSize = 13.sp, color = Color.Gray)
+                                Text("₹${loanOutstanding.toInt()}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Interest Due:", fontSize = 13.sp, color = Color.Gray)
+                                Text("₹${interestDue.toInt()}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = GullakDanger)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Total Loan Dues:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("₹${totalLoanDues.toInt()}", fontSize = 14.sp, fontWeight = FontWeight.Black, color = GullakDanger)
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Naya loan tabhi approve ho sakega jab purana loan poora chukta ho jaye.",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showProfileLoanDuesAlert = false
+                        onPayDuesClick()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess)
+                ) {
+                    Text("Pay Dues Now / बकाया जमा करें")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showProfileLoanDuesAlert = false }) {
+                    Text("OK / समझ गया")
+                }
+            }
+        )
     }
 }
 

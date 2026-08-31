@@ -126,7 +126,7 @@ interface PaymentDao {
     @Query("SELECT * FROM payments WHERE id = :id LIMIT 1")
     suspend fun getPaymentById(id: Long): PaymentEntity?
 
-    @Query("UPDATE payments SET status = :status, approvedAmount = :approvedAmount, rdAmount = :rdAmount, interestAmount = :interestAmount, penaltyAmount = :penaltyAmount, loanReturnAmount = :loanReturnAmount, adminRemarks = :adminRemarks, approvedBy = :approvedBy, approvedAt = :approvedAt, isReversed = :isReversed WHERE id = :id")
+    @Query("UPDATE payments SET status = :status, approvedAmount = :approvedAmount, rdAmount = :rdAmount, interestAmount = :interestAmount, penaltyAmount = :penaltyAmount, loanReturnAmount = :loanReturnAmount, adminRemarks = :adminRemarks, approvedBy = :approvedBy, approvedAt = :approvedAt, isReversed = :isReversed, rejectionReason = CASE WHEN :status IN ('APPROVED', 'APPROVED_WITH_EDIT', 'PENDING') THEN '' ELSE rejectionReason END WHERE id = :id")
     suspend fun updatePaymentBreakdownAndStatus(
         id: Long,
         status: PaymentStatus,

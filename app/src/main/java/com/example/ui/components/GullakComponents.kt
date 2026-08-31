@@ -129,7 +129,7 @@ fun GullakTopBar(
     TopAppBar(
         modifier = modifier,
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = GullakPrimary,
+            containerColor = com.example.ui.theme.GullakTopBarGreen,
             titleContentColor = Color.White,
             navigationIconContentColor = Color.White,
             actionIconContentColor = Color.White
@@ -463,6 +463,7 @@ fun OnlinePaymentModal(
     defaultAmount: Double,
     upiId: String,
     payeeName: String,
+    uploadedQrImage: String = "",
     onDismiss: () -> Unit,
     onSubmit: (amount: Double, remarks: String) -> Unit
 ) {
@@ -470,7 +471,6 @@ fun OnlinePaymentModal(
     var refRemarks by remember { mutableStateOf("") }
     var attachedScreenshotName by remember { mutableStateOf<String?>(null) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
     fun launchUpiIntent(packageName: String? = null) {
@@ -492,7 +492,7 @@ fun OnlinePaymentModal(
                 }
                 context.startActivity(Intent.createChooser(genericIntent, "Pay with UPI App"))
             } catch (ex: Exception) {
-                Toast.makeText(context, "No UPI App found. Please copy UPI ID to pay.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "No UPI App found on device.", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -508,8 +508,8 @@ fun OnlinePaymentModal(
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 Column {
-                    Text("Pay Online / UPI QR Code", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text("Scan & Pay or open directly in UPI App", fontSize = 11.sp, color = GullakGoldLight)
+                    Text("Official Payment QR Code 📲", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Admin dwara verify kiya gaya QR Code", fontSize = 11.sp, color = GullakGoldLight)
                 }
             }
         },
@@ -518,81 +518,69 @@ fun OnlinePaymentModal(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Visual UPI QR Canvas Card
+                // Official Society QR Card
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(14.dp),
                         border = BorderStroke(2.dp, GullakGold),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 2.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(10.dp),
+                            modifier = Modifier.padding(14.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = payeeName,
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                color = GullakGoldContainer,
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            ) {
+                                Text(
+                                    text = "🏛️ $payeeName",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = GullakGoldLight),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
 
-                            // Stylized QR pattern box
+                            // Large Crisp High-Contrast Official QR Code Display
                             Surface(
                                 modifier = Modifier
-                                    .size(130.dp)
-                                    .clip(RoundedCornerShape(8.dp)),
-                                color = Color(0xFF0F172A)
+                                    .size(170.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                                color = Color.White
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.padding(12.dp)
+                                ) {
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.QrCode,
-                                            contentDescription = "QR",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(70.dp)
+                                            contentDescription = "Official Payment QR",
+                                            tint = Color(0xFF0F172A),
+                                            modifier = Modifier.size(110.dp)
                                         )
                                         Text(
-                                            text = "SCAN TO PAY",
-                                            color = GullakGoldLight,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
+                                            text = "SCAN & PAY VIA ANY APP",
+                                            color = Color(0xFF0F172A),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black
                                         )
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // Copy UPI ID row
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFE2E8F0))
-                                    .clickable {
-                                        clipboardManager.setText(AnnotatedString(upiId))
-                                        Toast.makeText(context, "UPI ID Copied: $upiId", Toast.LENGTH_SHORT).show()
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = "UPI: $upiId",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A))
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = "Copy",
-                                    tint = GullakPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "✅ Admin dwara upload kiya gaya Official QR Code",
+                                style = MaterialTheme.typography.bodySmall.copy(color = GullakSuccessBright, fontWeight = FontWeight.SemiBold)
+                            )
                         }
                     }
                 }
@@ -604,7 +592,7 @@ fun OnlinePaymentModal(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "⚡ Direct Pay via Installed Apps:",
+                            text = "⚡ Open Directly in Payment App:",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = GullakGoldLight

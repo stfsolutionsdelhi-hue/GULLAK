@@ -2,40 +2,43 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Luxury Dark & Gold + Emerald Green Palette
-val GullakNavyDark = Color(0xFF0A0F1D)
-val GullakSurfaceDark = Color(0xFF131B2E)
-val GullakSurfaceVariantDark = Color(0xFF1C2740)
-val GullakCardBorderDark = Color(0xFF283654)
+// Sharp Luxury Dark & Deep Emerald Green + Gold Palette
+val GullakNavyDark = Color(0xFF070B14) // Deep Midnight OLED Canvas
+val GullakSurfaceDark = Color(0xFF0F172A) // Crisp Card Surface
+val GullakSurfaceVariantDark = Color(0xFF1E293B) // High-contrast Container
+val GullakCardBorderDark = Color(0xFF334155) // Crisp Border
+val GullakGlowBorderDark = Color(0xFFF59E0B) // Amber Glow Border
 
-val GullakPrimary = Color(0xFFD4AF37) // Metallic Gold
-val GullakPrimaryLight = Color(0xFFF59E0B) // Bright Amber Gold
-val GullakPrimaryDark = Color(0xFFB45309)
+val GullakPrimary = Color(0xFF15803D) // Elegant Rich Dark Green / Primary Brand
+val GullakPrimaryLight = Color(0xFF16A34A) // Mid Emerald
+val GullakPrimaryDark = Color(0xFF166534) // Deep Forest Green
 
-val GullakGold = Color(0xFFFFD700) // Pure Gold
-val GullakGoldLight = Color(0xFFFDE68A)
-val GullakGoldContainer = Color(0xFF3B2D08)
-val GullakClay = Color(0xFFD97706)
+val GullakTopBarGreen = Color(0xFF064E3B) // Deep Sophisticated Emerald for Top Bar
 
-val GullakSuccess = Color(0xFF10B981) // Emerald Green
-val GullakSuccessBright = Color(0xFF00E676)
-val GullakSuccessContainer = Color(0xFF064E3B)
+val GullakGold = Color(0xFFFFD700) // Pure Metallic Gold
+val GullakGoldLight = Color(0xFFFEF08A) // Glowing Gold Light
+val GullakGoldContainer = Color(0xFF261D05) // Deep Gold Accent Container
+val GullakClay = Color(0xFFF59E0B) // Amber Highlight
 
-val GullakWarning = Color(0xFFF59E0B)
+val GullakSuccess = Color(0xFF166534) // Rich Deep Dark Green for Approve & Pay Now buttons
+val GullakSuccessBright = Color(0xFF22C55E) // Crisp Green Accent
+val GullakSuccessContainer = Color(0xFF064E3B) // Deep Emerald Container
+
+val GullakWarning = Color(0xFFFBBF24) // Bright Golden Amber
 val GullakWarningContainer = Color(0xFF451A03)
 
-val GullakDanger = Color(0xFFEF4444)
-val GullakDangerBright = Color(0xFFFF5252)
+val GullakDanger = Color(0xFFF87171) // Sharp Bright Coral Red
+val GullakDangerBright = Color(0xFFFF453A)
 val GullakDangerContainer = Color(0xFF450A0A)
 
-val GullakInfo = Color(0xFF38BDF8)
+val GullakInfo = Color(0xFF38BDF8) // Vivid Electric Sky Blue
 val GullakInfoContainer = Color(0xFF082F49)
 
-val GullakTextPrimary = Color(0xFFF8FAFC)
-val GullakTextSecondary = Color(0xFF94A3B8)
-val GullakTextMuted = Color(0xFF64748B)
+val GullakTextPrimary = Color(0xFFFFFFFF) // Pure High-Contrast White
+val GullakTextSecondary = Color(0xFFCBD5E1) // Crisp Light Slate
+val GullakTextMuted = Color(0xFF94A3B8) // Muted Slate
 
-val GullakBackgroundLight = Color(0xFF0A0F1D) // Defaulting to dark luxury experience
-val GullakSurfaceLight = Color(0xFF131B2E)
-val GullakSurfaceVariantLight = Color(0xFF1C2740)
+val GullakBackgroundLight = Color(0xFF070B14)
+val GullakSurfaceLight = Color(0xFF0F172A)
+val GullakSurfaceVariantLight = Color(0xFF1E293B)
 

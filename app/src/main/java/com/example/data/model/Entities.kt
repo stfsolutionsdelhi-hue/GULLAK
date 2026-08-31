@@ -106,8 +106,9 @@ data class SocietySettingsEntity(
     val dueDayOfMonth: Int = 15, // 15th of every month
     val penaltyPerDay: Double = 10.0, // ₹10 per day after 15th
     val upiId: String = "gullaksociety@okaxis",
-    val upiPayeeName: String = "Gullak Co-operative Society",
+    val upiPayeeName: String = "GULLAK CO-OPERATIVE SOCIETY",
     val adminMobile: String = "9876543210",
+    val uploadedQrCodeImage: String = "", // Admin Uploaded QR Code image/data URI
     val autoReminderFrequency: String = "EVERY_2_DAYS", // DAILY, EVERY_2_DAYS, EVERY_3_DAYS, ON_10_AND_15
     val selectedSimSlot: Int = 0, // 0 for SIM 1, 1 for SIM 2
     val reminderFrequencyPerDay: Int = 2,
@@ -119,4 +120,5 @@ data class SocietySettingsEntity(
     val template2: String = "Reminder: प्रिय {NAME}, आपकी Gullak Society की मासिक RD ₹{RD} और ब्याज ₹{INT} पेंडिंग है। आज ही जमा करें।",
     val template3: String = "सूचना: {NAME} जी, Gullak Society में आपका लोन ब्याज और RD बकाया है। कुल राशि: ₹{AMOUNT}। धन्यवाद।"
 )
+
 
