@@ -1260,34 +1260,109 @@ class GullakRepository(private val database: AppDatabase) {
     }
 
     // 100% Free Cloud Backup & Restore System
-    // Exports full database state to portable JSON string for Google Sheets Webhook / Cloud Storage
+    // Exports full database state to portable JSON matching Google Apps Script Web App SYNC_ALL format
     suspend fun exportFullBackupJson(): String = withContext(Dispatchers.IO) {
-        val users = userDao.getAllMembersIncludingDeleted().first()
+        val users = userDao.getAllActiveMembers().first()
         val financials = financialDao.getAllFinancials().first()
         val payments = paymentDao.getAllPayments().first()
         val settings = settingsDao.getSettingsDirect() ?: SocietySettingsEntity()
 
+        val finMap = financials.associateBy { it.userId }
+        val dateFmt = SimpleDateFormat("dd-MM-yyyy", Locale.US)
+        val monthFmt = SimpleDateFormat("MMMM yyyy", Locale.US)
+        val yearFmt = SimpleDateFormat("yyyy", Locale.US)
+
         val sb = StringBuilder()
         sb.append("{\n")
-        sb.append("  \"exportedAt\": ${System.currentTimeMillis()},\n")
-        sb.append("  \"totalMembers\": ${users.size},\n")
-        sb.append("  \"society\": \"${settings.societyName}\",\n")
-        sb.append("  \"users\": [\n")
+        sb.append("  \"action\": \"SYNC_ALL\",\n")
+        sb.append("  \"data\": {\n")
+
+        // members
+        sb.append("    \"members\": [\n")
         users.forEachIndexed { i, u ->
-            sb.append("    {\"userId\":\"${u.userId}\",\"name\":\"${u.name}\",\"mobile\":\"${u.mobile}\",\"pin\":\"${u.pin}\",\"role\":\"${u.role}\",\"status\":\"${u.status}\",\"remarks\":\"${u.remarks}\"}${if (i < users.size - 1) "," else ""}\n")
+            val f = finMap[u.userId]
+            val monthlyRd = f?.rdAmount ?: settings.defaultMonthlyRd
+            val openingBal = f?.totalPaidThisYear ?: 0.0
+            val bonusShare = f?.accumulatedRdBonus ?: 0.0
+            val dateJoined = dateFmt.format(Date(u.createdAt))
+            val cleanNotes = u.remarks.replace("\"", "\\\"").replace("\n", " ")
+            val cleanName = u.name.replace("\"", "\\\"")
+
+            sb.append("      {")
+            sb.append("\"id\":\"${u.userId}\",")
+            sb.append("\"name\":\"$cleanName\",")
+            sb.append("\"mobile\":\"${u.mobile}\",")
+            sb.append("\"aadhaar\":\"\",")
+            sb.append("\"address\":\"Society Member\",")
+            sb.append("\"dateJoined\":\"$dateJoined\",")
+            sb.append("\"monthlyRD\":$monthlyRd,")
+            sb.append("\"openingBal\":$openingBal,")
+            sb.append("\"bonusShare\":$bonusShare,")
+            sb.append("\"status\":\"${u.status.name}\",")
+            sb.append("\"notes\":\"$cleanNotes\"")
+            sb.append("}${if (i < users.size - 1) "," else ""}\n")
         }
-        sb.append("  ],\n")
-        sb.append("  \"financials\": [\n")
-        financials.forEachIndexed { i, f ->
-            sb.append("    {\"userId\":\"${f.userId}\",\"rdAmount\":${f.rdAmount},\"currentRdDue\":${f.currentRdDue},\"interestDue\":${f.interestDue},\"penaltyDue\":${f.penaltyDue},\"loanOutstanding\":${f.loanOutstanding},\"loanEligibility\":${f.loanEligibility},\"accumulatedRdBonus\":${f.accumulatedRdBonus},\"totalPaidThisYear\":${f.totalPaidThisYear}}${if (i < financials.size - 1) "," else ""}\n")
-        }
-        sb.append("  ],\n")
-        sb.append("  \"payments\": [\n")
+        sb.append("    ],\n")
+
+        // payments
+        sb.append("    \"payments\": [\n")
         payments.forEachIndexed { i, p ->
-            val cleanRem = (p.adminRemarks.ifBlank { p.remarks }).replace("\"", "\\\"")
-            sb.append("    {\"transactionId\":\"${p.transactionId}\",\"userId\":\"${p.userId}\",\"userName\":\"${p.userName}\",\"userMobile\":\"${p.userMobile}\",\"amount\":${p.amount},\"rdAmount\":${p.rdAmount},\"interestAmount\":${p.interestAmount},\"penaltyAmount\":${p.penaltyAmount},\"loanReturnAmount\":${p.loanReturnAmount},\"paymentType\":\"${p.paymentType}\",\"paymentMode\":\"${p.paymentMode}\",\"paymentDate\":${p.paymentDate},\"status\":\"${p.status}\",\"remarks\":\"$cleanRem\"}${if (i < payments.size - 1) "," else ""}\n")
+            val pDate = Date(p.paymentDate)
+            val dateStr = dateFmt.format(pDate)
+            val monthStr = if (p.month.isNotBlank()) p.month else monthFmt.format(pDate)
+            val yearVal = yearFmt.format(pDate).toIntOrNull() ?: 2026
+            val cleanName = p.userName.replace("\"", "\\\"")
+            val approvedAmt = p.approvedAmount ?: p.amount
+            val recBy = if (p.approvedBy.isNotBlank()) p.approvedBy else "Admin"
+
+            sb.append("      {")
+            sb.append("\"receiptNo\":\"${p.transactionId}\",")
+            sb.append("\"date\":\"$dateStr\",")
+            sb.append("\"id\":\"${p.userId}\",")
+            sb.append("\"name\":\"$cleanName\",")
+            sb.append("\"month\":\"$monthStr\",")
+            sb.append("\"year\":$yearVal,")
+            sb.append("\"rd\":${p.rdAmount},")
+            sb.append("\"fine\":${p.penaltyAmount},")
+            sb.append("\"interest\":${p.interestAmount},")
+            sb.append("\"principalRepay\":${p.loanReturnAmount},")
+            sb.append("\"total\":$approvedAmt,")
+            sb.append("\"mode\":\"${p.paymentMode}\",")
+            sb.append("\"by\":\"$recBy\"")
+            sb.append("}${if (i < payments.size - 1) "," else ""}\n")
         }
-        sb.append("  ]\n")
+        sb.append("    ],\n")
+
+        // loans
+        sb.append("    \"loans\": [\n")
+        val activeLoanMembers = users.filter { (finMap[it.userId]?.loanOutstanding ?: 0.0) > 0.0 }
+        activeLoanMembers.forEachIndexed { i, u ->
+            val f = finMap[u.userId]
+            val outstanding = f?.loanOutstanding ?: 0.0
+            val cleanName = u.name.replace("\"", "\\\"")
+            val loanId = "LN-${u.userId.takeLast(4)}"
+            val dateStr = dateFmt.format(Date(u.createdAt))
+            val interestAmt = (outstanding * settings.defaultLoanInterestRate / 100.0)
+
+            sb.append("      {")
+            sb.append("\"loanId\":\"$loanId\",")
+            sb.append("\"date\":\"$dateStr\",")
+            sb.append("\"id\":\"${u.userId}\",")
+            sb.append("\"name\":\"$cleanName\",")
+            sb.append("\"type\":\"Gullak Loan\",")
+            sb.append("\"principal\":$outstanding,")
+            sb.append("\"rate\":${settings.defaultLoanInterestRate},")
+            sb.append("\"interest\":$interestAmt,")
+            sb.append("\"repaid\":0.0,")
+            sb.append("\"outstanding\":$outstanding,")
+            sb.append("\"status\":\"ACTIVE\",")
+            sb.append("\"closeDate\":\"\",")
+            sb.append("\"notes\":\"\"")
+            sb.append("}${if (i < activeLoanMembers.size - 1) "," else ""}\n")
+        }
+        sb.append("    ]\n")
+
+        sb.append("  }\n")
         sb.append("}\n")
         sb.toString()
     }

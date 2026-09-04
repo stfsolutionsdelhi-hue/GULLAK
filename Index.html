@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GULLAK CO-OPERATIVE SOCIETY</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #060913; color: #F8FAFC; padding: 18px 22px; min-height: 100vh; }
+    .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; }
+    .logo-box { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 44px; height: 44px; background: #1E293B; border: 2px solid #F59E0B; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .title-main { font-size: 1.55rem; font-weight: 800; color: #FBBF24; letter-spacing: 0.5px; }
+    .title-sub { color: #0284C7; font-size: 0.82rem; font-weight: 600; margin-top: 2px; }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn { border: none; border-radius: 8px; padding: 9px 14px; font-size: 0.84rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; user-select: none; }
+    .btn-green { background: #059669; color: #FFF; } .btn-red { background: #B91C1C; color: #FFF; }
+    .btn-blue { background: #0284C7; color: #FFF; } .btn-orange { background: #D97706; color: #FFF; }
+    .btn-purple { background: #7C3AED; color: #FFF; } .btn-dark { background: #1E293B; color: #CBD5E1; border: 1px solid #334155; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 22px; }
+    .kpi-card { background: #0B1120; border: 1px solid #1E293B; border-radius: 12px; padding: 12px 14px; text-align: center; cursor: pointer; }
+    .kpi-title { font-size: 0.72rem; font-weight: 600; color: #94A3B8; margin-bottom: 6px; }
+    .kpi-val { font-size: 1.45rem; font-weight: 800; }
+    .val-blue { color: #38BDF8; } .val-green { color: #10B981; } .val-red { color: #EF4444; } .val-gold { color: #FBBF24; } .val-purple { color: #C084FC; } .val-white { color: #F8FAFC; }
+    .tabs-header { display: flex; gap: 6px; margin-bottom: 0; flex-wrap: wrap; }
+    .tab-item { background: #0F172A; color: #94A3B8; border: 1px solid #1E293B; border-bottom: none; padding: 11px 18px; font-weight: 700; font-size: 0.86rem; border-radius: 8px 8px 0 0; cursor: pointer; }
+    .tab-item.active { background: #D97706; color: #FFF; border-color: #D97706; }
+    .content-panel { background: #0B1120; border: 1px solid #1E293B; border-radius: 0 12px 12px 12px; padding: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .panel-title { font-size: 1.18rem; font-weight: 700; color: #38BDF8; }
+    .search-input { background: #060913; border: 1px solid #334155; color: #fff; padding: 7px 12px; border-radius: 6px; font-size: 0.85rem; outline: none; }
+    .table-wrap { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: #0F172A; color: #38BDF8; font-size: 0.74rem; font-weight: 700; text-transform: uppercase; padding: 11px 12px; border-bottom: 1px solid #1E293B; }
+    td { padding: 11px 12px; border-bottom: 1px solid #1E293B; font-size: 0.86rem; vertical-align: middle; }
+    .member-link { color: #FBBF24; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .phone-txt { color: #38BDF8; font-size: 0.78rem; font-family: monospace; }
+    .badge-active { background: #064E3B; color: #34D399; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; }
+    .badge-inactive { background: #7F1D1D; color: #F87171; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; }
+    .badge-pending { background: #78350F; color: #FBBF24; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; }
+    .badge-zero { background: #374151; color: #9CA3AF; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; }
+    .btn-action-rcv { background: #0284C7; color: #fff; padding: 5px 10px; border-radius: 6px; border: none; font-size: 0.76rem; font-weight: 700; cursor: pointer; margin-right: 4px; }
+    .btn-action-edit { background: #334155; color: #FBBF24; padding: 5px 8px; border-radius: 6px; border: none; font-size: 0.76rem; cursor: pointer; }
+    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 99999; }
+    .modal-dialog-box { background: #0F172A; border: 1px solid #334155; border-radius: 14px; width: 95%; max-width: 580px; padding: 22px; max-height: 90vh; overflow-y: auto; }
+    .modal-dialog-lg { max-width: 960px; }
+    .modal-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #1E293B; padding-bottom: 10px; }
+    .modal-heading { font-size: 1.15rem; font-weight: 800; }
+    .close-x { background: transparent; border: none; color: #94A3B8; font-size: 24px; cursor: pointer; }
+    .field-box { margin-bottom: 12px; }
+    .field-label { display: block; font-size: 0.76rem; font-weight: 700; color: #94A3B8; margin-bottom: 4px; text-transform: uppercase; }
+    .field-ctrl { width: 100%; background: #060913; border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 0.88rem; outline: none; }
+    .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .four-cols { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+    .ledger-header { background: #1E293B; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+    .ledger-stat-lbl { font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; }
+    .ledger-stat-val { font-size: 1.15rem; font-weight: 800; }
+    .filter-ctrl { background: #060913; border: 1px solid #334155; color: #CBD5E1; padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; outline: none; }
+    .bar-container { background: #1E293B; height: 18px; border-radius: 9px; overflow: hidden; display: flex; margin: 4px 0; }
+    .bar-in { background: #10B981; height: 100%; } .bar-out { background: #EF4444; height: 100%; }
+    .search-filter-box input { width: 100%; background: #060913; border: 1px solid #38BDF8; border-radius: 6px; padding: 6px 10px; color: #fff; font-size: 0.82rem; margin-bottom: 6px; }
+    .due-subtext { font-size: 0.72rem; color: #94A3B8; margin-top: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-box">
+    <div class="logo-icon">🏦</div>
+    <div>
+      <div class="title-main">GULLAK CO-OPERATIVE SOCIETY</div>
+      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (VERSION 14)</div>
+    </div>
+  </div>
+  <div class="btn-group">
+    <button class="btn btn-green" id="btnTopReceive">📥 Receive Amount</button>
+    <button class="btn btn-red" id="btnTopLoan">💸 Issue Loan</button>
+    <button class="btn btn-blue" id="btnTopAddMember">👤 + Add Member</button>
+    <button class="btn btn-orange" id="btnTopBulk">▦ Bulk Entry</button>
+    <button class="btn btn-purple" id="btnTopExit">🚪 Member Exit</button>
+    <button class="btn btn-dark" id="btnTopSettings">⚙️ Settings</button>
+    <button class="btn btn-dark" id="btnTopReload">🔄 Reload</button>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card" id="kpiCardMembers"><div class="kpi-title">TOTAL MEMBERS</div><div class="kpi-val val-blue" id="dispTotalMem">3 / 4</div></div>
+  <div class="kpi-card" id="kpiCardRd"><div class="kpi-title">TOTAL RD RECEIVED</div><div class="kpi-val val-green" id="dispTotalRd">₹18,800</div></div>
+  <div class="kpi-card" id="kpiCardLoans"><div class="kpi-title">TOTAL LOAN DUES</div><div class="kpi-val val-red" id="dispTotalLoan">₹32,000</div></div>
+  <div class="kpi-card" id="kpiCardBonus"><div class="kpi-title">EST. ANNUAL BONUS</div><div class="kpi-val val-purple" id="dispTotalBonus">₹2,256</div></div>
+  <div class="kpi-card" id="kpiCardFund"><div class="kpi-title">CASH / BANK REGISTER 🏛️</div><div class="kpi-val val-green" id="dispTotalFund">+₹31,800</div></div>
+  <div class="kpi-card" id="kpiCardNpa"><div class="kpi-title">NPA / LOSS</div><div class="kpi-val val-white" id="dispTotalNpa">₹0</div></div>
+</div>
+
+<div class="tabs-header">
+  <div class="tab-item active" id="tabHead1">👥 1. Master Ledger</div>
+  <div class="tab-item" id="tabHead2">📥 2. Collections & Receipts</div>
+  <div class="tab-item" id="tabHead3">💸 3. Loan Register</div>
+  <div class="tab-item" id="tabHead4">🎁 4. Annual Bonus & Set-off</div>
+</div>
+
+<!-- PANEL 1: MASTER LEDGER -->
+<div class="content-panel" id="tabPanel1">
+  <div class="panel-header">
+    <div class="panel-title">Society Members Ledger & Limits</div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <select id="selFilterStatus" class="filter-ctrl">
+        <option value="ALL">All Status</option>
+        <option value="ACTIVE" selected>Active Only</option>
+        <option value="INACTIVE">Inactive Only</option>
+      </select>
+      <select id="selSortMembers" class="filter-ctrl">
+        <option value="name_az">🔤 Name (A-Z)</option>
+        <option value="rd_high">⬆ RD: High</option>
+        <option value="rd_low">⬇ RD: Low</option>
+        <option value="loan_high">⬆ Loan: High</option>
+      </select>
+      <input type="text" id="memberFilterInput" class="search-input" placeholder="🔍 Search name/phone...">
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>MEMBER NAME / PHONE</th><th>DUE DATE</th><th>TOTAL RD DEPOSIT</th><th>LOAN LIMIT (2X RD)</th><th>ACTIVE LOAN DUE</th><th>STATUS</th><th>ACTIONS</th></tr>
+      </thead>
+      <tbody id="tbodyMembers"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PANEL 2: COLLECTIONS -->
+<div class="content-panel" id="tabPanel2" style="display:none;">
+  <div class="panel-header">
+    <div class="panel-title">Collections & Payment Receipts</div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <select id="selFilterPayMode" class="filter-ctrl">
+        <option value="ALL">All Modes</option>
+        <option value="ONLINE">Online (UPI/Bank)</option>
+        <option value="CASH">Cash Only</option>
+      </select>
+      <select id="selSortPayDate" class="filter-ctrl">
+        <option value="new">📅 Date: New to Old</option>
+        <option value="old">📅 Date: Old to New</option>
+        <option value="amt_high">⬆ Amount: High</option>
+      </select>
+      <input type="text" id="searchPayInput" class="search-input" placeholder="🔍 Search...">
+      <button class="btn btn-green" id="btnPanelNewReceipt">📥 + New Receipt</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>RECEIPT NO</th><th>DATE</th><th>MEMBER</th><th>RD AMOUNT</th><th>INTEREST</th><th>PENALTY</th><th>LOAN REPAYMENT</th><th>WAIVER</th><th>TOTAL</th><th>MODE</th></tr>
+      </thead>
+      <tbody id="tbodyPayments"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PANEL 3: LOANS -->
+<div class="content-panel" id="tabPanel3" style="display:none;">
+  <div class="panel-header">
+    <div class="panel-title">Loan Register & Disbursals</div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <select id="selFilterLoanType" class="filter-ctrl">
+        <option value="ALL">All Loan Types</option>
+        <option value="Gullak Loan">Gullak Loan</option>
+        <option value="Emergency Loan">Emergency Loan</option>
+      </select>
+      <select id="selFilterLoanStatus" class="filter-ctrl">
+        <option value="ALL">All Status</option>
+        <option value="ACTIVE" selected>Active Loans</option>
+        <option value="CLOSED">Closed Loans</option>
+      </select>
+      <select id="selSortLoans" class="filter-ctrl">
+        <option value="large">⬇ Outstanding: High</option>
+        <option value="small">⬆ Outstanding: Low</option>
+        <option value="new">📅 New First</option>
+      </select>
+      <button class="btn btn-red" id="btnPanelNewLoan">💸 + Issue Loan</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>LOAN ID</th><th>DATE</th><th>MEMBER</th><th>TYPE</th><th>PRINCIPAL (₹)</th><th>RATE</th><th>OUTSTANDING DUE (₹)</th><th>STATUS</th></tr>
+      </thead>
+      <tbody id="tbodyLoans"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PANEL 4: ANNUAL BONUS -->
+<div class="content-panel" id="tabPanel4" style="display:none;">
+  <div class="panel-header">
+    <div>
+      <div class="panel-title">🎁 Annual Bonus Calculation & Set-off (1% Per Month on Cumulative RD)</div>
+      <small style="color:#94A3B8;">Calculation Rule: 1% per month on progressive RD. Pure display until manual confirmation.</small>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>MEMBER</th><th>TOTAL RD SAVED</th><th>CALCULATED BONUS</th><th>ACTIVE LOAN DUES</th><th>PENALTY DUES</th><th>STATUS</th><th>ACTIONS</th></tr>
+      </thead>
+      <tbody id="tbodyBonusList"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-backdrop" id="modalNotice">
+  <div class="modal-dialog-box" style="max-width:380px; text-align:center;">
+    <div style="font-size:32px; margin-bottom:8px;">ℹ️</div>
+    <div class="modal-heading" id="noticeHeader" style="color:#FBBF24; margin-bottom:10px;">Notice</div>
+    <div id="noticeBody" style="font-size:0.9rem; color:#CBD5E1; margin-bottom:18px;"></div>
+    <button class="btn btn-orange" id="btnNoticeOk" style="width:100%; justify-content:center;">OK / Theek Hai</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalReceive">
+  <div class="modal-dialog-box">
+    <div class="modal-header-row"><div class="modal-heading" style="color:#10B981;">📥 Receive Amount</div><button class="close-x" id="btnCloseReceive">&times;</button></div>
+    <div class="field-box"><label class="field-label">Select Member</label><div class="search-filter-box"><input type="text" placeholder="🔍 Search member..." oninput="filterDropdown('selPayMember', this.value)"></div><select id="selPayMember" class="field-ctrl"></select></div>
+    <div class="two-cols field-box"><div><label class="field-label">Posting Date</label><input type="date" id="inpPayDate" class="field-ctrl"></div><div><label class="field-label">Payment Mode</label><select id="selPayMode" class="field-ctrl"><option value="ONLINE">ONLINE (UPI/Bank)</option><option value="CASH">CASH</option></select></div></div>
+    <div class="two-cols field-box"><div><label class="field-label">Monthly RD (₹)</label><input type="number" id="inpPayRd" class="field-ctrl" value="400"></div><div><label class="field-label">Interest (₹)</label><input type="number" id="inpPayInterest" class="field-ctrl" value="0"></div></div>
+    <div class="two-cols field-box"><div><label class="field-label">Penalty / Fine (₹)</label><input type="number" id="inpPayPenalty" class="field-ctrl" value="0"></div><div><label class="field-label">Waiver (₹)</label><input type="number" id="inpPayWaiver" class="field-ctrl" value="0"></div></div>
+    <div class="field-box"><label class="field-label">Loan Repayment (₹)</label><input type="number" id="inpPayPrincipal" class="field-ctrl" value="0"></div>
+    <button class="btn btn-green" id="btnSubmitReceive" style="width:100%; justify-content:center; padding:12px;">Save & Generate Receipt</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalLoan">
+  <div class="modal-dialog-box">
+    <div class="modal-header-row"><div class="modal-heading" style="color:#EF4444;">💸 Issue Society Loan</div><button class="close-x" id="btnCloseLoan">&times;</button></div>
+    <div class="field-box"><label class="field-label">Select Borrower</label><div class="search-filter-box"><input type="text" placeholder="🔍 Search borrower..." oninput="filterDropdown('selLoanMember', this.value)"></div><select id="selLoanMember" class="field-ctrl"></select><small id="lblMemberLoanLimit" style="color:#FBBF24; display:block; margin-top:4px; font-weight:700;"></small></div>
+    <div class="two-cols field-box"><div><label class="field-label">Issue Date</label><input type="date" id="inpLoanDate" class="field-ctrl"></div><div><label class="field-label">Loan Type</label><select id="selLoanType" class="field-ctrl"><option value="Gullak Loan">Gullak Loan</option><option value="Emergency Loan">Emergency Loan</option></select></div></div>
+    <div class="field-box"><label class="field-label">Principal Loan Amount (₹)</label><input type="number" id="inpLoanPrinc" class="field-ctrl" placeholder="e.g. 15000"></div>
+    <input type="hidden" id="inpLoanRate" value="1.0">
+    <button class="btn btn-red" id="btnSubmitLoan" style="width:100%; justify-content:center; padding:12px;">Approve & Disburse Loan</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalMember">
+  <div class="modal-dialog-box">
+    <div class="modal-header-row"><div class="modal-heading" id="lblMemberModalHead" style="color:#38BDF8;">👤 Member Profile Form</div><button class="close-x" id="btnCloseMember">&times;</button></div>
+    <input type="hidden" id="editMemId">
+    <div class="field-box"><label class="field-label">Full Name</label><input type="text" id="inpNewMemName" class="field-ctrl"></div>
+    <div class="two-cols field-box"><div><label class="field-label">Mobile Number</label><input type="text" id="inpNewMemMobile" class="field-ctrl"></div><div><label class="field-label">Account Status</label><select id="inpNewMemStatus" class="field-ctrl"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select></div></div>
+    <div class="two-cols field-box"><div><label class="field-label">Monthly Due Date</label><input type="text" id="inpNewMemDueDay" class="field-ctrl" value="15th of every month"></div><div><label class="field-label">Monthly RD (₹)</label><input type="number" id="inpNewMemRd" class="field-ctrl" value="400"></div></div>
+    <div class="field-box"><label class="field-label">Address & Nominee</label><input type="text" id="inpNewMemAddress" class="field-ctrl" placeholder="Address..." style="margin-bottom:6px;"><input type="text" id="inpNewMemNominee" class="field-ctrl" placeholder="Nominee..."></div>
+    <div style="background:#1E293B; border-radius:8px; padding:10px; margin-bottom:12px;">
+      <div style="font-size:0.75rem; font-weight:700; color:#FBBF24; margin-bottom:6px;">4 OPENING BALANCE BREAKDOWN</div>
+      <div class="four-cols">
+        <div><label class="field-label" style="font-size:0.65rem;">Op. RD</label><input type="number" id="inpNewMemBal" class="field-ctrl" value="4400"></div>
+        <div><label class="field-label" style="font-size:0.65rem;">Op. Loan</label><input type="number" id="inpNewMemOpLoan" class="field-ctrl" value="0"></div>
+        <div><label class="field-label" style="font-size:0.65rem;">Op. Int</label><input type="number" id="inpNewMemOpInt" class="field-ctrl" value="0"></div>
+        <div><label class="field-label" style="font-size:0.65rem;">Op. Pen</label><input type="number" id="inpNewMemOpPen" class="field-ctrl" value="0"></div>
+      </div>
+    </div>
+    <div class="field-box"><label class="field-label">Custom Loan Limit Override (₹) (0 = Auto 2x RD)</label><input type="number" id="inpNewMemCustomLimit" class="field-ctrl" value="0"></div>
+    <button class="btn btn-blue" id="btnSubmitMember" style="width:100%; justify-content:center; padding:12px;">Save Member Profile</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBulk">
+  <div class="modal-dialog-box modal-dialog-lg">
+    <div class="modal-header-row"><div class="modal-heading" style="color:#F59E0B;">▦ Bulk Entry Register</div><button class="close-x" id="btnCloseBulk">&times;</button></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+      <div><label class="field-label">Posting Date</label><input type="date" id="inpBulkDate" class="field-ctrl" style="width:170px;"></div>
+      <button class="btn btn-blue" id="btnAddBulkRow">➕ Add Row / Member</button>
+    </div>
+    <div style="max-height:380px; overflow-y:auto; margin-bottom:16px;">
+      <table>
+        <thead><tr><th><input type="checkbox" id="chkSelectAllBulk" checked></th><th>MEMBER & LIVE DUES</th><th>A. RD</th><th>B. INT</th><th>C. LOAN REPAY</th><th>D. PEN</th><th>E. WAIVER</th><th>F. ONLINE?</th></tr></thead>
+        <tbody id="tbodyBulkList"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-orange" id="btnSubmitBulk" style="width:100%; justify-content:center; padding:12px;">Post All Selected Collections</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalLedger">
+  <div class="modal-dialog-box modal-dialog-lg" id="printableLedgerArea">
+    <div class="modal-header-row">
+      <div class="modal-heading" id="lblLedgerName" style="color:#FBBF24;">Member Complete Ledger</div>
+      <div style="display:flex; gap:8px;"><button class="btn btn-green" id="btnPrintLedgerPdf">🖨️ Print Ledger (PDF)</button><button class="close-x" id="btnCloseLedger">&times;</button></div>
+    </div>
+    <div class="ledger-header" id="ledgerHeaderStats"></div>
+    <div style="font-size:0.95rem; font-weight:700; color:#38BDF8; margin-bottom:8px;">Transaction & Payment History</div>
+    <div style="max-height:260px; overflow-y:auto;">
+      <table>
+        <thead><tr><th>DATE</th><th>RECEIPT</th><th>RD DEPOSIT</th><th>INTEREST</th><th>PENALTY</th><th>LOAN REPAYMENT</th><th>TOTAL</th><th>MODE</th></tr></thead>
+        <tbody id="tbodyLedgerTxns"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBonusStatement">
+  <div class="modal-dialog-box modal-dialog-lg" id="printableBonusArea">
+    <div class="modal-header-row">
+      <div class="modal-heading" id="lblBonusStmtTitle" style="color:#C084FC;">Annual Bonus Statement (1% P.M.)</div>
+      <div style="display:flex; gap:8px;"><button class="btn btn-green" id="btnPrintBonusPdf">🖨️ Print Bonus Statement (PDF)</button><button class="close-x" id="btnCloseBonusStmt">&times;</button></div>
+    </div>
+    <div class="ledger-header" id="bonusStmtHeaderStats"></div>
+    <div style="font-size:0.95rem; font-weight:700; color:#FBBF24; margin-bottom:8px;">Month-by-Month RD & 1% Compounding Calculation Schedule</div>
+    <div style="max-height:260px; overflow-y:auto;">
+      <table>
+        <thead><tr><th>MONTH</th><th>OPENING RD</th><th>RD DEPOSITED</th><th>NET RD BASE</th><th>MONTHLY BONUS (1%)</th><th>ACCUMULATED BONUS</th></tr></thead>
+        <tbody id="tbodyBonusSchedule"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBonusSetoff">
+  <div class="modal-dialog-box">
+    <div class="modal-header-row"><div class="modal-heading" style="color:#C084FC;">🎁 Manual Bonus Set-off</div><button class="close-x" id="btnCloseBonusSetoff">&times;</button></div>
+    <input type="hidden" id="bonusMemId">
+    <div style="background:#1E293B; border-radius:8px; padding:12px; margin-bottom:14px;">
+      <div style="font-weight:700; color:#FBBF24;" id="lblBonusTargetMember">Member Name</div>
+      <div style="font-size:0.85rem; color:#94A3B8;">Calculated Bonus: <strong style="color:#34D399;" id="lblBonusAmount">₹0</strong></div>
+    </div>
+    <div class="two-cols field-box"><div><label class="field-label">Set-off Date</label><input type="date" id="inpBonusDate" class="field-ctrl"></div><div><label class="field-label">Payout Mode</label><select id="selBonusMode" class="field-ctrl"><option value="ONLINE">ONLINE</option><option value="CASH">CASH</option></select></div></div>
+    <div class="two-cols field-box"><div><label class="field-label">1. Adj. Loan Principal (₹)</label><input type="number" id="inpBonusAdjLoan" class="field-ctrl" value="0" oninput="calcBonusNet()"></div><div><label class="field-label">2. Adj. Loan Interest (₹)</label><input type="number" id="inpBonusAdjInt" class="field-ctrl" value="0" oninput="calcBonusNet()"></div></div>
+    <div class="two-cols field-box"><div><label class="field-label">3. Adj. RD Dues (₹)</label><input type="number" id="inpBonusAdjRd" class="field-ctrl" value="0" oninput="calcBonusNet()"></div><div><label class="field-label">4. Adj. Penalty (₹)</label><input type="number" id="inpBonusAdjPen" class="field-ctrl" value="0" oninput="calcBonusNet()"></div></div>
+    <div class="field-box" style="background:#060913; border:1px solid #334155; border-radius:8px; padding:10px;"><label class="field-label">Net Cash/Bank Payout (₹)</label><input type="number" id="inpBonusNetPaid" class="field-ctrl" value="0" readonly style="font-weight:800; color:#34D399;"></div>
+    <button class="btn btn-purple" id="btnSubmitBonusSetoff" style="width:100%; justify-content:center; padding:12px;">Confirm & Post Bonus Set-off</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalExit">
+  <div class="modal-dialog-box">
+    <div class="modal-header-row"><div class="modal-heading" style="color:#EF4444;">🚪 Member Exit Settlement</div><button class="close-x" id="btnCloseExit">&times;</button></div>
+    <div class="field-box"><label class="field-label">Select Member</label><div class="search-filter-box"><input type="text" placeholder="🔍 Search member..." oninput="filterDropdown('selExitMember', this.value)"></div><select id="selExitMember" class="field-ctrl" onchange="loadExitDetails()"></select></div>
+    <div style="background:#1E293B; border-radius:8px; padding:12px; margin-bottom:14px;">
+      <div class="two-cols" style="font-size:0.85rem;"><div>Total RD: <strong style="color:#10B981;" id="lblExitRd">₹0</strong></div><div>Loan Due: <strong style="color:#EF4444;" id="lblExitLoan">₹0</strong></div></div>
+      <div class="two-cols" style="font-size:0.85rem; margin-top:6px;"><div>Bonus: <strong style="color:#C084FC;" id="lblExitBonus">₹0</strong></div><div>Penalty: <strong style="color:#FBBF24;" id="lblExitPen">₹0</strong></div></div>
+    </div>
+    <div class="field-box" style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="chkExitIncludeBonus" checked onchange="calcExitNet()"><label for="chkExitIncludeBonus" style="font-size:0.85rem; font-weight:700; color:#CBD5E1;">Adjust Bonus in Settlement?</label></div>
+    <div class="two-cols field-box"><div><label class="field-label">NPA Loss (₹)</label><input type="number" id="inpExitNpa" class="field-ctrl" value="0" oninput="calcExitNet()"></div><div><label class="field-label">Waiver (₹)</label><input type="number" id="inpExitWaiver" class="field-ctrl" value="0" oninput="calcExitNet()"></div></div>
+    <div class="field-box" style="background:#060913; border:1px solid #334155; border-radius:8px; padding:12px; text-align:center;">
+      <div class="field-label" id="lblExitResultType">FINAL SETTLEMENT AMOUNT</div>
+      <div id="dispExitNetResult" style="font-size:1.4rem; font-weight:800; color:#10B981;">₹0</div>
+      <input type="hidden" id="inpExitNetRefund" value="0">
+    </div>
+    <button class="btn btn-red" id="btnSubmitExit" style="width:100%; justify-content:center; padding:12px;">Execute Settlement & Inactivate</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalFund">
+  <div class="modal-dialog-box modal-dialog-lg">
+    <div class="modal-header-row"><div class="modal-heading" style="color:#38BDF8;">🏛️ Cash & Bank Register</div><button class="close-x" id="btnCloseFund">&times;</button></div>
+    <div class="ledger-header" style="grid-template-columns: repeat(3, 1fr); margin-bottom:14px;">
+      <div><div class="ledger-stat-lbl">CASH BALANCE</div><div class="ledger-stat-val" style="color:#10B981;" id="lblRegCashBal">₹12,400</div></div>
+      <div><div class="ledger-stat-lbl">BANK / ONLINE BALANCE</div><div class="ledger-stat-val" style="color:#38BDF8;" id="lblRegBankBal">₹19,400</div></div>
+      <div><div class="ledger-stat-lbl">NET LIQUID FUND</div><div class="ledger-stat-val" style="color:#FBBF24;" id="lblRegTotalFund">₹31,800</div></div>
+    </div>
+    <div style="max-height:200px; overflow-y:auto; margin-bottom:14px;">
+      <table><thead><tr><th>MONTH</th><th>INFLOW (+)</th><th>OUTFLOW (-)</th><th>GRAPH / NET</th><th>ACTION</th></tr></thead><tbody id="tbodyFundMonths"></tbody></table>
+    </div>
+    <div id="fundDrilldownBox" style="display:none; background:#1E293B; border-radius:8px; padding:12px;">
+      <div style="font-weight:700; color:#FBBF24; font-size:0.85rem; margin-bottom:6px;" id="lblDrilldownTitle">Source Details</div>
+      <div style="max-height:150px; overflow-y:auto;"><table><tbody id="tbodyDrilldown"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalNpa">
+  <div class="modal-dialog-box modal-dialog-lg">
+    <div class="modal-header-row"><div class="modal-heading" style="color:#EF4444;">⚠️ NPA & Bad Debts Write-off List</div><button class="close-x" id="btnCloseNpa">&times;</button></div>
+    <div style="max-height:280px; overflow-y:auto;"><table><thead><tr><th>DATE</th><th>EXIT ID</th><th>MEMBER</th><th>WRITE-OFF NPA (₹)</th><th>STATUS</th></tr></thead><tbody id="tbodyNpaList"></tbody></table></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalSettings">
+  <div class="modal-dialog-box">
+    <div class="modal-header-row"><div class="modal-heading" style="color:#F59E0B;">⚙️ Society Settings</div><button class="close-x" id="btnCloseSettings">&times;</button></div>
+    <div class="field-box"><label class="field-label">Global Default Due Date</label><input type="text" id="inpGlobalDueDay" class="field-ctrl" value="15th of every month"></div>
+    <div class="field-box"><label class="field-label">Global Monthly Interest Rate (%)</label><input type="number" id="inpGlobalRate" class="field-ctrl" value="1.0" step="0.1"></div>
+    <button class="btn btn-blue" id="btnApplyGlobalSettings" style="width:100%; justify-content:center; padding:12px;">Apply Settings to All Active Members</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  var DEFAULT_MEMBERS = [
+    { id: "USR-00001", name: "Rahul Kumar", mobile: "9810011111", status: "ACTIVE", address: "H-12, Sector 3, Rohini", nominee: "Sunita Kumar (Wife)", rd: 400, rdPaid: 4800, dueDay: "15th of every month", customLimit: 0, opLoan: 0, opInt: 0, opPen: 0 },
+    { id: "USR-00002", name: "Suresh Sharma", mobile: "9810022222", status: "ACTIVE", address: "Shop 4, Main Market", nominee: "Vikas Sharma (Son)", rd: 400, rdPaid: 4400, dueDay: "15th of every month", customLimit: 0, opLoan: 0, opInt: 0, opPen: 0 },
+    { id: "USR-00003", name: "Amit Verma", mobile: "9810033333", status: "ACTIVE", address: "B-45, Shastri Nagar", nominee: "Pooja Verma (Wife)", rd: 400, rdPaid: 4400, dueDay: "15th of every month", customLimit: 0, opLoan: 0, opInt: 0, opPen: 0 },
+    { id: "USR-00004", name: "Deepak Gupta", mobile: "9810044444", status: "INACTIVE", address: "C-8, Laxmi Nagar", nominee: "Ramesh Gupta (Brother)", rd: 400, rdPaid: 4400, dueDay: "15th of every month", customLimit: 0, opLoan: 0, opInt: 0, opPen: 0 }
+  ];
+  var DEFAULT_PAYMENTS = [
+    { receiptNo: "REC-8801", date: "2026-08-31", id: "USR-00001", name: "Rahul Kumar", rd: 400, interest: 0, penalty: 0, waiver: 0, loanRepay: 0, total: 400, mode: "ONLINE", type: "REGULAR" },
+    { receiptNo: "REC-8802", date: "2026-08-31", id: "USR-00002", name: "Suresh Sharma", rd: 400, interest: 0, penalty: 0, waiver: 0, loanRepay: 0, total: 400, mode: "CASH", type: "REGULAR" }
+  ];
+  var DEFAULT_LOANS = [
+    { loanId: "LN-501", date: "2026-08-10", id: "USR-00001", name: "Rahul Kumar", type: "Emergency Loan", principal: 12000, rate: 1.0, repaid: 0, outstanding: 12000, status: "ACTIVE" },
+    { loanId: "LN-502", date: "2026-08-15", id: "USR-00003", name: "Amit Verma", type: "Gullak Loan", principal: 15000, rate: 1.0, repaid: 0, outstanding: 15000, status: "ACTIVE" },
+    { loanId: "LN-503", date: "2026-08-20", id: "USR-00004", name: "Deepak Gupta", type: "Emergency Loan", principal: 5000, rate: 1.0, repaid: 0, outstanding: 5000, status: "ACTIVE" }
+  ];
+
+  var members = JSON.parse(JSON.stringify(DEFAULT_MEMBERS));
+  var payments = JSON.parse(JSON.stringify(DEFAULT_PAYMENTS));
+  var loans = JSON.parse(JSON.stringify(DEFAULT_LOANS));
+  var exitSettlements = [];
+  var bonusSettlements = [];
+
+  function getTodayYMD() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function cleanPureDate(d) { if (!d) return "2026-08-31"; var str = String(d); if (str.indexOf("T") > 0) return str.split("T")[0]; if (str.indexOf("GMT") > 0 || str.indexOf(":") > 0) { var p = new Date(str); if (!isNaN(p.getTime())) return p.getFullYear() + "-" + String(p.getMonth() + 1).padStart(2, "0") + "-" + String(p.getDate()).padStart(2, "0"); } return str.split(" ")[0]; }
+
+  function saveStore() {
+    try { localStorage.setItem("gullak_v14_m", JSON.stringify(members)); localStorage.setItem("gullak_v14_p", JSON.stringify(payments)); localStorage.setItem("gullak_v14_l", JSON.stringify(loans)); localStorage.setItem("gullak_v14_ex", JSON.stringify(exitSettlements)); localStorage.setItem("gullak_v14_b", JSON.stringify(bonusSettlements)); } catch (e) {}
+    refreshAll();
+  }
+
+  function getMemberTotalRd(m) { var mid = String(m.id); var memPays = payments.filter(function(p) { return String(p.id) === mid; }); return (Number(m.rdPaid) || 4400) + memPays.reduce(function(a, p) { return a + (Number(p.rd) || 0); }, 0); }
+  function getMemberActiveLoan(m) { var mid = String(m.id); var memLoans = loans.filter(function(l) { return String(l.id) === mid && String(l.status).toUpperCase() === "ACTIVE"; }); return (Number(m.opLoan) || 0) + memLoans.reduce(function(a, l) { return a + (Number(l.outstanding) || 0); }, 0); }
+  function getMemberPenaltyStats(m) { var mid = String(m.id); var memPays = payments.filter(function(p) { return String(p.id) === mid; }); var paid = memPays.reduce(function(a, p) { return a + (Number(p.penalty) || 0); }, 0); return { paid: paid, due: Number(m.opPen) || 0 }; }
+
+  function calculate1PercentPmBonus(m) {
+    var currentBal = Number(m.rdPaid) || 4400;
+    var monthlyRd = Number(m.rd) || 400;
+    var totalBonus = 0; var schedule = [];
+    var months = ["Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026", "Jul 2026", "Aug 2026", "Sep 2026", "Oct 2026", "Nov 2026", "Dec 2026"];
+    for (var i = 0; i < months.length; i++) {
+      var prevBal = currentBal; currentBal += monthlyRd; var mBonus = Math.round(currentBal * 0.01); totalBonus += mBonus;
+      schedule.push({ month: months[i], opening: prevBal, deposit: monthlyRd, netBase: currentBal, mBonus: mBonus, accumBonus: totalBonus });
+    }
+    return { totalBonus: totalBonus, schedule: schedule };
+  }
+
+  function getMemberBonus(m) { return calculate1PercentPmBonus(m).totalBonus; }
+  function getMemberBonusStatus(m) { var isSetoff = bonusSettlements.some(function(b) { return String(b.id) === String(m.id); }); return isSetoff ? { text: "SET-OFF / PAID", isPending: false } : { text: "PENDING", isPending: true }; }
+  function getMemberLoanLimit(m) { var activeDue = getMemberActiveLoan(m); if (activeDue > 0) return { limit: 0, text: "₹0 (Active Loan Pending)", isBlocked: true }; if (m.customLimit && Number(m.customLimit) > 0) return { limit: Number(m.customLimit), text: "₹" + Number(m.customLimit).toLocaleString("en-IN") + " (Custom)", isBlocked: false }; var stdLimit = getMemberTotalRd(m) * 2; return { limit: stdLimit, text: "₹" + stdLimit.toLocaleString("en-IN") + " (2X RD)", isBlocked: false }; }
+
+  function updateKPIs() {
+    var activeMems = members.filter(function(m) { return String(m.status).toUpperCase() === "ACTIVE"; });
+    var elMem = document.getElementById("dispTotalMem"); if (elMem) elMem.innerText = activeMems.length + " / " + members.length;
+    var totalRdRecv = members.reduce(function(a, m) { return a + getMemberTotalRd(m); }, 0);
+    var elRd = document.getElementById("dispTotalRd"); if (elRd) elRd.innerText = "₹" + totalRdRecv.toLocaleString("en-IN");
+    var totalLoan = loans.filter(function(l) { return String(l.status).toUpperCase() === "ACTIVE"; }).reduce(function(a, l) { return a + (Number(l.outstanding) || 0); }, 0);
+    var elLoan = document.getElementById("dispTotalLoan"); if (elLoan) elLoan.innerText = "₹" + totalLoan.toLocaleString("en-IN");
+    var estBonus = members.reduce(function(a, m) { return a + getMemberBonus(m); }, 0);
+    var elB = document.getElementById("dispTotalBonus"); if (elB) elB.innerText = "₹" + estBonus.toLocaleString("en-IN");
+    var fund = totalRdRecv - totalLoan + 45000;
+    var elFund = document.getElementById("dispTotalFund"); if (elFund) { elFund.innerText = (fund >= 0 ? "+₹" : "-₹") + Math.abs(fund).toLocaleString("en-IN"); elFund.className = fund >= 0 ? "kpi-val val-green" : "kpi-val val-red"; }
+    var totalNpa = exitSettlements.reduce(function(a, e) { return a + (Number(e.npaLoss) || 0); }, 0);
+    var elNpa = document.getElementById("dispTotalNpa"); if (elNpa) elNpa.innerText = "₹" + totalNpa.toLocaleString("en-IN");
+  }
+
+  function renderMembers() {
+    var stFilter = document.getElementById("selFilterStatus") ? document.getElementById("selFilterStatus").value : "ALL";
+    var sortType = document.getElementById("selSortMembers") ? document.getElementById("selSortMembers").value : "name_az";
+    var q = (document.getElementById("memberFilterInput") ? String(document.getElementById("memberFilterInput").value) : "").toLowerCase().trim();
+    var filtered = members.filter(function(m) {
+      return (String(m.name || "").toLowerCase().indexOf(q) >= 0 || String(m.mobile || "").indexOf(q) >= 0) && (stFilter === "ALL" || String(m.status).toUpperCase() === stFilter);
+    });
+    if (sortType === "name_az") filtered.sort(function(a, b) { return (a.name || "").localeCompare(b.name || ""); });
+    if (sortType === "rd_high") filtered.sort(function(a, b) { return getMemberTotalRd(b) - getMemberTotalRd(a); });
+    if (sortType === "rd_low") filtered.sort(function(a, b) { return getMemberTotalRd(a) - getMemberTotalRd(b); });
+    if (sortType === "loan_high") filtered.sort(function(a, b) { return getMemberActiveLoan(b) - getMemberActiveLoan(a); });
+    var tbody = document.getElementById("tbodyMembers"); if (!tbody) return;
+    if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94A3B8;">No members found</td></tr>'; return; }
+    var html = "";
+    filtered.forEach(function(m) {
+      var mid = String(m.id || ""); var totRd = getMemberTotalRd(m); var loanDue = getMemberActiveLoan(m); var lLimit = getMemberLoanLimit(m);
+      var badge = String(m.status).toUpperCase() === "ACTIVE" ? '<span class="badge-active">ACTIVE</span>' : '<span class="badge-inactive">INACTIVE</span>';
+      html += '<tr>' +
+        '<td><div class="member-link action-view-ledger" data-id="' + mid + '">' + m.name + ' 🔍</div><div class="phone-txt">' + m.mobile + '</div></td>' +
+        '<td><strong style="color:#38BDF8;">' + (m.dueDay || "15th") + '</strong></td>' +
+        '<td style="color:#10B981; font-weight:700;">₹' + totRd.toLocaleString("en-IN") + '</td>' +
+        '<td>' + (lLimit.isBlocked ? '<span class="badge-zero">' + lLimit.text + '</span>' : '<strong style="color:#FBBF24;">' + lLimit.text + '</strong>') + '</td>' +
+        '<td style="color:#EF4444; font-weight:700;">₹' + loanDue.toLocaleString("en-IN") + '</td>' +
+        '<td>' + badge + '</td>' +
+        '<td><button class="btn-action-rcv action-receive-for" data-id="' + mid + '">Receive</button><button class="btn-action-edit action-edit-member" data-id="' + mid + '">✏️ Edit</button></td>' +
+      '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  function renderPayments() {
+    var modeFilter = document.getElementById("selFilterPayMode") ? document.getElementById("selFilterPayMode").value : "ALL";
+    var sortType = document.getElementById("selSortPayDate") ? document.getElementById("selSortPayDate").value : "new";
+    var q = (document.getElementById("searchPayInput") ? String(document.getElementById("searchPayInput").value) : "").toLowerCase().trim();
+    var filtered = payments.filter(function(p) {
+      return (modeFilter === "ALL" || String(p.mode).toUpperCase() === modeFilter) && (String(p.receiptNo || "").toLowerCase().indexOf(q) >= 0 || String(p.name || "").toLowerCase().indexOf(q) >= 0);
+    });
+    if (sortType === "new") filtered.sort(function(a, b) { return new Date(b.date || "2026-01-01") - new Date(a.date || "2026-01-01"); });
+    if (sortType === "old") filtered.sort(function(a, b) { return new Date(a.date || "2026-01-01") - new Date(b.date || "2026-01-01"); });
+    if (sortType === "amt_high") filtered.sort(function(a, b) { return Number(b.total || 0) - Number(a.total || 0); });
+    var tbody = document.getElementById("tbodyPayments"); if (!tbody) return;
+    if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#94A3B8;">No receipts</td></tr>'; return; }
+    var html = "";
+    filtered.forEach(function(p) {
+      html += '<tr>' +
+        '<td style="color:#FBBF24; font-family:monospace;">' + (p.receiptNo || "REC") + '</td>' +
+        '<td>' + cleanPureDate(p.date) + '</td>' +
+        '<td><strong class="member-link action-view-ledger" data-id="' + p.id + '">' + p.name + '</strong></td>' +
+        '<td style="color:#10B981;">₹' + (p.rd || 0) + '</td>' +
+        '<td style="color:#FBBF24;">₹' + (p.interest || 0) + '</td>' +
+        '<td style="color:#EF4444;">₹' + (p.penalty || 0) + '</td>' +
+        '<td style="color:#38BDF8; font-weight:700;">₹' + (p.loanRepay || 0) + '</td>' +
+        '<td style="color:#94A3B8;">₹' + (p.waiver || 0) + '</td>' +
+        '<td style="font-weight:700;">₹' + Number(p.total || 0).toLocaleString("en-IN") + '</td>' +
+        '<td>' + (p.mode || "ONLINE") + '</td>' +
+      '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  function renderLoans() {
+    var typeFilter = document.getElementById("selFilterLoanType") ? document.getElementById("selFilterLoanType").value : "ALL";
+    var stFilter = document.getElementById("selFilterLoanStatus") ? document.getElementById("selFilterLoanStatus").value : "ALL";
+    var sortType = document.getElementById("selSortLoans") ? document.getElementById("selSortLoans").value : "large";
+    var filtered = loans.filter(function(l) { return (typeFilter === "ALL" || String(l.type) === typeFilter) && (stFilter === "ALL" || String(l.status).toUpperCase() === stFilter); });
+    if (sortType === "large") filtered.sort(function(a, b) { return Number(b.outstanding || 0) - Number(a.outstanding || 0); });
+    if (sortType === "small") filtered.sort(function(a, b) { return Number(a.outstanding || 0) - Number(b.outstanding || 0); });
+    if (sortType === "new") filtered.sort(function(a, b) { return new Date(b.date || "2026-01-01") - new Date(a.date || "2026-01-01"); });
+    var tbody = document.getElementById("tbodyLoans"); if (!tbody) return;
+    if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#94A3B8;">No loans</td></tr>'; return; }
+    var html = "";
+    filtered.forEach(function(l) {
+      var badge = String(l.status).toUpperCase() === "ACTIVE" ? "badge-active" : "badge-inactive";
+      html += '<tr>' +
+        '<td style="color:#FBBF24; font-family:monospace;">' + (l.loanId || "LN") + '</td>' +
+        '<td>' + cleanPureDate(l.date) + '</td>' +
+        '<td><strong class="member-link action-view-ledger" data-id="' + l.id + '">' + l.name + '</strong></td>' +
+        '<td>' + (l.type || "Gullak Loan") + '</td>' +
+        '<td>₹' + Number(l.principal || 0).toLocaleString("en-IN") + '</td>' +
+        '<td>' + (l.rate || 1.0) + '%</td>' +
+        '<td style="color:#EF4444; font-weight:700;">₹' + Number(l.outstanding || 0).toLocaleString("en-IN") + '</td>' +
+        '<td><span class="' + badge + '">' + (l.status || "ACTIVE") + '</span></td>' +
+      '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  function renderBonusTab() {
+    var tbody = document.getElementById("tbodyBonusList"); if (!tbody) return;
+    var html = "";
+    members.forEach(function(m) {
+      var mid = String(m.id); var totRd = getMemberTotalRd(m); var bonus = getMemberBonus(m); var loanDue = getMemberActiveLoan(m); var pen = getMemberPenaltyStats(m); var bStatus = getMemberBonusStatus(m);
+      var badgeHtml = bStatus.isPending ? '<span class="badge-pending">PENDING</span>' : '<span class="badge-active">SET-OFF / PAID</span>';
+      html += '<tr>' +
+        '<td><strong style="color:#FBBF24;">' + m.name + '</strong><br><small style="color:#94A3B8;">' + m.id + '</small></td>' +
+        '<td style="color:#10B981; font-weight:700;">₹' + totRd.toLocaleString("en-IN") + '</td>' +
+        '<td style="color:#C084FC; font-weight:800; font-size:1.05rem;">₹' + bonus.toLocaleString("en-IN") + '</td>' +
+        '<td style="color:#EF4444; font-weight:700;">₹' + loanDue.toLocaleString("en-IN") + '</td>' +
+        '<td style="color:#F59E0B;">₹' + pen.due + '</td>' +
+        '<td>' + badgeHtml + '</td>' +
+        '<td><button class="btn btn-dark action-view-bonus-statement" data-id="' + mid + '" style="padding:5px 8px; font-size:0.76rem; margin-right:4px;">📜 Statement (PDF)</button><button class="btn btn-purple action-open-bonus-setoff" data-id="' + mid + '" style="padding:5px 10px; font-size:0.76rem;">⚡ Set-off</button></td>' +
+      '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  window.filterDropdown = function(selectId, query) {
+    var q = (query || "").toLowerCase(); var sel = document.getElementById(selectId); if (!sel) return;
+    var html = ""; members.filter(function(m) { return (m.name || "").toLowerCase().indexOf(q) >= 0 || (m.mobile || "").indexOf(q) >= 0; }).forEach(function(m) { html += '<option value="' + m.id + '">' + m.name + ' (' + m.mobile + ')</option>'; });
+    sel.innerHTML = html || '<option value="">No match</option>';
+  };
+
+  function populateDropdowns() {
+    var html = ""; members.forEach(function(m) { html += '<option value="' + m.id + '">' + m.name + ' (' + m.mobile + ')</option>'; });
+    var elP = document.getElementById("selPayMember"); if (elP) elP.innerHTML = html;
+    var elL = document.getElementById("selLoanMember"); if (elL) elL.innerHTML = html;
+    var elEx = document.getElementById("selExitMember"); if (elEx) elEx.innerHTML = html;
+  }
+
+  function switchTab(index) {
+    for (var i = 1; i <= 4; i++) {
+      var p = document.getElementById("tabPanel" + i); if (p) p.style.display = index === i ? "block" : "none";
+      var h = document.getElementById("tabHead" + i); if (h) h.className = index === i ? "tab-item active" : "tab-item";
+    }
+  }
+
+  function openModal(id) { var el = document.getElementById(id); if (el) el.style.display = "flex"; }
+  function closeModal(id) { var el = document.getElementById(id); if (el) el.style.display = "none"; }
+  function showNotice(title, msg) { var h = document.getElementById("noticeHeader"); if (h) h.innerText = title; var b = document.getElementById("noticeBody"); if (b) b.innerText = msg; openModal("modalNotice"); }
+
+  function openReceiveModal() { var inp = document.getElementById("inpPayDate"); if (inp) inp.value = getTodayYMD(); populateDropdowns(); openModal("modalReceive"); }
+  function openReceiveFor(id) { populateDropdowns(); var sel = document.getElementById("selPayMember"); if (sel) sel.value = id; var inp = document.getElementById("inpPayDate"); if (inp) inp.value = getTodayYMD(); openModal("modalReceive"); }
+  function openLoanModal() { var inp = document.getElementById("inpLoanDate"); if (inp) inp.value = getTodayYMD(); populateDropdowns(); checkLoanLimitDisplay(); openModal("modalLoan"); }
+  function checkLoanLimitDisplay() { var sel = document.getElementById("selLoanMember"); if (!sel) return; var m = members.find(function(x) { return String(x.id) === String(sel.value); }); var lbl = document.getElementById("lblMemberLoanLimit"); if (m && lbl) { var lInfo = getMemberLoanLimit(m); lbl.innerText = "Available: " + lInfo.text; lbl.style.color = lInfo.isBlocked ? "#EF4444" : "#FBBF24"; } }
+
+  function openAddMemberModal() {
+    var eId = document.getElementById("editMemId"); if (eId) eId.value = "";
+    document.getElementById("lblMemberModalHead").innerText = "👤 + Add New Member Profile";
+    document.getElementById("inpNewMemName").value = ""; document.getElementById("inpNewMemMobile").value = "";
+    document.getElementById("inpNewMemDueDay").value = "15th of every month"; document.getElementById("inpNewMemRd").value = 400;
+    document.getElementById("inpNewMemBal").value = 4400; document.getElementById("inpNewMemOpLoan").value = 0;
+    document.getElementById("inpNewMemOpInt").value = 0; document.getElementById("inpNewMemOpPen").value = 0;
+    document.getElementById("inpNewMemCustomLimit").value = 0; document.getElementById("inpNewMemAddress").value = "";
+    document.getElementById("inpNewMemNominee").value = ""; openModal("modalMember");
+  }
+
+  function openEditMember(id) {
+    var m = members.find(function(x) { return String(x.id) === String(id); }); if (!m) return;
+    document.getElementById("editMemId").value = m.id; document.getElementById("lblMemberModalHead").innerText = "✏️ Edit Member Profile";
+    document.getElementById("inpNewMemName").value = m.name || ""; document.getElementById("inpNewMemMobile").value = m.mobile || "";
+    document.getElementById("inpNewMemStatus").value = m.status || "ACTIVE"; document.getElementById("inpNewMemDueDay").value = m.dueDay || "15th of every month";
+    document.getElementById("inpNewMemRd").value = m.rd || 400; document.getElementById("inpNewMemBal").value = m.rdPaid || 4400;
+    document.getElementById("inpNewMemOpLoan").value = m.opLoan || 0; document.getElementById("inpNewMemOpInt").value = m.opInt || 0;
+    document.getElementById("inpNewMemOpPen").value = m.opPen || 0; document.getElementById("inpNewMemCustomLimit").value = m.customLimit || 0;
+    document.getElementById("inpNewMemAddress").value = m.address || ""; document.getElementById("inpNewMemNominee").value = m.nominee || "";
+    openModal("modalMember");
+  }
+
+  function openMemberLedger(id) {
+    var m = members.find(function(x) { return String(x.id) === String(id); }); if (!m) return;
+    document.getElementById("lblLedgerName").innerText = "📜 Ledger: " + m.name + " (" + m.id + ")";
+    var mid = String(m.id); var totRd = getMemberTotalRd(m); var loanDue = getMemberActiveLoan(m); var lLimit = getMemberLoanLimit(m); var bonus = getMemberBonus(m); var bStatus = getMemberBonusStatus(m);
+    document.getElementById("ledgerHeaderStats").innerHTML = '' +
+      '<div><div class="ledger-stat-lbl">Due Date / Status</div><div class="ledger-stat-val" style="color:#38BDF8;">' + (m.dueDay || "15th") + ' • ' + m.status + '</div></div>' +
+      '<div><div class="ledger-stat-lbl">Loan Limit (2X RD)</div><div class="ledger-stat-val" style="color:#FBBF24; font-size:1rem;">' + lLimit.text + '</div></div>' +
+      '<div><div class="ledger-stat-lbl">Total RD Saved</div><div class="ledger-stat-val" style="color:#10B981;">₹' + totRd.toLocaleString("en-IN") + '</div></div>' +
+      '<div><div class="ledger-stat-lbl">Active Loan Due</div><div class="ledger-stat-val" style="color:#EF4444;">₹' + loanDue.toLocaleString("en-IN") + '</div></div>' +
+      '<div><div class="ledger-stat-lbl">Opening Balances</div><div style="font-size:0.75rem; color:#CBD5E1;">RD: ₹' + (m.rdPaid||4400) + ' | Loan: ₹' + (m.opLoan||0) + '<br>Int: ₹' + (m.opInt||0) + ' | Pen: ₹' + (m.opPen||0) + '</div></div>' +
+      '<div><div class="ledger-stat-lbl">Bonus (1% P.M.)</div><div class="ledger-stat-val" style="color:#C084FC;">₹' + bonus.toLocaleString("en-IN") + '<br><small style="font-size:0.72rem; color:#FBBF24;">' + bStatus.text + '</small></div></div>';
+    var memPayments = payments.filter(function(p) { return String(p.id) === mid; });
+    var txnHtml = "";
+    memPayments.forEach(function(p) {
+      txnHtml += '<tr><td>' + cleanPureDate(p.date) + '</td><td style="color:#FBBF24; font-family:monospace;">' + (p.receiptNo || "REC") + '</td><td style="color:#10B981;">₹' + (p.rd || 0) + '</td><td>₹' + (p.interest || 0) + '</td><td style="color:#EF4444;">₹' + (p.penalty || 0) + '</td><td>₹' + (p.loanRepay || 0) + '</td><td style="font-weight:700;">₹' + (p.total || 0) + '</td><td>' + (p.mode || "ONLINE") + '</td></tr>';
+    });
+    document.getElementById("tbodyLedgerTxns").innerHTML = txnHtml || '<tr><td colspan="8" style="text-align:center; color:#94A3B8;">No payments recorded yet.</td></tr>';
+    openModal("modalLedger");
+  }
+
+  function openBonusStatementModal(id) {
+    var m = members.find(function(x) { return String(x.id) === String(id); }); if (!m) return;
+    document.getElementById("lblBonusStmtTitle").innerText = "🎁 Bonus Statement: " + m.name + " (" + m.id + ")";
+    var calc = calculate1PercentPmBonus(m); var bStatus = getMemberBonusStatus(m);
+    document.getElementById("bonusStmtHeaderStats").innerHTML = '' +
+      '<div><div class="ledger-stat-lbl">Opening RD Balance</div><div class="ledger-stat-val" style="color:#38BDF8;">₹' + (m.rdPaid||4400) + '</div></div>' +
+      '<div><div class="ledger-stat-lbl">Monthly RD Commitment</div><div class="ledger-stat-val" style="color:#10B981;">₹' + (m.rd||400) + ' / mo</div></div>' +
+      '<div><div class="ledger-stat-lbl">Calculation Rule</div><div class="ledger-stat-val" style="color:#FBBF24;">1% per month</div></div>' +
+      '<div><div class="ledger-stat-lbl">Total Annual Bonus</div><div class="ledger-stat-val" style="color:#C084FC;">₹' + calc.totalBonus.toLocaleString("en-IN") + '</div></div>' +
+      '<div><div class="ledger-stat-lbl">Bonus Status</div><div class="ledger-stat-val" style="color:#FBBF24;">' + bStatus.text + '</div></div>';
+    var schedHtml = "";
+    calc.schedule.forEach(function(s) {
+      schedHtml += '<tr><td><strong>' + s.month + '</strong></td><td>₹' + s.opening.toLocaleString("en-IN") + '</td><td style="color:#10B981;">+₹' + s.deposit.toLocaleString("en-IN") + '</td><td style="font-weight:700; color:#38BDF8;">₹' + s.netBase.toLocaleString("en-IN") + '</td><td style="color:#FBBF24; font-weight:700;">₹' + s.mBonus + '</td><td style="color:#C084FC; font-weight:800;">₹' + s.accumBonus.toLocaleString("en-IN") + '</td></tr>';
+    });
+    document.getElementById("tbodyBonusSchedule").innerHTML = schedHtml;
+    openModal("modalBonusStatement");
+  }
+
+  function printLedgerPdf() {
+    var pContent = document.getElementById("printableLedgerArea").innerHTML;
+    var printWin = window.open('', '', 'width=900,height=700');
+    printWin.document.write('<html><head><title>Member Ledger Report</title><style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:8px;}th{background:#0284C7;color:#fff;}button{display:none;}</style></head><body>' + pContent + '</body></html>');
+    printWin.document.close(); printWin.focus(); setTimeout(function() { printWin.print(); }, 500);
+  }
+
+  function printBonusPdf() {
+    var pContent = document.getElementById("printableBonusArea").innerHTML;
+    var printWin = window.open('', '', 'width=900,height=700');
+    printWin.document.write('<html><head><title>Annual Bonus Statement</title><style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:8px;}th{background:#7C3AED;color:#fff;}button{display:none;}</style></head><body>' + pContent + '</body></html>');
+    printWin.document.close(); printWin.focus(); setTimeout(function() { printWin.print(); }, 500);
+  }
+
+  function openBulkModal() { var inp = document.getElementById("inpBulkDate"); if (inp) inp.value = getTodayYMD(); renderBulkList(); openModal("modalBulk"); }
+  function renderBulkList() {
+    var html = ""; members.filter(function(m) { return String(m.status).toUpperCase() === "ACTIVE"; }).forEach(function(m) { html += generateBulkRowHtml(m); });
+    var tbody = document.getElementById("tbodyBulkList"); if (tbody) tbody.innerHTML = html || '<tr><td colspan="8" style="text-align:center; color:#94A3B8;">No active members</td></tr>';
+  }
+  function generateBulkRowHtml(m) {
+    var mid = String(m.id); var mname = String(m.name); var totLoan = getMemberActiveLoan(m); var estInterest = Math.round(totLoan * 0.01); var penStats = getMemberPenaltyStats(m); var rdAmt = Number(m.rd) || 400;
+    return '<tr>' +
+      '<td><input type="checkbox" class="bulk-row-chk" data-id="' + mid + '" data-name="' + mname + '" checked></td>' +
+      '<td><strong style="color:#FBBF24;">' + mname + '</strong><div class="due-subtext">RD Due: ₹' + rdAmt + ' | Int: ₹' + estInterest + ' | Loan: ₹' + totLoan + ' | Pen: ₹' + penStats.due + '</div></td>' +
+      '<td><input type="number" class="field-ctrl b-rd" style="width:75px; padding:4px 6px; font-size:0.8rem;" value="' + rdAmt + '"></td>' +
+      '<td><input type="number" class="field-ctrl b-int" style="width:75px; padding:4px 6px; font-size:0.8rem;" value="' + estInterest + '"></td>' +
+      '<td><input type="number" class="field-ctrl b-repay" style="width:75px; padding:4px 6px; font-size:0.8rem;" value="0"></td>' +
+      '<td><input type="number" class="field-ctrl b-pen" style="width:70px; padding:4px 6px; font-size:0.8rem;" value="' + penStats.due + '"></td>' +
+      '<td><input type="number" class="field-ctrl b-waiver" style="width:70px; padding:4px 6px; font-size:0.8rem;" value="0"></td>' +
+      '<td><label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer;"><input type="checkbox" class="b-mode-chk" checked> Online</label></td>' +
+    '</tr>';
+  }
+
+  function addBulkRowManually() {
+    var newRowHtml = '<tr>' +
+      '<td><input type="checkbox" class="bulk-row-chk" checked></td>' +
+      '<td><input type="text" class="field-ctrl b-custom-name" placeholder="Member Name..." style="padding:4px 6px; font-size:0.8rem;"></td>' +
+      '<td><input type="number" class="field-ctrl b-rd" style="width:75px; padding:4px 6px; font-size:0.8rem;" value="400"></td>' +
+      '<td><input type="number" class="field-ctrl b-int" style="width:75px; padding:4px 6px; font-size:0.8rem;" value="0"></td>' +
+      '<td><input type="number" class="field-ctrl b-repay" style="width:75px; padding:4px 6px; font-size:0.8rem;" value="0"></td>' +
+      '<td><input type="number" class="field-ctrl b-pen" style="width:70px; padding:4px 6px; font-size:0.8rem;" value="0"></td>' +
+      '<td><input type="number" class="field-ctrl b-waiver" style="width:70px; padding:4px 6px; font-size:0.8rem;" value="0"></td>' +
+      '<td><label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer;"><input type="checkbox" class="b-mode-chk" checked> Online</label></td>' +
+    '</tr>';
+    var tbody = document.getElementById("tbodyBulkList"); if (tbody) tbody.insertAdjacentHTML("beforeend", newRowHtml);
+  }
+
+  function openBonusSetoffModal(id) {
+    var m = members.find(function(x) { return String(x.id) === String(id); }); if (!m) return;
+    document.getElementById("bonusMemId").value = m.id; document.getElementById("lblBonusTargetMember").innerText = m.name + " (" + m.id + ")";
+    var bonus = getMemberBonus(m); document.getElementById("lblBonusAmount").innerText = "₹" + bonus.toLocaleString("en-IN");
+    document.getElementById("inpBonusDate").value = getTodayYMD();
+    var loanDue = getMemberActiveLoan(m); var estInt = Math.round(loanDue * 0.01);
+    document.getElementById("inpBonusAdjLoan").value = Math.min(bonus, loanDue);
+    document.getElementById("inpBonusAdjInt").value = estInt;
+    document.getElementById("inpBonusAdjRd").value = 0; document.getElementById("inpBonusAdjPen").value = 0;
+    calcBonusNet(); openModal("modalBonusSetoff");
+  }
+
+  window.calcBonusNet = function() {
+    var id = document.getElementById("bonusMemId").value; var m = members.find(function(x) { return String(x.id) === String(id); }); if (!m) return;
+    var totalBonus = getMemberBonus(m); var adjLoan = Number(document.getElementById("inpBonusAdjLoan").value) || 0;
+    var adjInt = Number(document.getElementById("inpBonusAdjInt").value) || 0; var adjRd = Number(document.getElementById("inpBonusAdjRd").value) || 0;
+    var adjPen = Number(document.getElementById("inpBonusAdjPen").value) || 0;
+    document.getElementById("inpBonusNetPaid").value = totalBonus - adjLoan - adjInt - adjRd - adjPen;
+  };
+
+  window.loadExitDetails = function() {
+    var sel = document.getElementById("selExitMember"); if (!sel) return;
+    var m = members.find(function(x) { return String(x.id) === String(sel.value); }); if (!m) return;
+    document.getElementById("lblExitRd").innerText = "₹" + getMemberTotalRd(m).toLocaleString("en-IN");
+    document.getElementById("lblExitLoan").innerText = "₹" + getMemberActiveLoan(m).toLocaleString("en-IN");
+    document.getElementById("lblExitBonus").innerText = "₹" + getMemberBonus(m).toLocaleString("en-IN");
+    document.getElementById("lblExitPen").innerText = "₹" + getMemberPenaltyStats(m).due;
+    calcExitNet();
+  };
+
+  window.calcExitNet = function() {
+    var sel = document.getElementById("selExitMember"); if (!sel) return;
+    var m = members.find(function(x) { return String(x.id) === String(sel.value); }); if (!m) return;
+    var totRd = getMemberTotalRd(m); var loanDue = getMemberActiveLoan(m);
+    var bonus = document.getElementById("chkExitIncludeBonus").checked ? getMemberBonus(m) : 0;
+    var npa = Number(document.getElementById("inpExitNpa").value) || 0; var waiver = Number(document.getElementById("inpExitWaiver").value) || 0;
+    var netSettlement = (totRd + bonus + waiver) - (loanDue - npa);
+    document.getElementById("inpExitNetRefund").value = netSettlement;
+    var elRes = document.getElementById("dispExitNetResult"); var elType = document.getElementById("lblExitResultType");
+    if (netSettlement >= 0) { elType.innerText = "PAYABLE TO MEMBER (REFUND CASH/BANK)"; elRes.innerText = "+₹" + netSettlement.toLocaleString("en-IN"); elRes.style.color = "#EF4444"; }
+    else { elType.innerText = "RECEIVABLE FROM MEMBER (RECOVER DUES)"; elRes.innerText = "₹" + Math.abs(netSettlement).toLocaleString("en-IN"); elRes.style.color = "#10B981"; }
+  };
+
+  function openExitModal() { populateDropdowns(); loadExitDetails(); openModal("modalExit"); }
+
+  function openFundModal() {
+    var onlineInflow = payments.filter(function(p) { return String(p.mode).toUpperCase() === "ONLINE"; }).reduce(function(a, p) { return a + (Number(p.total) || 0); }, 0);
+    var cashInflow = payments.filter(function(p) { return String(p.mode).toUpperCase() === "CASH"; }).reduce(function(a, p) { return a + (Number(p.total) || 0); }, 0);
+    var totalOutflow = loans.reduce(function(a, l) { return a + (Number(l.principal) || 0); }, 0);
+    var liveCashBal = 15000 + cashInflow - (totalOutflow * 0.3); var liveBankBal = 30000 + onlineInflow - (totalOutflow * 0.7); var liveTotalFund = liveCashBal + liveBankBal;
+    document.getElementById("lblRegCashBal").innerText = "₹" + Math.max(0, Math.round(liveCashBal)).toLocaleString("en-IN");
+    document.getElementById("lblRegBankBal").innerText = "₹" + Math.max(0, Math.round(liveBankBal)).toLocaleString("en-IN");
+    document.getElementById("lblRegTotalFund").innerText = "₹" + Math.max(0, Math.round(liveTotalFund)).toLocaleString("en-IN");
+
+    var monthsData = [{ month: "August 2026", inAmt: 75600, outAmt: 32000 }, { month: "September 2026 (Live)", inAmt: (onlineInflow + cashInflow) || 800, outAmt: totalOutflow || 32000 }];
+    var html = "";
+    monthsData.forEach(function(md, idx) {
+      var net = md.inAmt - md.outAmt;
+      html += '<tr><td><strong>' + md.month + '</strong></td><td style="color:#10B981; font-weight:700;">+₹' + md.inAmt.toLocaleString("en-IN") + '</td><td style="color:#EF4444; font-weight:700;">-₹' + md.outAmt.toLocaleString("en-IN") + '</td><td><div class="bar-container"><div class="bar-in" style="width:65%;"></div><div class="bar-out" style="width:35%;"></div></div><small style="color:#CBD5E1;">Net: ₹' + net.toLocaleString("en-IN") + '</small></td><td><button class="btn btn-dark action-drill-month" data-idx="' + idx + '" style="padding:3px 8px; font-size:0.75rem;">Source 🔍</button></td></tr>';
+    });
+    document.getElementById("tbodyFundMonths").innerHTML = html; openModal("modalFund");
+  }
+
+  function drilldownMonth(idx) {
+    document.getElementById("fundDrilldownBox").style.display = "block"; document.getElementById("lblDrilldownTitle").innerText = "Drilldown Source: Live Transactions";
+    var dHtml = "<tr><th>SOURCE / MEMBER</th><th>CATEGORY</th><th>AMOUNT</th></tr>";
+    payments.forEach(function(p) { dHtml += '<tr><td>' + p.name + ' (' + p.mode + ')</td><td style="color:#10B981;">RD + Interest Inflow</td><td>₹' + p.total + '</td></tr>'; });
+    loans.forEach(function(l) { dHtml += '<tr><td>' + l.name + ' (' + l.type + ')</td><td style="color:#EF4444;">Loan Disbursal Outflow</td><td>₹' + l.principal + '</td></tr>'; });
+    document.getElementById("tbodyDrilldown").innerHTML = dHtml;
+  }
+
+  function openNpaModal() {
+    var html = "";
+    exitSettlements.filter(function(e) { return Number(e.npaLoss) > 0; }).forEach(function(e) {
+      html += '<tr><td>' + cleanPureDate(e.date) + '</td><td style="color:#FBBF24;">' + e.exitId + '</td><td><strong>' + e.name + '</strong> (' + e.id + ')</td><td style="color:#EF4444; font-weight:800;">₹' + Number(e.npaLoss).toLocaleString("en-IN") + '</td><td><span class="badge-inactive">WRITTEN OFF</span></td></tr>';
+    });
+    document.getElementById("tbodyNpaList").innerHTML = html || '<tr><td colspan="5" style="text-align:center; color:#94A3B8;">No bad debts. 100% Recovery!</td></tr>';
+    openModal("modalNpa");
+  }
+
+  function applyGlobalSettings() {
+    var due = document.getElementById("inpGlobalDueDay").value.trim() || "15th of every month";
+    var rate = Number(document.getElementById("inpGlobalRate").value) || 1.0;
+    members.forEach(function(m) { m.dueDay = due; });
+    loans.forEach(function(l) { if (l.status === "ACTIVE") l.rate = rate; });
+    closeModal("modalSettings"); saveStore();
+    showNotice("Settings Applied", "Global due date: " + due + " | Interest rate: " + rate + "%");
+  }
+
+  function submitReceive() {
+    var memId = document.getElementById("selPayMember").value;
+    var m = members.find(function(x) { return String(x.id) === String(memId); });
+    var dt = cleanPureDate(document.getElementById("inpPayDate").value || getTodayYMD());
+    var rd = Number(document.getElementById("inpPayRd").value) || 0;
+    var int = Number(document.getElementById("inpPayInterest").value) || 0;
+    var pen = Number(document.getElementById("inpPayPenalty").value) || 0;
+    var wvr = Number(document.getElementById("inpPayWaiver").value) || 0;
+    var lr = Number(document.getElementById("inpPayPrincipal").value) || 0;
+    var tot = rd + int + pen + lr - wvr;
+    if (tot <= 0 && wvr <= 0) { showNotice("Payment Alert", "Valid amount bharein."); return; }
+
+    var recNo = "REC-" + Math.floor(1000 + Math.random() * 9000);
+    var newPay = { receiptNo: recNo, date: dt, id: memId, name: m ? m.name : "Member", rd: rd, interest: int, penalty: pen, waiver: wvr, loanRepay: lr, total: tot, mode: document.getElementById("selPayMode").value, type: "REGULAR" };
+    payments.unshift(newPay);
+
+    if (lr > 0) {
+      var activeLoans = loans.filter(function(l) { return String(l.id) === String(memId) && String(l.status).toUpperCase() === "ACTIVE"; });
+      var rem = lr;
+      for (var i = 0; i < activeLoans.length && rem > 0; i++) {
+        var l = activeLoans[i];
+        if (l.outstanding <= rem) { rem -= l.outstanding; l.repaid = l.principal; l.outstanding = 0; l.status = "CLOSED"; }
+        else { l.outstanding -= rem; l.repaid += rem; rem = 0; }
+      }
+    }
+    closeModal("modalReceive"); saveStore();
+    if (window.google && google.script && google.script.run) google.script.run.savePaymentBackend(newPay);
+    showNotice("Receipt Generated", "Receipt No: " + recNo + " (Total: ₹" + tot + ") saved.");
+  }
+
+  function submitLoan() {
+    var memId = document.getElementById("selLoanMember").value;
+    var m = members.find(function(x) { return String(x.id) === String(memId); });
+    var dt = cleanPureDate(document.getElementById("inpLoanDate").value || getTodayYMD());
+    var pr = Number(document.getElementById("inpLoanPrinc").value) || 0;
+    var rt = Number(document.getElementById("inpLoanRate").value) || 1.0;
+    var tp = document.getElementById("selLoanType").value;
+    if (pr <= 0) { showNotice("Loan Alert", "Valid loan amount bharein."); return; }
+    var lInfo = getMemberLoanLimit(m);
+    if (lInfo.isBlocked) { showNotice("Loan Blocked", "Active loan pending hai."); return; }
+
+    var lnId = "LN-" + Math.floor(500 + Math.random() * 500);
+    var newLoan = { loanId: lnId, date: dt, id: memId, name: m ? m.name : "Member", type: tp, principal: pr, rate: rt, repaid: 0, outstanding: pr, status: "ACTIVE" };
+    loans.unshift(newLoan);
+    closeModal("modalLoan"); saveStore();
+    if (window.google && google.script && google.script.run) google.script.run.saveLoanBackend(newLoan);
+    showNotice("Loan Disbursed", "Loan ID: " + lnId + " ke tahat ₹" + pr + " jari kiya gaya.");
+  }
+
+  function submitMember() {
+    var editId = document.getElementById("editMemId").value;
+    var name = document.getElementById("inpNewMemName").value.trim();
+    var mob = document.getElementById("inpNewMemMobile").value.trim();
+    var st = document.getElementById("inpNewMemStatus").value;
+    var due = document.getElementById("inpNewMemDueDay").value.trim() || "15th of every month";
+    var customLim = Number(document.getElementById("inpNewMemCustomLimit").value) || 0;
+    var addr = document.getElementById("inpNewMemAddress").value.trim();
+    var nom = document.getElementById("inpNewMemNominee").value.trim();
+    var rd = Number(document.getElementById("inpNewMemRd").value) || 400;
+    var bal = Number(document.getElementById("inpNewMemBal").value) || 4400;
+    var opL = Number(document.getElementById("inpNewMemOpLoan").value) || 0;
+    var opI = Number(document.getElementById("inpNewMemOpInt").value) || 0;
+    var opP = Number(document.getElementById("inpNewMemOpPen").value) || 0;
+
+    if (!name || !mob) { showNotice("Required Field", "Name aur Mobile anivarya hai."); return; }
+    var savedMember = null;
+    if (editId) {
+      var m = members.find(function(x) { return String(x.id) === String(editId); });
+      if (m) {
+        m.name = name; m.mobile = mob; m.status = st; m.dueDay = due; m.customLimit = customLim;
+        m.address = addr; m.nominee = nom; m.rd = rd; m.rdPaid = bal;
+        m.opLoan = opL; m.opInt = opI; m.opPen = opP;
+        savedMember = m;
+      }
+      showNotice("Member Updated", name + " updated successfully.");
+    } else {
+      var id = "USR-" + String(members.length + 1).padStart(5, "0");
+      savedMember = { id: id, name: name, mobile: mob, status: st, dueDay: due, customLimit: customLim, address: addr, nominee: nom, rd: rd, rdPaid: bal, opLoan: opL, opInt: opI, opPen: opP };
+      members.push(savedMember);
+      showNotice("Member Registered", name + " registered with ID " + id + ".");
+    }
+    closeModal("modalMember"); saveStore();
+    if (savedMember && window.google && google.script && google.script.run) google.script.run.saveMemberBackend(savedMember);
+  }
+
+  function submitBulkEntry() {
+    var rows = document.querySelectorAll(".bulk-row-chk:checked");
+    if (rows.length === 0) { showNotice("Empty Selection", "Sadasya select karein."); return; }
+    var dt = cleanPureDate(document.getElementById("inpBulkDate").value || getTodayYMD());
+    var count = 0;
+    rows.forEach(function(c) {
+      var tr = c.closest("tr");
+      var id = c.getAttribute("data-id") || ("USR-" + Math.floor(1000 + Math.random() * 9000));
+      var nameInput = tr.querySelector(".b-custom-name");
+      var name = nameInput ? nameInput.value.trim() : c.getAttribute("data-name");
+      if (!name) return;
+      var rd = Number(tr.querySelector(".b-rd").value) || 0;
+      var int = Number(tr.querySelector(".b-int").value) || 0;
+      var repay = Number(tr.querySelector(".b-repay").value) || 0;
+      var pen = Number(tr.querySelector(".b-pen").value) || 0;
+      var wvr = Number(tr.querySelector(".b-waiver").value) || 0;
+      var mode = tr.querySelector(".b-mode-chk").checked ? "ONLINE" : "CASH";
+      var tot = rd + int + repay + pen - wvr;
+      var recNo = "REC-" + Math.floor(1000 + Math.random() * 9000);
+      var newPay = { receiptNo: recNo, date: dt, id: id, name: name, rd: rd, interest: int, penalty: pen, waiver: wvr, loanRepay: repay, total: tot, mode: mode, type: "BULK" };
+      payments.unshift(newPay);
+      if (window.google && google.script && google.script.run) google.script.run.savePaymentBackend(newPay);
+      count++;
+    });
+    closeModal("modalBulk"); saveStore();
+    showNotice("Bulk Entry Posted", "Kul " + count + " entries post ho gayi hain.");
+  }
+
+  function submitBonusSetoff() {
+    var id = document.getElementById("bonusMemId").value;
+    var m = members.find(function(x) { return String(x.id) === String(id); }); if (!m) return;
+    var dt = cleanPureDate(document.getElementById("inpBonusDate").value || getTodayYMD());
+    var totalBonus = getMemberBonus(m);
+    var adjLoan = Number(document.getElementById("inpBonusAdjLoan").value) || 0;
+    var adjInt = Number(document.getElementById("inpBonusAdjInt").value) || 0;
+    var adjRd = Number(document.getElementById("inpBonusAdjRd").value) || 0;
+    var adjPen = Number(document.getElementById("inpBonusAdjPen").value) || 0;
+    var netPaid = Number(document.getElementById("inpBonusNetPaid").value) || 0;
+    var mode = document.getElementById("selBonusMode").value;
+
+    var sId = "BON-" + Math.floor(1000 + Math.random() * 9000);
+    var bRecord = { settlementId: sId, date: dt, id: m.id, name: m.name, totalBonus: totalBonus, adjLoan: adjLoan, adjInterest: adjInt, adjRd: adjRd, adjPenalty: adjPen, netPaid: netPaid, mode: mode };
+    bonusSettlements.unshift(bRecord);
+
+    if (adjLoan > 0) {
+      var activeLoans = loans.filter(function(l) { return String(l.id) === String(m.id) && String(l.status).toUpperCase() === "ACTIVE"; });
+      var rem = adjLoan;
+      for (var i = 0; i < activeLoans.length && rem > 0; i++) {
+        var l = activeLoans[i];
+        if (l.outstanding <= rem) { rem -= l.outstanding; l.repaid = l.principal; l.outstanding = 0; l.status = "CLOSED"; }
+        else { l.outstanding -= rem; l.repaid += rem; rem = 0; }
+      }
+    }
+    closeModal("modalBonusSetoff"); saveStore();
+    if (window.google && google.script && google.script.run) google.script.run.saveBonusSettlementBackend(bRecord);
+    showNotice("Bonus Adjusted", m.name + " ka ₹" + totalBonus + " Bonus adjust ho gaya.");
+  }
+
+  function submitExit() {
+    var sel = document.getElementById("selExitMember"); if (!sel) return;
+    var m = members.find(function(x) { return String(x.id) === String(sel.value); }); if (!m) return;
+    var dt = cleanPureDate(getTodayYMD());
+    var net = Number(document.getElementById("inpExitNetRefund").value) || 0;
+    var npa = Number(document.getElementById("inpExitNpa").value) || 0;
+    var waiver = Number(document.getElementById("inpExitWaiver").value) || 0;
+    var bonus = document.getElementById("chkExitIncludeBonus").checked ? getMemberBonus(m) : 0;
+    var totRd = getMemberTotalRd(m); var loanDue = getMemberActiveLoan(m);
+
+    var exitId = "EXT-" + Math.floor(1000 + Math.random() * 9000);
+    var exRecord = { exitId: exitId, date: dt, id: m.id, name: m.name, totalRd: totRd, loanDues: loanDue, bonusAdj: bonus, npaLoss: npa, waiver: waiver, netSettlement: net, status: "INACTIVE" };
+    exitSettlements.unshift(exRecord);
+
+    m.status = "INACTIVE";
+    loans.filter(function(l) { return String(l.id) === String(m.id); }).forEach(function(l) { l.status = "CLOSED"; l.outstanding = 0; });
+    closeModal("modalExit"); saveStore();
+    if (window.google && google.script && google.script.run) {
+      google.script.run.saveMemberBackend(m);
+      google.script.run.saveExitSettlementBackend(exRecord);
+    }
+    showNotice("Exit Executed", m.name + " ka settlement complete (Exit ID: " + exitId + ", Net: ₹" + net + ").");
+  }
+
+  function refreshAll() {
+    try { updateKPIs(); } catch (e) {}
+    try { renderMembers(); } catch (e) {}
+    try { renderPayments(); } catch (e) {}
+    try { renderLoans(); } catch (e) {}
+    try { renderBonusTab(); } catch (e) {}
+    try { populateDropdowns(); } catch (e) {}
+  }
+
+  function resetSampleData() {
+    members = JSON.parse(JSON.stringify(DEFAULT_MEMBERS));
+    payments = JSON.parse(JSON.stringify(DEFAULT_PAYMENTS));
+    loans = JSON.parse(JSON.stringify(DEFAULT_LOANS));
+    exitSettlements = []; bonusSettlements = [];
+    saveStore(); showNotice("Data Reloaded", "Database reloaded.");
+  }
+
+  function setupEventListeners() {
+    document.getElementById("btnTopReceive").addEventListener("click", openReceiveModal);
+    document.getElementById("btnTopLoan").addEventListener("click", openLoanModal);
+    document.getElementById("btnTopAddMember").addEventListener("click", openAddMemberModal);
+    document.getElementById("btnTopBulk").addEventListener("click", openBulkModal);
+    document.getElementById("btnTopExit").addEventListener("click", openExitModal);
+    document.getElementById("btnTopSettings").addEventListener("click", function() { openModal("modalSettings"); });
+    document.getElementById("btnTopReload").addEventListener("click", resetSampleData);
+
+    document.getElementById("tabHead1").addEventListener("click", function() { switchTab(1); });
+    document.getElementById("tabHead2").addEventListener("click", function() { switchTab(2); });
+    document.getElementById("tabHead3").addEventListener("click", function() { switchTab(3); });
+    document.getElementById("tabHead4").addEventListener("click", function() { switchTab(4); });
+
+    document.getElementById("kpiCardMembers").addEventListener("click", function() { switchTab(1); });
+    document.getElementById("kpiCardRd").addEventListener("click", function() { switchTab(2); });
+    document.getElementById("kpiCardLoans").addEventListener("click", function() { switchTab(3); });
+    document.getElementById("kpiCardBonus").addEventListener("click", function() { switchTab(4); });
+    document.getElementById("kpiCardFund").addEventListener("click", openFundModal);
+    document.getElementById("kpiCardNpa").addEventListener("click", openNpaModal);
+
+    document.getElementById("btnPanelNewReceipt").addEventListener("click", openReceiveModal);
+    document.getElementById("btnPanelNewLoan").addEventListener("click", openLoanModal);
+    document.getElementById("btnPrintLedgerPdf").addEventListener("click", printLedgerPdf);
+    document.getElementById("btnPrintBonusPdf").addEventListener("click", printBonusPdf);
+    document.getElementById("btnAddBulkRow").addEventListener("click", addBulkRowManually);
+    document.getElementById("btnApplyGlobalSettings").addEventListener("click", applyGlobalSettings);
+
+    document.getElementById("selFilterStatus").addEventListener("change", renderMembers);
+    document.getElementById("selSortMembers").addEventListener("change", renderMembers);
+    document.getElementById("memberFilterInput").addEventListener("input", renderMembers);
+
+    document.getElementById("selFilterPayMode").addEventListener("change", renderPayments);
+    document.getElementById("selSortPayDate").addEventListener("change", renderPayments);
+    document.getElementById("searchPayInput").addEventListener("input", renderPayments);
+
+    document.getElementById("selFilterLoanType").addEventListener("change", renderLoans);
+    document.getElementById("selFilterLoanStatus").addEventListener("change", renderLoans);
+    document.getElementById("selSortLoans").addEventListener("change", renderLoans);
+
+    document.getElementById("selLoanMember").addEventListener("change", checkLoanLimitDisplay);
+
+    document.getElementById("btnNoticeOk").addEventListener("click", function() { closeModal("modalNotice"); });
+    document.getElementById("btnCloseReceive").addEventListener("click", function() { closeModal("modalReceive"); });
+    document.getElementById("btnCloseLoan").addEventListener("click", function() { closeModal("modalLoan"); });
+    document.getElementById("btnCloseMember").addEventListener("click", function() { closeModal("modalMember"); });
+    document.getElementById("btnCloseBulk").addEventListener("click", function() { closeModal("modalBulk"); });
+    document.getElementById("btnCloseLedger").addEventListener("click", function() { closeModal("modalLedger"); });
+    document.getElementById("btnCloseBonusStmt").addEventListener("click", function() { closeModal("modalBonusStatement"); });
+    document.getElementById("btnCloseBonusSetoff").addEventListener("click", function() { closeModal("modalBonusSetoff"); });
+    document.getElementById("btnCloseExit").addEventListener("click", function() { closeModal("modalExit"); });
+    document.getElementById("btnCloseFund").addEventListener("click", function() { closeModal("modalFund"); });
+    document.getElementById("btnCloseNpa").addEventListener("click", function() { closeModal("modalNpa"); });
+    document.getElementById("btnCloseSettings").addEventListener("click", function() { closeModal("modalSettings"); });
+
+    document.getElementById("btnSubmitReceive").addEventListener("click", submitReceive);
+    document.getElementById("btnSubmitLoan").addEventListener("click", submitLoan);
+    document.getElementById("btnSubmitMember").addEventListener("click", submitMember);
+    document.getElementById("btnSubmitBulk").addEventListener("click", submitBulkEntry);
+    document.getElementById("btnSubmitBonusSetoff").addEventListener("click", submitBonusSetoff);
+    document.getElementById("btnSubmitExit").addEventListener("click", submitExit);
+
+    var chkAll = document.getElementById("chkSelectAllBulk");
+    if (chkAll) {
+      chkAll.addEventListener("change", function() {
+        var isChecked = this.checked;
+        document.querySelectorAll(".bulk-row-chk").forEach(function(c) { c.checked = isChecked; });
+      });
+    }
+
+    document.addEventListener("click", function(e) {
+      var t = e.target; if (!t) return;
+      var lBtn = t.closest(".action-view-ledger"); if (lBtn) { openMemberLedger(lBtn.getAttribute("data-id")); return; }
+      var rBtn = t.closest(".action-receive-for"); if (rBtn) { openReceiveFor(rBtn.getAttribute("data-id")); return; }
+      var eBtn = t.closest(".action-edit-member"); if (eBtn) { openEditMember(eBtn.getAttribute("data-id")); return; }
+      var bBtn = t.closest(".action-open-bonus-setoff"); if (bBtn) { openBonusSetoffModal(bBtn.getAttribute("data-id")); return; }
+      var bsBtn = t.closest(".action-view-bonus-statement"); if (bsBtn) { openBonusStatementModal(bsBtn.getAttribute("data-id")); return; }
+      var dBtn = t.closest(".action-drill-month"); if (dBtn) { drilldownMonth(Number(dBtn.getAttribute("data-idx"))); return; }
+    });
+  }
+
+  function startApp() {
+    try {
+      var sm = localStorage.getItem("gullak_v14_m");
+      var sp = localStorage.getItem("gullak_v14_p");
+      var sl = localStorage.getItem("gullak_v14_l");
+      var sx = localStorage.getItem("gullak_v14_ex");
+      var sb = localStorage.getItem("gullak_v14_b");
+      if (sm) { var pm = JSON.parse(sm); if (Array.isArray(pm) && pm.length > 0) members = pm; }
+      if (sp) { var pp = JSON.parse(sp); if (Array.isArray(pp)) payments = pp; }
+      if (sl) { var pl = JSON.parse(sl); if (Array.isArray(pl)) loans = pl; }
+      if (sx) { var px = JSON.parse(sx); if (Array.isArray(px)) exitSettlements = px; }
+      if (sb) { var pb = JSON.parse(sb); if (Array.isArray(pb)) bonusSettlements = pb; }
+    } catch (e) {}
+
+    setupEventListeners();
+    refreshAll();
+
+    if (window.google && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function(res) {
+        if (res) {
+          if (Array.isArray(res.members) && res.members.length > 0) members = res.members;
+          if (Array.isArray(res.payments) && res.payments.length > 0) payments = res.payments;
+          if (Array.isArray(res.loans) && res.loans.length > 0) loans = res.loans;
+          if (Array.isArray(res.exitSettlements)) exitSettlements = res.exitSettlements;
+          if (Array.isArray(res.bonusSettlements)) bonusSettlements = res.bonusSettlements;
+          saveStore();
+        }
+      }).getSocietyFullData();
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startApp);
+  } else {
+    startApp();
+  }
+})();
+</script>
+</body>
+</html>

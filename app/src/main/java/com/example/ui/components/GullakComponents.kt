@@ -124,6 +124,7 @@ fun GullakTopBar(
     onBackClick: (() -> Unit)? = null,
     unreadNotificationCount: Int = 0,
     onNotificationClick: (() -> Unit)? = null,
+    actions: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     TopAppBar(
@@ -184,6 +185,7 @@ fun GullakTopBar(
             }
         },
         actions = {
+            actions?.invoke()
             if (onNotificationClick != null) {
                 Box(contentAlignment = Alignment.TopEnd) {
                     IconButton(onClick = onNotificationClick, modifier = Modifier.testTag("topbar_notif_btn")) {

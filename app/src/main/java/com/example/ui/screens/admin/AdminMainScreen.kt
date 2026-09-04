@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -31,10 +32,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -183,6 +186,7 @@ fun AdminMainScreen(
     var paymentToApprove by remember { mutableStateOf<PaymentEntity?>(null) }
     var paymentToReject by remember { mutableStateOf<PaymentEntity?>(null) }
     var paymentToApproveEdit by remember { mutableStateOf<PaymentEntity?>(null) }
+    var showGlobalGoogleScriptModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(userMsg, errorMsg) {
         userMsg?.let {
@@ -200,9 +204,37 @@ fun AdminMainScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             GullakTopBar(
-                title = "GULLAK ADMIN PANEL",
-                subtitle = "Administrator • ${adminUser.name}",
-                onLogoutClick = null
+                title = "GULLAK ADMIN",
+                subtitle = "Admin • ${adminUser.name}",
+                onLogoutClick = null,
+                actions = {
+                    Button(
+                        onClick = { showGlobalGoogleScriptModal = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GullakGold,
+                            contentColor = Color(0xFF0F172A)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .padding(end = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Code,
+                            contentDescription = "Code.gs",
+                            modifier = Modifier.size(15.dp),
+                            tint = Color(0xFF0F172A)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Code.gs 📥",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                    }
+                }
             )
         },
         bottomBar = {
@@ -316,6 +348,7 @@ fun AdminMainScreen(
                     totalLoanOutstanding = totalLoanOutstanding ?: 0.0,
                     totalDueAmount = totalDueAmount ?: 0.0,
                     onRecordCashClick = { showOfficeCashDialog = true },
+                    onOpenScriptModal = { showGlobalGoogleScriptModal = true },
                     onApproveClick = { detailedPaymentToApprove = it },
                     onRejectClick = { paymentToReject = it },
                     onApproveEditClick = { detailedPaymentToApprove = it },
@@ -551,6 +584,18 @@ fun AdminMainScreen(
             }
         )
     }
+
+    if (showGlobalGoogleScriptModal) {
+        val clipboardManager = LocalClipboardManager.current
+        val context = LocalContext.current
+        GoogleAppsScriptViewerDialog(
+            onDismiss = { showGlobalGoogleScriptModal = false },
+            onCopyCode = { code ->
+                clipboardManager.setText(AnnotatedString(code))
+                Toast.makeText(context, "Google Apps Script Code Copied! 📋", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
 }
 
 // 1. Admin Dashboard Tab (Today's Tasks & Metrics)
@@ -566,6 +611,7 @@ fun AdminDashboardTab(
     totalLoanOutstanding: Double,
     totalDueAmount: Double,
     onRecordCashClick: () -> Unit,
+    onOpenScriptModal: () -> Unit,
     onApproveClick: (PaymentEntity) -> Unit,
     onRejectClick: (PaymentEntity) -> Unit,
     onApproveEditClick: (PaymentEntity) -> Unit,
@@ -579,6 +625,68 @@ fun AdminDashboardTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Section: Google Sheets Master Database Quick Card
+        item {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                border = BorderStroke(1.5.dp, GullakGold),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenScriptModal() }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudSync,
+                            contentDescription = null,
+                            tint = GullakGold,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Google Sheets Database (Code.gs) 📋",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = GullakGoldLight
+                            )
+                            Text(
+                                text = "Share/Save .gs File ya Copy karein",
+                                fontSize = 11.sp,
+                                color = Color.LightGray
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = onOpenScriptModal,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GullakGold,
+                            contentColor = Color(0xFF0F172A)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "Code.gs 📥",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                    }
+                }
+            }
+        }
+
         // Section: Quick Admin Actions
         item {
             Row(
@@ -2380,16 +2488,74 @@ Ramesh Verma,9810099999,9999,400,0,50000,INACTIVE,Inactive Account
                     OutlinedTextField(
                         value = cloudSyncUrl,
                         onValueChange = { cloudSyncUrl = it },
-                        label = { Text("Google Apps Script Web App URL") },
-                        placeholder = { Text("https://script.google.com/macros/s/.../exec") },
+                        label = { Text("Google Apps Script Web App URL", color = Color(0xFF94A3B8)) },
+                        placeholder = { Text("https://script.google.com/macros/s/.../exec", color = Color.DarkGray) },
+                        maxLines = 2,
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        val clipText = clipboardManager.getText()?.text
+                                        if (!clipText.isNullOrBlank()) {
+                                            cloudSyncUrl = clipText.trim()
+                                            Toast.makeText(context, "URL Pasted from Clipboard! 📋", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Clipboard empty hai!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentPaste,
+                                        contentDescription = "Paste",
+                                        tint = GullakGold
+                                    )
+                                }
+                                if (cloudSyncUrl.isNotBlank()) {
+                                    IconButton(onClick = { cloudSyncUrl = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Clear,
+                                            contentDescription = "Clear",
+                                            tint = Color.LightGray
+                                        )
+                                    }
+                                }
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = GullakSuccessBright,
-                            unfocusedBorderColor = Color.Gray,
+                            unfocusedBorderColor = Color(0xFF475569),
+                            focusedContainerColor = Color(0xFF1E293B),
+                            unfocusedContainerColor = Color(0xFF1E293B),
                             focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedTextColor = Color.White,
+                            cursorColor = GullakGold
                         )
                     )
+
+                    // Direct Share/Save Code.gs Action Button
+                    Button(
+                        onClick = {
+                            try {
+                                val sendIntent = android.content.Intent().apply {
+                                    action = android.content.Intent.ACTION_SEND
+                                    putExtra(android.content.Intent.EXTRA_TEXT, com.example.util.GoogleAppsScriptCode.FULL_SCRIPT_CODE)
+                                    putExtra(android.content.Intent.EXTRA_TITLE, "Code.gs - Gullak Society Database")
+                                    type = "text/plain"
+                                }
+                                context.startActivity(android.content.Intent.createChooser(sendIntent, "Share / Save Code.gs"))
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFF0F172A))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Share / Save Code.gs 📥 (Download File)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2415,12 +2581,12 @@ Ramesh Verma,9810099999,9999,400,0,50000,INACTIVE,Inactive Account
 
                         Button(
                             onClick = { showGoogleScriptModal = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color(0xFF0F172A)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155), contentColor = Color.White),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp), tint = GullakGold)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Script Code 📋", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("View Script 📋", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -2599,6 +2765,8 @@ fun GoogleSheetLivePreviewDialog(
 ) {
     val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    val cleanUrl = remember(webAppUrl) { webAppUrl.trim() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2647,19 +2815,47 @@ fun GoogleSheetLivePreviewDialog(
                                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
                             )
+                            setBackgroundColor(android.graphics.Color.parseColor("#0F172A"))
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
+                            settings.databaseEnabled = true
                             settings.loadWithOverviewMode = true
                             settings.useWideViewPort = true
                             settings.builtInZoomControls = true
                             settings.displayZoomControls = false
+                            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                             webViewClient = object : android.webkit.WebViewClient() {
                                 override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
                                     super.onPageFinished(view, url)
                                     isLoading = false
                                 }
+
+                                override fun onReceivedError(
+                                    view: android.webkit.WebView?,
+                                    request: android.webkit.WebResourceRequest?,
+                                    error: android.webkit.WebResourceError?
+                                ) {
+                                    super.onReceivedError(view, request, error)
+                                    if (request?.isForMainFrame == true) {
+                                        isLoading = false
+                                        loadError = error?.description?.toString() ?: "Connection Error"
+                                    }
+                                }
+
+                                @Deprecated("Deprecated in Java")
+                                @Suppress("DEPRECATION")
+                                override fun onReceivedError(
+                                    view: android.webkit.WebView?,
+                                    errorCode: Int,
+                                    description: String?,
+                                    failingUrl: String?
+                                ) {
+                                    super.onReceivedError(view, errorCode, description, failingUrl)
+                                    isLoading = false
+                                    loadError = description ?: "Connection Error"
+                                }
                             }
-                            loadUrl(webAppUrl)
+                            loadUrl(cleanUrl)
                         }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -2679,6 +2875,50 @@ fun GoogleSheetLivePreviewDialog(
                         }
                     }
                 }
+
+                if (loadError != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xEE0F172A))
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = GullakGold, modifier = Modifier.size(36.dp))
+                            Text(
+                                text = "Google Sheets Web Portal",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Google Apps Script ko direct external browser me kholna recommended hai taaki Google account authorization seamlessly ho sake:",
+                                color = Color(0xFFCBD5E1),
+                                fontSize = 12.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(cleanUrl))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess)
+                            ) {
+                                Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Open in Browser (Full Web App) 🚀")
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -2689,7 +2929,7 @@ fun GoogleSheetLivePreviewDialog(
                 OutlinedButton(
                     onClick = {
                         try {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(webAppUrl))
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(cleanUrl))
                             context.startActivity(intent)
                         } catch (e: Exception) {
                             Toast.makeText(context, "Browser open karne me error: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -2718,172 +2958,113 @@ fun GoogleAppsScriptViewerDialog(
     onDismiss: () -> Unit,
     onCopyCode: (String) -> Unit
 ) {
-    val fullScriptCode = """
-// =========================================================================
-// GULLAK CO-OPERATIVE SOCIETY - COMPLETE GOOGLE APPS SCRIPT WEB SOFTWARE
-// Features: 200 Members Ledger, RD 1% Bonus, 1% Loan (Gullak & Emergency),
-// Auto Dues (1st of Mo), 15th Due Date Penalty, Dec Multi-Head Setoff,
-// 2-Way Live Sync Webhook & Futuristic Dashboard Web App (100% Free)
-// =========================================================================
-
-function doGet(e) {
-  return HtmlService.createHtmlOutput(getDashboardHtml())
-    .setTitle("Gullak Co-operative Society - Admin Portal")
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
-
-function doPost(e) {
-  try {
-    var contents = e.postData.contents;
-    var data = JSON.parse(contents);
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // Auto Setup Sheets if not present
-    setupDatabaseSheets(ss);
-    
-    if (data.users && Array.isArray(data.users)) {
-      syncMembersSheet(ss, data.users);
-    }
-    if (data.financials && Array.isArray(data.financials)) {
-      syncFinancialsSheet(ss, data.financials);
-    }
-    if (data.payments && Array.isArray(data.payments)) {
-      syncPaymentsSheet(ss, data.payments);
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "SUCCESS",
-      message: "Synced " + (data.users ? data.users.length : 0) + " records with Google Sheets successfully!",
-      timestamp: new Date().toISOString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "ERROR",
-      message: err.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function setupDatabaseSheets(ss) {
-  var requiredSheets = ["Dashboard", "Members", "Monthly_Ledger", "Loans_Gullak", "Loans_Emergency", "Collections", "Dec_Bonus_Settlement", "Settings"];
-  requiredSheets.forEach(function(shName) {
-    if (!ss.getSheetByName(shName)) {
-      var sh = ss.insertSheet(shName);
-      if (shName === "Members") {
-        sh.appendRow(["Member ID", "Name", "Mobile Number", "Monthly RD", "Gullak Loan Dues", "Emergency Loan Dues", "Total Loan Dues", "RD Bonus Accrued", "Penalty Due", "Status", "Remarks"]);
-        sh.getRange("A1:K1").setFontWeight("bold").setBackground("#0F172A").setFontColor("#F8FAFC");
-      } else if (shName === "Collections") {
-        sh.appendRow(["Txn ID", "Date", "Member ID", "Name", "Mobile", "RD Paid", "Interest Paid", "Penalty Paid", "Loan Return", "Total Paid", "Mode", "Status", "Remarks"]);
-        sh.getRange("A1:M1").setFontWeight("bold").setBackground("#1E293B").setFontColor("#38BDF8");
-      }
-    }
-  });
-}
-
-function syncMembersSheet(ss, users) {
-  var sheet = ss.getSheetByName("Members");
-  if (!sheet) return;
-  sheet.clearContents();
-  sheet.appendRow(["Member ID", "Name", "Mobile Number", "Monthly RD", "Gullak Loan Dues", "Emergency Loan Dues", "Total Loan Dues", "RD Bonus Accrued", "Penalty Due", "Status", "Remarks"]);
-  sheet.getRange("A1:K1").setFontWeight("bold").setBackground("#0F172A").setFontColor("#F8FAFC");
-  
-  users.forEach(function(u) {
-    sheet.appendRow([u.userId, u.name, u.mobile, 400, 0, 0, 0, 0, 0, u.status || "ACTIVE", u.remarks || ""]);
-  });
-}
-
-function syncFinancialsSheet(ss, financials) {
-  var sheet = ss.getSheetByName("Members");
-  if (!sheet) return;
-  var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    var uid = data[i][0];
-    var fin = financials.find(function(f) { return f.userId == uid; });
-    if (fin) {
-      sheet.getRange(i + 1, 4).setValue(fin.rdAmount || 400);
-      sheet.getRange(i + 1, 7).setValue(fin.loanOutstanding || 0);
-      sheet.getRange(i + 1, 8).setValue(fin.accumulatedRdBonus || 0);
-      sheet.getRange(i + 1, 9).setValue(fin.penaltyDue || 0);
-    }
-  }
-}
-
-function syncPaymentsSheet(ss, payments) {
-  var sheet = ss.getSheetByName("Collections");
-  if (!sheet) return;
-  sheet.clearContents();
-  sheet.appendRow(["Txn ID", "Date", "Member ID", "Name", "Mobile", "RD Paid", "Interest Paid", "Penalty Paid", "Loan Return", "Total Paid", "Mode", "Status", "Remarks"]);
-  sheet.getRange("A1:M1").setFontWeight("bold").setBackground("#1E293B").setFontColor("#38BDF8");
-  
-  payments.forEach(function(p) {
-    var d = new Date(p.paymentDate);
-    var dStr = Utilities.formatDate(d, Session.getScriptTimeZone(), "dd-MM-yyyy HH:mm");
-    sheet.appendRow([p.transactionId, dStr, p.userId, p.userName, p.userMobile, p.rdAmount, p.interestAmount, p.penaltyAmount, p.loanReturnAmount, p.amount, p.paymentMode, p.status, p.remarks]);
-  });
-}
-
-// Returns the Futuristic Web App UI HTML
-function getDashboardHtml() {
-  return '<!DOCTYPE html><html><head><title>Gullak Society Portal</title>' +
-    '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">' +
-    '<style>body{background:#0b0f19;color:#f8fafc;font-family:sans-serif}.card{background:#1e293b;border:1px solid #334155;border-radius:12px;color:#fff}.stat-card{cursor:pointer;transition:transform 0.2s}.stat-card:hover{transform:translateY(-3px);border-color:#38bdf8}</style>' +
-    '</head><body class="p-4">' +
-    '<div class="container-fluid">' +
-    '  <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">' +
-    '    <div><h3 class="text-warning mb-0">🪙 GULLAK CO-OPERATIVE SOCIETY</h3><small class="text-muted">Master Admin Cloud Portal • 100% Free Live Sync</small></div>' +
-    '    <div><button class="btn btn-success me-2" onclick="location.reload()">🔄 Refresh Live Data</button><button class="btn btn-outline-info" onclick="window.print()">🖨️ Print Ledger PDF</button></div>' +
-    '  </div>' +
-    '  <div class="row g-3 mb-4">' +
-    '    <div class="col-md-3"><div class="card p-3 stat-card bg-primary text-white"><h6>👥 Total Members</h6><h3 id="statMembers">--</h3><small>1 to 200 Max Capacity</small></div></div>' +
-    '    <div class="col-md-3"><div class="card p-3 stat-card bg-success text-white"><h6>💰 Total RD Received</h6><h3 id="statRd">--</h3><small>1% Monthly Bonus Accrual</small></div></div>' +
-    '    <div class="col-md-3"><div class="card p-3 stat-card bg-danger text-white"><h6>⚠️ Total Loan Dues</h6><h3 id="statLoan">--</h3><small>Gullak + Emergency (1% Int)</small></div></div>' +
-    '    <div class="col-md-3"><div class="card p-3 stat-card bg-dark text-warning border-warning"><h6>🏦 Available Fund</h6><h3 id="statFund">--</h3><small>Cash / Bank Balance</small></div></div>' +
-    '  </div>' +
-    '  <div class="card p-4">' +
-    '    <h5>📊 Live Society Ledger & Quick Bulk Entry</h5>' +
-    '    <p class="text-muted">Admin panel dwara app se ya Google Sheet se direct entries yahan live synchronize hoti hain.</p>' +
-    '  </div>' +
-    '</div></body></html>';
-}
-""".trimIndent()
+    val context = LocalContext.current
+    val fullScriptCode = com.example.util.GoogleAppsScriptCode.FULL_SCRIPT_CODE
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Code, contentDescription = null, tint = GullakGold)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Google Apps Script Code 📋", fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Code, contentDescription = null, tint = GullakGold)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Code.gs (Apps Script Database) 📋", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
             }
         },
         text = {
-            Column(
+            LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = "Aap is code ko direct copy karke apni Google Sheet ke Extensions > Apps Script me paste karke Web App ki tarah deploy kar sakte hain (100% Free):",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Surface(
-                    color = Color(0xFF0F172A),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color(0xFF334155)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp)
-                ) {
-                    LazyColumn(modifier = Modifier.padding(10.dp)) {
-                        item {
+                // Why Run button is disabled help banner
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                        border = BorderStroke(1.dp, GullakGold.copy(alpha = 0.6f)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = fullScriptCode,
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                color = Color(0xFF38BDF8)
+                                text = "💡 'Run' Button Disable Kyun Dikhta Hai?",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = GullakGoldLight
                             )
+                            Text(
+                                text = "1. Code paste karne ke baad pehle Save (Ctrl+S / 💾 Icon) dabana zaroori hai.\n2. Uske baad upar Function dropdown se 'installAndRunDatabase' select karein, tab 'Run ▶' button enable ho jayega!",
+                                fontSize = 11.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
+                // Action Buttons: Copy & Download / Share File
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { onCopyCode(fullScriptCode) },
+                            colors = ButtonDefaults.buttonColors(containerColor = GullakSuccess),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Copy Code 📋", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                try {
+                                    val sendIntent = android.content.Intent().apply {
+                                        action = android.content.Intent.ACTION_SEND
+                                        putExtra(android.content.Intent.EXTRA_TEXT, fullScriptCode)
+                                        putExtra(android.content.Intent.EXTRA_TITLE, "Code.gs - Gullak Society Database")
+                                        type = "text/plain"
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(sendIntent, "Download / Share Code.gs"))
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GullakGold, contentColor = Color.Black),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Share/Save .gs 📥", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+                    }
+                }
+
+                item {
+                    Surface(
+                        color = Color(0xFF0F172A),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFF334155)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                    ) {
+                        LazyColumn(modifier = Modifier.padding(10.dp)) {
+                            item {
+                                Text(
+                                    text = fullScriptCode,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF38BDF8)
+                                )
+                            }
                         }
                     }
                 }
@@ -2897,7 +3078,7 @@ function getDashboardHtml() {
             ) {
                 Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Copy Full Script Code 📋")
+                Text("Copy Code 📋")
             }
         },
         dismissButton = {
