@@ -1,33 +1,13 @@
-package com.example.util
-
-object GoogleAppsScriptCode {
-    val FULL_SCRIPT_CODE: String = """/**
- * 🏦 GULLAK CO-OPERATIVE SOCIETY - BACKEND CONTROLLER (V34 PRO MASTER)
+/**
+ * 🏦 GULLAK CO-OPERATIVE SOCIETY - BACKEND CONTROLLER (V22 PRO MASTER)
  * Standardized Sheets + Auto-Cleanup + Strict ID Formats + Sheet Protection ('Password') + Users Auth
  */
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu("🏦 Gullak Co-operative")
     .addItem("⚡ 1. Initialize & Organize Sheet Database", "installAndRunDatabase")
-    .addItem("🔑 2. Update / Reset Users & Passwords to 12345", "resetUsersCredentialsToDefault")
-    .addItem("🌐 3. Get Live Web App URL", "showWebPortalUrl")
-    .addItem("✉️ 4. Authorize Email Sending Permission", "testEmailPermission")
+    .addItem("🌐 2. Get Live Web App URL", "showWebPortalUrl")
     .addToUi();
-
-  // Auto-upgrade legacy credentials in Users sheet on open
-  try {
-    upgradeUsersSheetCredentials();
-  } catch(e) {}
-}
-
-function testEmailPermission() {
-  try {
-    var email = Session.getActiveUser().getEmail() || "stfsolutionsdelhi@gmail.com";
-    MailApp.sendEmail(email, "Gullak Society - Email Permission Test", "Email dispatch permissions verified successfully.");
-    SpreadsheetApp.getUi().alert("✅ Email Sending Permission Verified!\n\nEmail dispatch is successfully authorized for your Google Account.");
-  } catch(e) {
-    SpreadsheetApp.getUi().alert("Notice: " + e.toString());
-  }
 }
 
 function showWebPortalUrl() {
@@ -40,160 +20,6 @@ function showWebPortalUrl() {
     }
   } catch (e) {
     SpreadsheetApp.getUi().alert("Deploy Web App from Deploy > New deployment.");
-  }
-}
-
-function getSpreadsheetUrl() {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    return ss ? ss.getUrl() : "";
-  } catch(e) {
-    return "";
-  }
-}
-
-function upgradeUsersSheetCredentials() {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (!ss) return;
-    var userSheet = ss.getSheetByName("Users");
-    if (!userSheet) return;
-    if (userSheet.getLastRow() <= 1) {
-      userSheet.appendRow(["SANISH", "12345", "Super Admin", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
-      userSheet.appendRow(["ADMIN", "12345", "Manager", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
-      SpreadsheetApp.flush();
-      return;
-    }
-    var numRows = userSheet.getLastRow() - 1;
-    var data = userSheet.getRange(2, 1, numRows, Math.min(6, userSheet.getLastColumn())).getValues();
-    var changed = false;
-    for (var i = 0; i < data.length; i++) {
-      var u = String(data[i][0] || "").trim().toUpperCase();
-      var p = String(data[i][1] || "").trim();
-      var em = String(data[i][3] || "").trim();
-      var rowNum = i + 2;
-      if (p === "Password" || p === "Admin@123" || p === "") {
-        userSheet.getRange(rowNum, 2).setValue("12345");
-        changed = true;
-      }
-      if ((u === "SANISH" || u === "ADMIN") && (p === "Password" || p === "Admin@123")) {
-        userSheet.getRange(rowNum, 2).setValue("12345");
-        changed = true;
-      }
-      if (!em || em.indexOf("@") === -1) {
-        userSheet.getRange(rowNum, 4).setValue("stfsolutionsdelhi@gmail.com");
-        changed = true;
-      }
-    }
-    if (changed) SpreadsheetApp.flush();
-  } catch(e) {}
-}
-
-function resetUsersCredentialsToDefault() {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (!ss) return;
-    var userSheet = ss.getSheetByName("Users");
-    if (!userSheet) {
-      installAndRunDatabase();
-      return;
-    }
-    userSheet.clearContents();
-    var userH = ["Username", "Password", "Role", "Email", "Status", "CreatedAt"];
-    userSheet.getRange(1, 1, 1, userH.length).setValues([userH]);
-    userSheet.appendRow(["SANISH", "12345", "Super Admin", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
-    userSheet.appendRow(["ADMIN", "12345", "Manager", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
-    SpreadsheetApp.flush();
-    SpreadsheetApp.getUi().alert("✅ Users Tab Updated Successfully!\n\n• Username: SANISH, Password: 12345\n• Username: ADMIN, Password: 12345\n• Registered Email: stfsolutionsdelhi@gmail.com\n\nAap is tab me Column B me password aur Column D me email kabhi bhi change kar sakte hain.");
-  } catch(e) {
-    try { SpreadsheetApp.getUi().alert("Error: " + e.toString()); } catch(err) {}
-  }
-}
-
-function sendCredentialsEmailBackend(targetUsername) {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var uSheet = ss ? ss.getSheetByName("Users") : null;
-    var foundUser = null;
-    var defaultEmail = "stfsolutionsdelhi@gmail.com";
-
-    if (uSheet && uSheet.getLastRow() > 1) {
-      var uData = uSheet.getRange(2, 1, uSheet.getLastRow() - 1, Math.min(6, uSheet.getLastColumn())).getValues();
-      var cleanTarget = String(targetUsername || "").trim().toUpperCase();
-      if (cleanTarget) {
-        for (var i = 0; i < uData.length; i++) {
-          if (String(uData[i][0]).trim().toUpperCase() === cleanTarget) {
-            foundUser = {
-              username: String(uData[i][0]).trim(),
-              password: String(uData[i][1]).trim() || "12345",
-              role: String(uData[i][2] || "Manager").trim(),
-              email: String(uData[i][3] || defaultEmail).trim()
-            };
-            break;
-          }
-        }
-      }
-      if (!foundUser && uData.length > 0) {
-        foundUser = {
-          username: String(uData[0][0]).trim(),
-          password: String(uData[0][1]).trim() || "12345",
-          role: String(uData[0][2] || "Super Admin").trim(),
-          email: String(uData[0][3] || defaultEmail).trim()
-        };
-      }
-    }
-
-    if (!foundUser) {
-      foundUser = {
-        username: (String(targetUsername || "").toUpperCase() === "ADMIN" ? "ADMIN" : "SANISH"),
-        password: "12345",
-        role: "Super Admin",
-        email: defaultEmail
-      };
-    }
-
-    var recipientEmail = defaultEmail;
-    if (foundUser.email && foundUser.email.indexOf("@") > 0) {
-      recipientEmail = foundUser.email;
-    }
-
-    var subject = "🔐 Gullak Co-operative Portal - Login Credentials Recovery";
-    var body = "Namaste " + foundUser.username + ",\n\n" +
-      "Aapke anurodh par Gullak Co-operative Society Accounting Portal ke login credentials bheje ja rahe hain:\n\n" +
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-      "👤 USERNAME : " + foundUser.username + "\n" +
-      "🔑 PASSWORD : " + foundUser.password + "\n" +
-      "🛡️ ROLE     : " + foundUser.role + "\n" +
-      "📧 EMAIL    : " + recipientEmail + "\n" +
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-      "💡 Password ya Email badalne ke liye:\n" +
-      "Apne connected Google Sheet ke 'Users' tab me jaakar Column B (Password) aur Column D (Email) ko update karein.\n\n" +
-      "Date & Time: " + new Date().toLocaleString() + "\n" +
-      "Gullak Co-operative Society Automated Management System";
-
-    try {
-      MailApp.sendEmail(recipientEmail, subject, body);
-    } catch(mailErr) {
-      try {
-        GmailApp.sendEmail(recipientEmail, subject, body);
-      } catch(gmailErr) {
-        return {
-          success: false,
-          error: "Permission Required: Google Apps Script me Mail permission grant karni hogi. Ek baar Google Sheet me '🏦 Gullak Co-operative' menu me jaakar '✉️ 4. Authorize Email Sending Permission' par click karke Google Authorization allow karein. Tab tak aap 'Users' tab se apna password dekh/update kar sakte hain."
-        };
-      }
-    }
-
-    var parts = recipientEmail.split("@");
-    var masked = parts[0].substring(0, Math.min(3, parts[0].length)) + "***@" + parts[1];
-    return {
-      success: true,
-      email: masked,
-      username: foundUser.username,
-      message: "Credentials safaltapoorvak aapke registered email (" + masked + ") par bhej diye gaye hain!"
-    };
-  } catch(err) {
-    return { success: false, error: err.toString() };
   }
 }
 
@@ -245,13 +71,6 @@ function installAndRunDatabase() {
 
   var bonusH = ["Settlement ID", "Date", "Member ID", "Name", "Total Bonus (₹)", "Adj Loan (₹)", "Adj Interest (₹)", "Adj RD (₹)", "Adj Penalty (₹)", "Net Paid (₹)", "Mode"];
   getOrCreateSheet(ss, "BonusSettlements", bonusH, "#D97706");
-
-  var fundH = ["Txn ID", "Date", "Type", "Account", "Entity", "Amount (₹)", "Narration", "CreatedAt"];
-  var fundSheet = getOrCreateSheet(ss, "FundRegister", fundH, "#4338CA");
-  alignAndFormatSheet(fundSheet, [0, 1, 2, 3, 5]);
-  if (fundSheet.getLastRow() <= 1) {
-    fundSheet.appendRow(["FND-260101-001", "2026-01-01", "INVEST", "BANK", "Initial Society Capital", 45000, "Opening Reserve Fund", new Date()]);
-  }
 
   // Format and align all sheets (Numbers center, text left)
   alignAndFormatSheet(memSheet, [0, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
@@ -306,36 +125,22 @@ function getOrCreateSheet(ss, name, headers, color) {
 
 function formatPureDate(d) {
   if (!d) return "2026-01-01";
-  if (d instanceof Date) {
-    if (isNaN(d.getTime())) return "2026-01-01";
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1).padStart(2, "0");
-    var day = String(d.getDate()).padStart(2, "0");
-    return y + "-" + m + "-" + day;
+  if (typeof d === "string") {
+    if (d.indexOf("T") > 0) return d.split("T")[0];
+    if (d.indexOf("GMT") > 0 || d.indexOf(":") > 0) {
+      var p = new Date(d);
+      if (!isNaN(p.getTime())) return p.getFullYear() + "-" + String(p.getMonth() + 1).padStart(2, "0") + "-" + String(p.getDate()).padStart(2, "0");
+    }
+    return d.split(" ")[0];
   }
-  var s = String(d).trim().split("T")[0].split(" ")[0];
-  // Match YYYY-MM-DD or YYYY/MM/DD
-  var mYmd = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})${'$'}/);
-  if (mYmd) {
-    return mYmd[1] + "-" + String(mYmd[2]).padStart(2, "0") + "-" + String(mYmd[3]).padStart(2, "0");
-  }
-  // Match DD-MM-YYYY or DD/MM/YYYY
-  var mDmy = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})${'$'}/);
-  if (mDmy) {
-    return mDmy[3] + "-" + String(mDmy[2]).padStart(2, "0") + "-" + String(mDmy[1]).padStart(2, "0");
-  }
-  var dt = new Date(s);
-  if (!isNaN(dt.getTime()) && dt.getFullYear() >= 2000 && dt.getFullYear() <= 2100) {
-    return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
-  }
-  return "2026-01-01";
+  if (d instanceof Date) return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  return String(d);
 }
 
 function getSocietyFullData() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (!ss) return getDefaultDataFallback();
-    try { upgradeUsersSheetCredentials(); } catch(e) {}
     var memSheet = ss.getSheetByName("Members");
     if (!memSheet || memSheet.getLastRow() <= 1) { installAndRunDatabase(); memSheet = ss.getSheetByName("Members"); }
 
@@ -461,25 +266,6 @@ function getSocietyFullData() {
       });
     }
 
-    var fundTransactions = [];
-    var fundSheet = ss.getSheetByName("FundRegister");
-    if (fundSheet && fundSheet.getLastRow() > 1) {
-      var fData = fundSheet.getRange(2, 1, fundSheet.getLastRow() - 1, 8).getValues();
-      fData.forEach(function(f) {
-        if (f[0] || f[1]) {
-          fundTransactions.push({
-            id: String(f[0] || ""),
-            date: formatPureDate(f[1]),
-            type: String(f[2] || "INVEST").toUpperCase(),
-            account: String(f[3] || "CASH").toUpperCase(),
-            entity: String(f[4] || "").trim(),
-            amount: Math.round(Number(f[5])) || 0,
-            narration: String(f[6] || "").trim()
-          });
-        }
-      });
-    }
-
     var users = [];
     var userSheet = ss.getSheetByName("Users");
     if (userSheet && userSheet.getLastRow() > 1) {
@@ -497,14 +283,8 @@ function getSocietyFullData() {
       });
     }
 
-    var sheetUrl = "";
-    try { sheetUrl = ss.getUrl(); } catch(e) {}
-    if (members.length === 0) {
-      var fb = getDefaultDataFallback();
-      fb.spreadsheetUrl = sheetUrl;
-      return fb;
-    }
-    return { members: members, payments: payments, loans: loans, exitSettlements: exitSettlements, bonusSettlements: bonusSettlements, fundTransactions: fundTransactions, users: users, spreadsheetUrl: sheetUrl };
+    if (members.length === 0) return getDefaultDataFallback();
+    return { members: members, payments: payments, loans: loans, exitSettlements: exitSettlements, bonusSettlements: bonusSettlements, users: users };
   } catch (e) {
     return getDefaultDataFallback();
   }
@@ -522,9 +302,6 @@ function getDefaultDataFallback() {
     loans: [],
     exitSettlements: [],
     bonusSettlements: [],
-    fundTransactions: [
-      { id: "FND-260101-001", date: "2026-01-01", type: "INVEST", account: "BANK", entity: "Initial Society Capital", amount: 45000, narration: "Opening Reserve Fund" }
-    ],
     users: [
       { username: "SANISH", password: "12345", role: "Super Admin", email: "stfsolutionsdelhi@gmail.com" },
       { username: "ADMIN", password: "12345", role: "Manager", email: "stfsolutionsdelhi@gmail.com" }
@@ -699,33 +476,9 @@ function saveBonusSettlementBackend(b) {
   } catch (e) { return { success: false, error: e.toString() }; }
 }
 
-function saveFundTransactionBackend(entry) {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (!ss) return { success: false, error: "No active spreadsheet found" };
-    var fH = ["Txn ID", "Date", "Type", "Account", "Entity", "Amount (₹)", "Narration", "CreatedAt"];
-    var fSheet = getOrCreateSheet(ss, "FundRegister", fH, "#4338CA");
-    var row = [
-      entry.id || ("FND-" + formatPureDate(entry.date).replace(/-/g, "").substring(2) + "-001"),
-      formatPureDate(entry.date || new Date()),
-      String(entry.type || "INVEST").toUpperCase(),
-      String(entry.account || "CASH").toUpperCase(),
-      String(entry.entity || "Society Capital").trim(),
-      Math.round(Number(entry.amount)) || 0,
-      String(entry.narration || "").trim(),
-      new Date()
-    ];
-    fSheet.appendRow(row);
-    SpreadsheetApp.flush();
-    return { success: true, message: "Fund entry posted successfully", id: row[0] };
-  } catch(e) {
-    return { success: false, error: e.toString() };
-  }
-}
-
 function doGet(e) {
   return HtmlService.createHtmlOutput(getCompleteSoftwareHtml())
-    .setTitle("GULLAK CO-OPERATIVE SOCIETY - Master Accounting Platform (V34 PRO)")
+    .setTitle("GULLAK CO-OPERATIVE SOCIETY - Master Accounting Platform (V22 PRO)")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag("viewport", "width=device-width, initial-scale=1.0");
 }
@@ -742,8 +495,7 @@ function getCompleteSoftwareHtmlContent() {
     body { background: #060913; color: #F8FAFC; padding: 16px 20px; min-height: 100vh; }
     
     /* FULLSCREEN APP & SIMULATED FULLSCREEN */
-    body.simulated-fullscreen { width: 100%; min-height: 100vh; overflow-y: auto !important; padding: 16px 20px; }
-    html, body { scroll-behavior: smooth; }
+    body.simulated-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; overflow-y: auto; padding: 16px 20px; }
 
     /* WINDOWS TERMINAL LOGIN OVERLAY */
     #windowsLoginOverlay {
@@ -834,8 +586,8 @@ function getCompleteSoftwareHtmlContent() {
     .btn-action-rcv { background: #0284C7; color: #fff; padding: 4px 8px; border-radius: 5px; border: none; font-size: 0.75rem; font-weight: 700; cursor: pointer; margin-right: 4px; }
     .btn-action-edit { background: #334155; color: #FBBF24; padding: 4px 8px; border-radius: 5px; border: none; font-size: 0.75rem; cursor: pointer; margin-right: 4px; }
     
-    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 100000; overflow-y: auto; padding: 20px 10px; }
-    .modal-dialog-box { background: #0F172A; border: 1px solid #334155; border-radius: 12px; width: 95%; max-width: 540px; padding: 18px; max-height: 90vh; overflow-y: auto; position: relative; margin: auto; }
+    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 100000; }
+    .modal-dialog-box { background: #0F172A; border: 1px solid #334155; border-radius: 12px; width: 95%; max-width: 540px; padding: 18px; max-height: 90vh; overflow-y: auto; position: relative; }
     .modal-dialog-lg { max-width: 980px; }
     .modal-dialog-xl { max-width: 1140px; }
     .modal-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #1E293B; padding-bottom: 8px; }
@@ -862,7 +614,7 @@ function getCompleteSoftwareHtmlContent() {
     <button type="button" class="login-fullscreen-toggle" id="btnLoginFullscreen" onclick="safeToggleFullscreen(event)">⛶ Full Screen</button>
     <div class="win-avatar-circle">🏦</div>
     <div class="win-title">GULLAK SUVIDHA SOCIETY</div>
-    <div class="win-sub">AUTHORIZED CLOUD TERMINAL (V34 PRO)</div>
+    <div class="win-sub">AUTHORIZED CLOUD TERMINAL (V22 PRO)</div>
     
     <div id="formWinLogin" style="width:100%; margin:0; padding:0;">
       <div class="win-field-group">
@@ -883,27 +635,17 @@ function getCompleteSoftwareHtmlContent() {
 
     <div id="winLoginError" style="color:#EF4444; font-size:0.85rem; font-weight:700; margin-top:10px; display:none; background:rgba(239,68,68,0.15); border:1px solid #EF4444; border-radius:6px; padding:8px; line-height:1.4;"></div>
     
-    <div class="win-forgot-link" onclick="handleForgotCredentials(event)">Forgot Username / Password? 📧</div>
+    <div class="win-forgot-link" onclick="handleForgotCredentials(event)">Forgot Username / Password?</div>
 
-    <div id="winForgotCard" style="display:none; margin-top:14px; background:#1E293B; border:1.5px solid #38BDF8; border-radius:10px; padding:14px; text-align:left; font-size:0.82rem; color:#E2E8F0; line-height:1.6;">
-      <div style="font-weight:800; color:#38BDF8; font-size:0.92rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-        <span>🔐 Password Recovery via Email</span>
+    <div id="winForgotCard" style="display:none; margin-top:14px; background:#1E293B; border:1.5px solid #F59E0B; border-radius:10px; padding:12px; text-align:left; font-size:0.82rem; color:#E2E8F0; line-height:1.6;">
+      <div style="font-weight:800; color:#FBBF24; font-size:0.92rem; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+        <span>🔑 Default Login Info</span>
         <button type="button" onclick="document.getElementById('winForgotCard').style.display='none'" style="background:none; border:none; color:#94A3B8; font-size:18px; cursor:pointer;">&times;</button>
       </div>
-      <div style="color:#CBD5E1; margin-bottom:10px;">
-        Aapke registered email address par Portal ke <strong>Username</strong> aur <strong>Password</strong> ka direct recovery email bheja jayega.
-      </div>
-      <div id="forgotMailStatus" style="display:none; margin-bottom:10px; padding:8px 10px; border-radius:6px; font-weight:700;"></div>
-      <div style="display:flex; gap:8px;">
-        <button type="button" id="btnConfirmSendMail" onclick="requestEmailCredentials(event)" style="background:#0284C7; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-weight:700; cursor:pointer; flex:1;">
-          📨 Send Password to My Email
-        </button>
-        <button type="button" onclick="document.getElementById('winForgotCard').style.display='none'" style="background:#334155; color:#94A3B8; border:none; padding:8px 12px; border-radius:6px; font-weight:700; cursor:pointer;">
-          Cancel
-        </button>
-      </div>
-      <div style="margin-top:8px; font-size:0.75rem; color:#94A3B8;">
-        💡 <strong>Note:</strong> Yeh recovery email Google Sheet me configured registered email par bheja jayega. Aap Google Sheet ke <strong>'Users'</strong> tab me Column D me apni Email ID kabhi bhi update kar sakte hain.
+      <div>• <strong>Username:</strong> <span style="color:#60A5FA; font-weight:700;">SANISH</span> (ya ADMIN)</div>
+      <div>• <strong>Default Password:</strong> <span style="color:#34D399; font-weight:800;">12345</span></div>
+      <div style="margin-top:6px; font-size:0.75rem; color:#94A3B8;">
+        💡 <strong>Note:</strong> Password change karne ke liye apne Google Sheet me <strong>'Users'</strong> tab kholein. Wahan Column B (Password) me jo bhi naya password likhenge, wahi se login hoga.
       </div>
     </div>
   </div>
@@ -912,63 +654,6 @@ function getCompleteSoftwareHtmlContent() {
 <script>
 // IMMEDIATE LOGIN CONTROLLER (V22 PRO)
 (function(){
-  window.requestEmailCredentials = function(e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (e && e.stopPropagation) e.stopPropagation();
-
-    var uInp = (document.getElementById("inpWinUsername") ? document.getElementById("inpWinUsername").value : "").trim();
-    var askConfirm = confirm("Kya aap registered email par apna Login Username aur Password receive karna chahte hain?\\n\\n(Yeh email Google Sheet ke 'Users' tab me configured email par bheja jayega.)");
-    if (!askConfirm) return false;
-
-    var statusBox = document.getElementById("forgotMailStatus");
-    var btnMail = document.getElementById("btnConfirmSendMail");
-    if (statusBox) {
-      statusBox.style.display = "block";
-      statusBox.style.background = "rgba(56, 189, 248, 0.15)";
-      statusBox.style.border = "1px solid #38BDF8";
-      statusBox.style.color = "#38BDF8";
-      statusBox.innerHTML = "⏳ Sending email... Kripya intezar karein...";
-    }
-    if (btnMail) {
-      btnMail.disabled = true;
-      btnMail.style.opacity = "0.6";
-    }
-
-    if (typeof google !== "undefined" && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (btnMail) { btnMail.disabled = false; btnMail.style.opacity = "1"; }
-          if (res && res.success) {
-            statusBox.style.background = "rgba(16, 185, 129, 0.15)";
-            statusBox.style.border = "1px solid #10B981";
-            statusBox.style.color = "#34D399";
-            statusBox.innerHTML = "✅ " + (res.message || "Credentials aapke registered email par bhej diye gaye hain!");
-          } else {
-            statusBox.style.background = "rgba(239, 68, 68, 0.15)";
-            statusBox.style.border = "1px solid #EF4444";
-            statusBox.style.color = "#F87171";
-            statusBox.innerHTML = "⚠️ " + ((res && res.error) ? res.error : "Email dispatch failed.");
-          }
-        })
-        .withFailureHandler(function(err) {
-          if (btnMail) { btnMail.disabled = false; btnMail.style.opacity = "1"; }
-          statusBox.style.background = "rgba(239, 68, 68, 0.15)";
-          statusBox.style.border = "1px solid #EF4444";
-          statusBox.style.color = "#F87171";
-          statusBox.innerHTML = "❌ Error: " + (err ? err.message || err.toString() : "Connection failed.");
-        })
-        .sendCredentialsEmailBackend(uInp);
-    } else {
-      setTimeout(function() {
-        if (btnMail) { btnMail.disabled = false; btnMail.style.opacity = "1"; }
-        statusBox.style.background = "rgba(16, 185, 129, 0.15)";
-        statusBox.style.border = "1px solid #10B981";
-        statusBox.style.color = "#34D399";
-        statusBox.innerHTML = "✅ [Simulated] Password reset email has been sent to registered email address.";
-      }, 700);
-    }
-    return false;
-  };
   window.togglePasswordEye = function(e) {
     if (e && e.preventDefault) e.preventDefault();
     if (e && e.stopPropagation) e.stopPropagation();
@@ -1103,15 +788,6 @@ function getCompleteSoftwareHtmlContent() {
 
       try { sessionStorage.setItem("gullak_v22_session", JSON.stringify(current)); } catch(err) {}
 
-      // CRITICAL: Ensure app is booted immediately
-      try {
-        if (typeof window.bootApplication === "function") {
-          window.bootApplication();
-        }
-      } catch(bootErr) {
-        console.error("bootApplication error:", bootErr);
-      }
-
       try {
         if (typeof window.refreshAll === "function") {
           window.refreshAll();
@@ -1121,7 +797,7 @@ function getCompleteSoftwareHtmlContent() {
       }
       return false;
     } else {
-      var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Please enter the correct password. You can check or reset your password in the <strong>'Users'</strong> tab of your connected Google Sheet.</small>";
+      var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Default Password: <strong>12345</strong><br>Note: Aap apne Google Sheet ke <strong>'Users'</strong> tab me jaakar Column B me password check ya update kar sakte hain.</small>";
       if (errBox) {
         errBox.innerHTML = errMsg;
         errBox.style.display = "block";
@@ -1134,29 +810,6 @@ function getCompleteSoftwareHtmlContent() {
       }
       return false;
     }
-  };
-
-  window.handleOpenSpreadsheet = function(e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (e && e.stopPropagation) e.stopPropagation();
-    var url = window.connectedSpreadsheetUrl;
-    if (url && url.length > 5 && url.indexOf("http") === 0) {
-      window.open(url, "_blank");
-      return false;
-    }
-    if (typeof google !== "undefined" && google.script && google.script.run) {
-      google.script.run.withSuccessHandler(function(liveUrl) {
-        if (liveUrl) {
-          window.connectedSpreadsheetUrl = liveUrl;
-          window.open(liveUrl, "_blank");
-        } else {
-          alert("Connected Google Sheet URL nahi mil saka.");
-        }
-      }).getSpreadsheetUrl();
-    } else {
-      alert("Connected Google Sheet URL live environment me available hai.");
-    }
-    return false;
   };
 
   function bindLoginListeners() {
@@ -1195,39 +848,39 @@ function getCompleteSoftwareHtmlContent() {
     <div class="logo-icon">🏦</div>
     <div>
       <div class="title-main">GULLAK CO-OPERATIVE SOCIETY</div>
-      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (V34 PRO)</div>
+      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (V22 PRO)</div>
     </div>
   </div>
   <div class="btn-group">
     <!-- Clean 4-Digit FY Switcher -->
     <select id="selFinancialYear" class="year-badge"></select>
-    <button class="btn btn-green" id="btnTopReceive" onclick="openReceiveModalFor()">📥 Receive Amount</button>
-    <button class="btn btn-red" id="btnTopLoan" onclick="openLoanModalFor()">💸 Issue Loan</button>
-    <button class="btn btn-blue" id="btnTopAddMember" onclick="openAddMemberModal()">👤 + Add Member</button>
-    <button class="btn btn-orange" id="btnTopBulk" onclick="openBulkModal()">▦ Bulk Entry</button>
-    <button class="btn btn-purple" id="btnTopExit" onclick="openModal('modalExit')">🚪 Member Exit</button>
-    <button class="btn btn-dark" id="btnTopSettings" onclick="openModal('modalSettings')">⚙️ Settings</button>
-    <button class="btn btn-dark" id="btnTopReload" onclick="handleTopReload()" title="Sync fresh verified data from Google Sheet">🔄 Fix/Reload</button>
-    <button class="btn btn-dark" id="btnToggleFullscreen" onclick="safeToggleFullscreen(event)">⛶ Fullscreen</button>
+    <button class="btn btn-green" id="btnTopReceive">📥 Receive Amount</button>
+    <button class="btn btn-red" id="btnTopLoan">💸 Issue Loan</button>
+    <button class="btn btn-blue" id="btnTopAddMember">👤 + Add Member</button>
+    <button class="btn btn-orange" id="btnTopBulk">▦ Bulk Entry</button>
+    <button class="btn btn-purple" id="btnTopExit">🚪 Member Exit</button>
+    <button class="btn btn-dark" id="btnTopSettings">⚙️ Settings</button>
+    <button class="btn btn-dark" id="btnTopReload" title="Sync fresh verified data from Google Sheet">🔄 Fix/Reload</button>
+    <button class="btn btn-dark" onclick="safeToggleFullscreen(event)">⛶ Fullscreen</button>
     <button class="btn btn-red" onclick="logoutSession()">Lock 🔒</button>
   </div>
 </div>
 
 <div class="kpi-grid">
-  <div class="kpi-card" id="kpiCardMembers" onclick="switchTab(1)"><div class="kpi-title">TOTAL MEMBERS</div><div class="kpi-val val-blue" id="dispTotalMem">0 / 0</div></div>
-  <div class="kpi-card" id="kpiCardRd" onclick="switchTab(2)"><div class="kpi-title">TOTAL RECEIPT / COLLECTION</div><div class="kpi-val val-green" id="dispTotalRd">₹0</div></div>
-  <div class="kpi-card" id="kpiCardLoans" onclick="switchTab(3)"><div class="kpi-title">TOTAL LOAN DUES</div><div class="kpi-val val-red" id="dispTotalLoan">₹0</div></div>
-  <div class="kpi-card" id="kpiCardBonus" onclick="switchTab(4)"><div class="kpi-title">EST. ANNUAL BONUS</div><div class="kpi-val val-purple" id="dispTotalBonus">₹0</div></div>
-  <div class="kpi-card" id="kpiCardFund" onclick="openFundModal()"><div class="kpi-title">CASH / BANK REGISTER 🏛️</div><div class="kpi-val val-green" id="dispTotalFund">+₹0</div></div>
-  <div class="kpi-card" id="kpiCardNpa" onclick="openNpaModal()"><div class="kpi-title">NPA / LOSS ⚠️</div><div class="kpi-val val-white" id="dispTotalNpa">₹0</div></div>
+  <div class="kpi-card" id="kpiCardMembers"><div class="kpi-title">TOTAL MEMBERS</div><div class="kpi-val val-blue" id="dispTotalMem">0 / 0</div></div>
+  <div class="kpi-card" id="kpiCardRd"><div class="kpi-title">TOTAL RECEIPT / COLLECTION</div><div class="kpi-val val-green" id="dispTotalRd">₹0</div></div>
+  <div class="kpi-card" id="kpiCardLoans"><div class="kpi-title">TOTAL LOAN DUES</div><div class="kpi-val val-red" id="dispTotalLoan">₹0</div></div>
+  <div class="kpi-card" id="kpiCardBonus"><div class="kpi-title">EST. ANNUAL BONUS</div><div class="kpi-val val-purple" id="dispTotalBonus">₹0</div></div>
+  <div class="kpi-card" id="kpiCardFund"><div class="kpi-title">CASH / BANK REGISTER 🏛️</div><div class="kpi-val val-green" id="dispTotalFund">+₹0</div></div>
+  <div class="kpi-card" id="kpiCardNpa"><div class="kpi-title">NPA / LOSS ⚠️</div><div class="kpi-val val-white" id="dispTotalNpa">₹0</div></div>
 </div>
 
 <div class="tabs-header">
-  <div class="tab-item active" id="tabHead1" onclick="switchTab(1)">👥 1. Master Ledger</div>
-  <div class="tab-item" id="tabHead2" onclick="switchTab(2)">📥 2. Collections & Receipts</div>
-  <div class="tab-item" id="tabHead3" onclick="switchTab(3)">💸 3. Loan Register</div>
-  <div class="tab-item" id="tabHead4" onclick="switchTab(4)">🎁 4. Annual Bonus & Set-off</div>
-  <div class="tab-item" id="tabHead5" onclick="switchTab(5)">⚠️ 5. Penalty Register</div>
+  <div class="tab-item active" id="tabHead1">👥 1. Master Ledger</div>
+  <div class="tab-item" id="tabHead2">📥 2. Collections & Receipts</div>
+  <div class="tab-item" id="tabHead3">💸 3. Loan Register</div>
+  <div class="tab-item" id="tabHead4">🎁 4. Annual Bonus & Set-off</div>
+  <div class="tab-item" id="tabHead5">⚠️ 5. Penalty Register</div>
 </div>
 
 <!-- TAB 1: MEMBERS MASTER LEDGER -->
@@ -1348,69 +1001,34 @@ function getCompleteSoftwareHtmlContent() {
 
 <!-- TAB 4: ANNUAL BONUS -->
 <div class="content-panel" id="tabPanel4" style="display:none;">
-  <div style="display:flex; gap:8px; margin-bottom:14px; border-bottom:1px solid #1E293B; padding-bottom:8px;">
-    <button type="button" class="tab-item active" id="btnBonusSubTab1" style="border-radius:6px; font-weight:700;">📈 1. Total Interest Received & Bonus Calculation</button>
-    <button type="button" class="tab-item" id="btnBonusSubTab2" style="border-radius:6px; font-weight:700;">🎁 2. Total Bonus Set-off & Paid Register</button>
-  </div>
-
-  <!-- SUB-VIEW 1: Total Interest Received & Member Bonus Calculation -->
-  <div id="bonusSubView1">
-    <div class="ledger-header" style="grid-template-columns:repeat(3,1fr); margin-bottom:14px;">
-      <div><div class="ledger-stat-lbl">TOTAL INTEREST COLLECTED</div><div class="ledger-stat-val" style="color:#10B981;" id="dispBonusTotalInterestRecv">₹0</div></div>
-      <div><div class="ledger-stat-lbl">TOTAL CUMULATIVE RD</div><div class="ledger-stat-val" style="color:#38BDF8;" id="dispBonusTotalRdBase">₹0</div></div>
-      <div><div class="ledger-stat-lbl">ANNUAL BONUS ACCRUED (1% P.M.)</div><div class="ledger-stat-val" style="color:#C084FC;" id="dispBonusTotalAccrued">₹0</div></div>
+  <div class="panel-header">
+    <div>
+      <div class="panel-title">🎁 Annual Bonus Calculation & Set-off (1% Per Month on Cumulative RD)</div>
+      <small style="color:#94A3B8;">Click on any calculated bonus (Purple) to view month-by-month breakup for the active date range.</small>
     </div>
-    <div class="panel-header">
-      <div>
-        <div class="panel-title">🎁 Member Annual Bonus Calculation (1% Per Month on Cumulative RD)</div>
-        <small style="color:#94A3B8;">Click on any calculated bonus (Purple) to view month-by-month breakup for the active date range.</small>
-      </div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-        <label class="field-label" style="margin:0;">Date:</label>
-        <input type="date" id="inpBonusFilterFrom" class="filter-ctrl" style="width:130px;" value="2026-01-01">
-        <input type="date" id="inpBonusFilterTo" class="filter-ctrl" style="width:130px;" value="2026-12-31">
-        <select id="selFilterBonusStatus" class="filter-ctrl">
-          <option value="ALL">All Bonus Status</option>
-          <option value="PENDING">Pending Only</option>
-          <option value="PAID">Set-off / Paid Only</option>
-        </select>
-        <select id="selSortBonus" class="filter-ctrl">
-          <option value="bonus_high">⬆ Bonus: High</option>
-          <option value="bonus_low">⬇ Bonus: Low</option>
-          <option value="name_az">🔤 Name (A-Z)</option>
-        </select>
-        <input type="text" id="searchBonusInput" class="search-input" placeholder="🔍 Search member...">
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>MEMBER</th><th>TOTAL RD SAVED</th><th>CALCULATED BONUS (1% P.M.)</th><th>ACTIVE LOAN DUES</th><th>PENALTY DUES</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
-        <tbody id="tbodyBonusList"></tbody>
-        <tfoot id="tfootBonusTotal"></tfoot>
-      </table>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <label class="field-label" style="margin:0;">Date:</label>
+      <input type="date" id="inpBonusFilterFrom" class="filter-ctrl" style="width:130px;" value="2026-01-01">
+      <input type="date" id="inpBonusFilterTo" class="filter-ctrl" style="width:130px;" value="2026-12-31">
+      <select id="selFilterBonusStatus" class="filter-ctrl">
+        <option value="ALL">All Bonus Status</option>
+        <option value="PENDING">Pending Only</option>
+        <option value="PAID">Set-off / Paid Only</option>
+      </select>
+      <select id="selSortBonus" class="filter-ctrl">
+        <option value="bonus_high">⬆ Bonus: High</option>
+        <option value="bonus_low">⬇ Bonus: Low</option>
+        <option value="name_az">🔤 Name (A-Z)</option>
+      </select>
+      <input type="text" id="searchBonusInput" class="search-input" placeholder="🔍 Search member...">
     </div>
   </div>
-
-  <!-- SUB-VIEW 2: Total Bonus Set-off & Paid Register -->
-  <div id="bonusSubView2" style="display:none;">
-    <div class="panel-header">
-      <div>
-        <div class="panel-title" style="color:#FBBF24;">🎁 Total Bonus Set-off & Adjustment Register</div>
-        <small style="color:#94A3B8;">Complete record of bonus set-offs adjusted against Loan, Interest, RD, or paid out via Cash/Bank.</small>
-      </div>
-      <div style="display:flex; gap:6px; align-items:center;">
-        <label class="field-label" style="margin:0;">Date:</label>
-        <input type="date" id="inpBonusSetoffFilterFrom" class="filter-ctrl" style="width:130px;" value="2026-01-01">
-        <input type="date" id="inpBonusSetoffFilterTo" class="filter-ctrl" style="width:130px;" value="2026-12-31">
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>SETTLEMENT ID</th><th>DATE</th><th>MEMBER NAME / ID</th><th>TOTAL BONUS (₹)</th><th>ADJ LOAN (₹)</th><th>ADJ INT (₹)</th><th>ADJ RD (₹)</th><th>ADJ PENALTY (₹)</th><th>NET PAID (₹)</th><th>MODE</th></tr></thead>
-        <tbody id="tbodyBonusSetoffRegister"></tbody>
-        <tfoot id="tfootBonusSetoffRegister"></tfoot>
-      </table>
-    </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>MEMBER</th><th>TOTAL RD SAVED</th><th>CALCULATED BONUS (1% P.M.)</th><th>ACTIVE LOAN DUES</th><th>PENALTY DUES</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+      <tbody id="tbodyBonusList"></tbody>
+      <tfoot id="tfootBonusTotal"></tfoot>
+    </table>
   </div>
 </div>
 
@@ -1669,10 +1287,10 @@ function getCompleteSoftwareHtmlContent() {
       </div>
     </div>
     <div class="ledger-header" id="ledgerHeaderStats"></div>
-    <div style="font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:6px;">Transaction History (RD Savings & Loan Accounts Segregated)</div>
-    <div style="max-height:280px; overflow-y:auto;">
+    <div style="font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:6px;">Transaction History (Debit - Disbursal / Credit - Payment)</div>
+    <div style="max-height:260px; overflow-y:auto;">
       <table>
-        <thead><tr><th>DATE</th><th>REF ID</th><th>TRANSACTION PARTICULARS</th><th>RD DEPOSIT (₹)</th><th>RD BALANCE (₹)</th><th>LOAN ISSUED (₹)</th><th>LOAN REPAID (₹)</th><th>LOAN BALANCE (₹)</th><th>MODE</th></tr></thead>
+        <thead><tr><th>DATE</th><th>REF ID</th><th>TRANSACTION PARTICULARS</th><th>DEBIT (-)</th><th>CREDIT (+)</th><th>BALANCE</th><th>MODE</th></tr></thead>
         <tbody id="tbodyLedgerTxns"></tbody>
       </table>
     </div>
@@ -1814,100 +1432,14 @@ function getCompleteSoftwareHtmlContent() {
   </div>
 </div>
 
-<!-- MODAL: GLOBAL SETTINGS & FUND REGISTER -->
+<!-- MODAL: GLOBAL SETTINGS -->
 <div class="modal-backdrop" id="modalSettings">
-  <div class="modal-dialog-box modal-dialog-lg">
-    <div class="modal-header-row"><div style="color:#FBBF24; font-weight:800; font-size:1.1rem;">⚙️ Society Settings & Fund Register</div><button class="close-x action-close-modal">&times;</button></div>
-    
-    <div style="display:flex; gap:6px; margin-bottom:14px; border-bottom:1px solid #1E293B; padding-bottom:8px;">
-      <button type="button" class="tab-item active" id="btnSettingsSubTab1" style="border-radius:6px; font-weight:700;">⚙️ 1. General Settings</button>
-      <button type="button" class="tab-item" id="btnSettingsSubTab2" style="border-radius:6px; font-weight:700;">🏦 2. Fund Register (Invest/Borrow Audit)</button>
-      <button type="button" class="tab-item" id="btnSettingsSubTab3" style="border-radius:6px; font-weight:700;">➕ 3. Borrow / Invest Entry Form</button>
-    </div>
-
-    <!-- SUB-TAB 1: GENERAL SETTINGS -->
-    <div id="settingsSubView1">
-      <div style="margin-bottom:16px; padding:12px; background:#1E293B; border:1.5px solid #10B981; border-radius:8px; text-align:center;">
-        <div style="font-weight:700; color:#34D399; margin-bottom:4px; font-size:0.9rem;">📊 Connected Google Sheet Database</div>
-        <div style="font-size:0.75rem; color:#94A3B8; margin-bottom:10px;">Members, Payments, Loans, FundRegister aur Users ka live data dekhne ya update karne ke liye:</div>
-        <button type="button" id="btnOpenGoogleSheet" onclick="handleOpenSpreadsheet(event)" class="btn btn-green" style="display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; font-weight:800; padding:11px; font-size:0.92rem; box-sizing:border-box; cursor:pointer;">
-          <span>📊 Open Connected Google Sheet ➔</span>
-        </button>
-      </div>
-
-      <div class="field-box"><label class="field-label">Global Default Due Date</label><input type="text" id="inpGlobalDueDay" class="field-ctrl" value="15th of every month"></div>
-      <div class="field-box"><label class="field-label">Global Default Interest Rate (% p.m. for NEW loans)</label><input type="number" id="inpGlobalRate" class="field-ctrl" value="1.0" step="0.1"></div>
-      <small style="color:#94A3B8; display:block; margin-bottom:12px;">Note: Changes apply to default forms and members without custom settings. Issued historical loans remain safe.</small>
-      <button class="btn btn-blue" id="btnApplyGlobalSettings" style="width:100%; justify-content:center; padding:11px;">Apply Global Settings</button>
-    </div>
-
-    <!-- SUB-TAB 2: FUND REGISTER -->
-    <div id="settingsSubView2" style="display:none;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-        <div style="font-size:0.9rem; font-weight:700; color:#38BDF8;">Audit of Invested / Borrowed Funds (Cash & Bank)</div>
-        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-          <input type="date" id="inpFundFilterFrom" class="filter-ctrl" style="width:125px;" value="2026-01-01">
-          <input type="date" id="inpFundFilterTo" class="filter-ctrl" style="width:125px;" value="2026-12-31">
-          <select id="selFundFilterAccount" class="filter-ctrl">
-            <option value="ALL">All Accounts</option>
-            <option value="CASH">Cash in Hand</option>
-            <option value="BANK">Cash at Bank</option>
-          </select>
-          <select id="selFundFilterType" class="filter-ctrl">
-            <option value="ALL">All Types</option>
-            <option value="INVEST">Investments (Inflow)</option>
-            <option value="BORROW">Borrowings (Outflow)</option>
-          </select>
-        </div>
-      </div>
-      <div style="max-height:260px; overflow-y:auto; margin-bottom:10px;">
-        <table>
-          <thead><tr><th>DATE</th><th>TXN ID</th><th>TYPE</th><th>ACCOUNT</th><th>SOURCE / ENTITY</th><th>AMOUNT (₹)</th><th>NARRATION</th></tr></thead>
-          <tbody id="tbodyFundRegisterList"></tbody>
-          <tfoot id="tfootFundRegisterList"></tfoot>
-        </table>
-      </div>
-      <div style="display:flex; gap:8px; justify-content:flex-end;">
-        <button type="button" class="btn btn-purple" id="btnSwitchToFundForm">➕ Record New Invest / Borrow Entry</button>
-      </div>
-    </div>
-
-    <!-- SUB-TAB 3: BORROW / INVEST FORM -->
-    <div id="settingsSubView3" style="display:none;">
-      <div style="font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:12px;">Record Borrowing or Investment (Cash Register / Bank)</div>
-      <div class="two-cols field-box">
-        <div>
-          <label class="field-label">Transaction Type</label>
-          <select id="inpFundEntryType" class="field-ctrl">
-            <option value="INVEST">INVESTMENT / CAPITAL INFLOW (+)</option>
-            <option value="BORROW">BORROWING / CAPITAL OUTFLOW (-)</option>
-          </select>
-        </div>
-        <div>
-          <label class="field-label">Account</label>
-          <select id="inpFundEntryAccount" class="field-ctrl">
-            <option value="BANK">CASH AT BANK / ONLINE</option>
-            <option value="CASH">CASH IN HAND</option>
-          </select>
-        </div>
-      </div>
-      <div class="two-cols field-box">
-        <div><label class="field-label">Transaction Date</label><input type="date" id="inpFundEntryDate" class="field-ctrl"></div>
-        <div><label class="field-label">Amount (₹)</label><input type="number" id="inpFundEntryAmount" class="field-ctrl" placeholder="0" min="1"></div>
-      </div>
-      <div class="field-box">
-        <label class="field-label">Investor / Lender / Entity</label>
-        <input type="text" id="inpFundEntryEntity" class="field-ctrl" placeholder="e.g. Director Investment, Bank Loan, Reserve Fund">
-      </div>
-      <div class="field-box">
-        <label class="field-label">Narration / Remarks</label>
-        <input type="text" id="inpFundEntryNarration" class="field-ctrl" placeholder="Enter purpose or details of this transaction">
-      </div>
-      <button type="button" class="btn btn-green" id="btnSubmitFundEntry" style="width:100%; justify-content:center; padding:11px; font-weight:800; font-size:0.95rem;">
-        💾 Post Transaction & Update Dashboard Fund
-      </button>
-    </div>
-
+  <div class="modal-dialog-box">
+    <div class="modal-header-row"><div style="color:#FBBF24; font-weight:800;">⚙️ Society Global Settings</div><button class="close-x action-close-modal">&times;</button></div>
+    <div class="field-box"><label class="field-label">Global Default Due Date</label><input type="text" id="inpGlobalDueDay" class="field-ctrl" value="15th of every month"></div>
+    <div class="field-box"><label class="field-label">Global Default Interest Rate (% p.m. for NEW loans)</label><input type="number" id="inpGlobalRate" class="field-ctrl" value="1.0" step="0.1"></div>
+    <small style="color:#94A3B8; display:block; margin-bottom:12px;">Note: Changes apply to default forms and members without custom settings. Issued historical loans remain safe.</small>
+    <button class="btn btn-blue" id="btnApplyGlobalSettings" style="width:100%; justify-content:center; padding:11px;">Apply Global Settings</button>
   </div>
 </div>
 `;
@@ -1915,17 +1447,15 @@ function getCompleteSoftwareHtmlContent() {
 
 function getCompleteSoftwareHtml() {
   var initialUsersJson = "[]";
-  var sheetUrl = "";
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (ss) {
-      sheetUrl = ss.getUrl() || "";
       var uSheet = ss.getSheetByName("Users");
       if (uSheet && uSheet.getLastRow() > 1) {
-        var uData = uSheet.getRange(2, 1, uSheet.getLastRow() - 1, 4).getValues();
+        var uData = uSheet.getRange(2, 1, uSheet.getLastRow() - 1, 3).getValues();
         var uList = [];
         uData.forEach(function(r) {
-          if (r[0]) uList.push({ username: String(r[0]).trim(), password: String(r[1]).trim(), role: String(r[2] || "Manager").trim(), email: String(r[3] || "").trim() });
+          if (r[0]) uList.push({ username: String(r[0]).trim(), password: String(r[1]).trim(), role: String(r[2] || "Manager").trim() });
         });
         if (uList.length > 0) initialUsersJson = JSON.stringify(uList);
       }
@@ -1933,9 +1463,8 @@ function getCompleteSoftwareHtml() {
   } catch(e) {}
 
   return getCompleteSoftwareHtmlContent() + 
-    "\n<script>\nwindow.initialSheetUsers = " + initialUsersJson + ";\nwindow.connectedSpreadsheetUrl = " + JSON.stringify(sheetUrl) + ";\n</script>\n" +
-    getCompleteSoftwareClientScript() +
-    "\n</body>\n</html>";
+    "\n<script>\nwindow.initialSheetUsers = " + initialUsersJson + ";\n</script>\n" +
+    getCompleteSoftwareClientScript();
 }
 
 
@@ -2060,15 +1589,6 @@ window.executeDirectLogin = function(e) {
     
     try { sessionStorage.setItem("gullak_v22_session", JSON.stringify(current)); } catch(err) {}
     
-    // Ensure app is booted
-    try {
-      if (typeof window.bootApplication === "function") {
-        window.bootApplication();
-      }
-    } catch(err) {
-      console.error("bootApplication error:", err);
-    }
-
     // Render and refresh all views immediately
     try {
       if (typeof window.refreshAll === "function") {
@@ -2079,7 +1599,7 @@ window.executeDirectLogin = function(e) {
     }
     return false;
   } else {
-    var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Please enter the correct password. You can check or reset your password in the <strong>'Users'</strong> tab of your connected Google Sheet.</small>";
+    var errMsg = "❌ <strong>Invalid Password!</strong><br>Default Password: <strong>12345</strong><br><small style='color:#CBD5E1;'>Note: Aap apne Google Sheet ke <strong>'Users'</strong> tab me jaakar Column B me password check ya change kar sakte hain.</small>";
     if (errBox) {
       errBox.innerHTML = errMsg;
       errBox.style.display = "block";
@@ -2138,39 +1658,10 @@ window.handleForgotCredentials = function(e) {
   var DEF_L=[];
 
   var members=JSON.parse(JSON.stringify(DEF_M)), payments=JSON.parse(JSON.stringify(DEF_P)), loans=JSON.parse(JSON.stringify(DEF_L)), exitSettlements=[], bonusSettlements=[];
-  var fundTransactions = [];
-  try {
-    var savedFund = localStorage.getItem("gullak_v21_fund");
-    if(savedFund) fundTransactions = JSON.parse(savedFund);
-  } catch(e) {}
-  window.fundTransactions = fundTransactions;
   var globalDefaultRate = 1.0;
   var globalDefaultDue = "15th of every month";
   var pendingBulkData = null;
   var currentActiveLedgerMember = null;
-
-  function parseDateParts(d){
-    if (!d) return { yr: 2026, mo: 1, day: 1 };
-    if (d instanceof Date) {
-      if (isNaN(d.getTime())) return { yr: 2026, mo: 1, day: 1 };
-      return { yr: d.getFullYear(), mo: d.getMonth() + 1, day: d.getDate() };
-    }
-    var s = String(d).trim().split("T")[0].split(" ")[0];
-    var mYmd = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})${'$'}/);
-    if (mYmd) {
-      return { yr: parseInt(mYmd[1], 10), mo: parseInt(mYmd[2], 10), day: parseInt(mYmd[3], 10) };
-    }
-    var mDmy = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})${'$'}/);
-    if (mDmy) {
-      return { yr: parseInt(mDmy[3], 10), mo: parseInt(mDmy[2], 10), day: parseInt(mDmy[1], 10) };
-    }
-    var dt = new Date(s);
-    if (!isNaN(dt.getTime()) && dt.getFullYear() >= 2020 && dt.getFullYear() <= 2100) {
-      return { yr: dt.getFullYear(), mo: dt.getMonth() + 1, day: dt.getDate() };
-    }
-    return { yr: 2026, mo: 1, day: 1 };
-  }
-  window.parseDateParts = parseDateParts;
 
   function cleanNum(val, def){ 
     var n = Number(val); 
@@ -2214,7 +1705,6 @@ window.handleForgotCredentials = function(e) {
       localStorage.setItem("gullak_v21_l", JSON.stringify(loans)); 
       localStorage.setItem("gullak_v21_ex", JSON.stringify(exitSettlements)); 
       localStorage.setItem("gullak_v21_b", JSON.stringify(bonusSettlements)); 
-      localStorage.setItem("gullak_v21_fund", JSON.stringify(fundTransactions));
     }catch(e){} 
     refreshAll(); 
   }
@@ -2306,7 +1796,7 @@ window.handleForgotCredentials = function(e) {
     return Math.max(0, netIntDue);
   }
 
-  // EXACT PENALTY CALCULATION (SANISH, AMIT VERMA & ALL MEMBERS: ₹10/DAY OVERDUE FROM 15TH)
+  // EXACT PENALTY CALCULATION (SANISH & ALL MEMBERS: ₹10/DAY OVERDUE FROM 15TH)
   function calculateMemberLivePenaltyDue(m){
     var mid = String(m.id).trim().toUpperCase();
     var mName = String(m.name).trim().toLowerCase();
@@ -2322,14 +1812,12 @@ window.handleForgotCredentials = function(e) {
     }
     if(isNaN(dueDayNum) || dueDayNum < 1 || dueDayNum > 28) dueDayNum = 15;
 
-    var jdp = parseDateParts(m.dateJoined || "2026-01-01");
-    var jYr = jdp.yr;
-    var jMo = jdp.mo;
-    if(jYr < 2024 || jYr > 2100) jYr = 2026;
-    if(jMo < 1 || jMo > 12) jMo = 1;
+    var jDate = m.dateJoined || "2026-01-01";
+    var jp = jDate.split("-");
+    var jYr = parseInt(jp[0], 10) || 2026;
+    var jMo = parseInt(jp[1], 10) || 1;
 
-    // Total RD paid includes opening RD balance (rdPaid) plus all subsequent payments
-    var totalRdPaid = cleanNum(m.rdPaid, 0);
+    var totalRdPaid = 0;
     var totalPenPaid = 0;
     var totalWaiver = 0;
     payments.forEach(function(p){
@@ -2376,6 +1864,7 @@ window.handleForgotCredentials = function(e) {
   }
 
   // EXACT BONUS CALCULATION: 1% P.M. UP TO LAST COMPLETED MONTH
+  // September is current month so September's bonus will accrue next month (in October)!
   function calculate1PercentPmBonus(m, filterFromYmd, filterToYmd){
     var mid = String(m.id).trim().toUpperCase();
     var mName = String(m.name).trim().toLowerCase();
@@ -2383,23 +1872,18 @@ window.handleForgotCredentials = function(e) {
     var schedule = [];
     var totalBonus = 0;
     
-    var selVal = document.getElementById("selFinancialYear") ? document.getElementById("selFinancialYear").value : "2026";
-    var selYrNum = 2026;
-    if(selVal){
-      var matched = String(selVal).match(/\d{4}/);
-      if(matched) selYrNum = parseInt(matched[0], 10);
-    }
-    if(isNaN(selYrNum) || selYrNum < 2020 || selYrNum > 2100) selYrNum = 2026;
-    var selYear = String(selYrNum);
-
+    var selYear = document.getElementById("selFinancialYear") ? document.getElementById("selFinancialYear").value : "2026";
     var monthsNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
     var monthlyDepositMap = [0,0,0,0,0,0,0,0,0,0,0,0];
     payments.forEach(function(p){
       if((String(p.id).trim().toUpperCase() === mid || String(p.name).trim().toLowerCase() === mName) && cleanNum(p.rd, 0) > 0){
-        var dp = parseDateParts(p.date);
-        if(dp.yr === selYrNum && dp.mo >= 1 && dp.mo <= 12){
-          monthlyDepositMap[dp.mo - 1] += cleanNum(p.rd, 0);
+        var dt = String(p.date || "");
+        if(dt.indexOf(selYear + "-") === 0){
+          var mNum = parseInt(dt.split("-")[1], 10);
+          if(!isNaN(mNum) && mNum >= 1 && mNum <= 12){
+            monthlyDepositMap[mNum - 1] += cleanNum(p.rd, 0);
+          }
         }
       }
     });
@@ -2407,6 +1891,7 @@ window.handleForgotCredentials = function(e) {
     var today = new Date();
     var curYr = today.getFullYear();
     var curMoIdx = today.getMonth(); // 0-based: 8 for Sep
+    var selYrNum = parseInt(selYear, 10);
 
     var runningBase = openingRd;
     for (var i = 0; i < 12; i++) {
@@ -2414,10 +1899,9 @@ window.handleForgotCredentials = function(e) {
       var depositThisMonth = monthlyDepositMap[i];
       var monthEndBase = monthStartBase + depositThisMonth;
 
-      // Month i earns bonus if completed strictly before current month in current year, or all months of a prior year:
-      var isCompletedMonth = (selYrNum < curYr) ? true : ((selYrNum === curYr) ? (i <= curMoIdx) : false);
-      var calcBase = monthStartBase > 0 ? monthStartBase : depositThisMonth;
-      var mBonus = isCompletedMonth && calcBase > 0 ? Math.round(calcBase * 0.01) : 0;
+      // Month i only earns bonus if completed strictly before current month in current year:
+      var isCompletedMonth = (selYrNum < curYr) ? true : ((selYrNum === curYr) ? (i < curMoIdx) : false);
+      var mBonus = isCompletedMonth ? Math.round(monthStartBase * 0.01) : 0;
       
       if(isCompletedMonth) {
         totalBonus += mBonus;
@@ -2452,94 +1936,39 @@ window.handleForgotCredentials = function(e) {
     return { limit: std, text: "₹" + std.toLocaleString("en-IN"), isBlocked: false }; 
   }
 
-  // AI-POWERED COLLISION-FREE AUTO-ID GENERATOR
-  function generateAutoId(type, dateStr){
-    var dp = parseDateParts(dateStr || getTodayYMD());
-    var yrShort = String(dp.yr).substring(2);
-    var moShort = String(dp.mo).padStart(2, "0");
-    var dayShort = String(dp.day).padStart(2, "0");
-    var datePrefix = yrShort + moShort + dayShort;
-    
-    var pfx = "REC";
-    var existingList = [];
-    var t = String(type || "REC").toUpperCase();
-    if(t === "REC" || t === "RECEIPT" || t === "PAYMENT"){
-      pfx = "REC";
-      existingList = payments.map(function(x){ return String(x.receiptNo || ""); });
-    } else if(t === "LOAN" || t === "LN"){
-      pfx = "LN";
-      existingList = loans.map(function(x){ return String(x.loanId || ""); });
-    } else if(t === "MEM" || t === "MEMBER"){
-      pfx = "MEM";
-      existingList = members.map(function(x){ return String(x.id || ""); });
-    } else if(t === "EXIT" || t === "EX"){
-      pfx = "EXT";
-      existingList = exitSettlements.map(function(x){ return String(x.exitId || ""); });
-    } else if(t === "SET" || t === "SETTLEMENT" || t === "BONUS"){
-      pfx = "SET";
-      existingList = bonusSettlements.map(function(x){ return String(x.settlementId || ""); });
-    } else if(t === "FUND" || t === "FND"){
-      pfx = "FND";
-      existingList = fundTransactions.map(function(x){ return String(x.id || ""); });
-    }
-
-    var seq = 1;
-    var candidate = "";
-    while(true){
-      var seqStr = String(seq).padStart(3, "0");
-      candidate = pfx + "-" + datePrefix + "-" + seqStr;
-      if(existingList.indexOf(candidate) === -1){
-        break;
-      }
-      seq++;
-    }
-    return candidate;
-  }
-  window.generateAutoId = generateAutoId;
-
-  // FINANCIAL YEAR (CALENDAR YEAR: JAN - DEC) SWITCHER GENERATOR
+  // STRICT 4-DIGIT FINANCIAL YEAR SWITCHER GENERATOR
   function setupFinancialYearDropdown(){
     var sel = document.getElementById("selFinancialYear");
     if(!sel) return;
     var curVal = sel.value || "2026";
-    if(curVal.indexOf(" ") >= 0){
-      var m = curVal.match(/\d{4}/);
-      if(m) curVal = m[0];
-    }
     
-    var currentYear = (new Date()).getFullYear().toString();
-    if(!/^\d{4}${'$'}/.test(currentYear)) currentYear = "2026";
-
-    var fyMap = {};
-    fyMap["2026"] = true;
-    fyMap[currentYear] = true;
-
-    function recordYearFromDate(dtStr){
+    var yearsSet = {};
+    function checkAndAddYear(dtStr){
       if(!dtStr) return;
-      var dp = parseDateParts(dtStr);
-      if(dp && dp.yr && dp.yr >= 2020 && dp.yr <= 2100){
-        fyMap[String(dp.yr)] = true;
+      var cleanStr = String(dtStr).split("T")[0].split(" ")[0];
+      var p = cleanStr.split("-");
+      if(p.length === 3 && p[0].length === 4 && /^\d{4}$/.test(p[0])){
+        yearsSet[p[0]] = true;
       }
     }
 
-    payments.forEach(function(p){ recordYearFromDate(p.date); });
-    loans.forEach(function(l){ recordYearFromDate(l.date); });
-    exitSettlements.forEach(function(e){ recordYearFromDate(e.date); });
-    bonusSettlements.forEach(function(b){ recordYearFromDate(b.date); });
-    fundTransactions.forEach(function(f){ recordYearFromDate(f.date); });
+    members.forEach(function(m){ checkAndAddYear(m.dateJoined); });
+    payments.forEach(function(p){ checkAndAddYear(p.date); });
+    loans.forEach(function(l){ checkAndAddYear(l.date); });
+    exitSettlements.forEach(function(e){ checkAndAddYear(e.date); });
+    bonusSettlements.forEach(function(b){ checkAndAddYear(b.date); });
 
-    var sortedYrs = Object.keys(fyMap).sort();
+    if(Object.keys(yearsSet).length === 0){
+      yearsSet["2026"] = true;
+    }
+
+    var sortedYears = Object.keys(yearsSet).filter(function(y){ return /^\d{4}$/.test(y); }).sort();
     var h = "";
-    sortedYrs.forEach(function(yr){
+    sortedYears.forEach(function(yr){
       var isSel = (yr === curVal) ? "selected" : "";
-      h += "<option value='" + yr + "' " + isSel + ">FY " + yr + " (Jan - Dec)</option>";
+      h += "<option value='" + yr + "' " + isSel + ">FY " + yr + "</option>";
     });
     sel.innerHTML = h;
-    if(sortedYrs.indexOf(curVal) === -1){
-      sel.value = currentYear;
-    } else {
-      sel.value = curVal;
-    }
   }
 
   function updateKPIs(){
@@ -2551,16 +1980,7 @@ window.handleForgotCredentials = function(e) {
     document.getElementById("dispTotalLoan").innerText = "₹" + totalLoan.toLocaleString("en-IN");
     var estB = 0; members.forEach(function(m){ estB += getMemberBonus(m); });
     document.getElementById("dispTotalBonus").innerText = "₹" + estB.toLocaleString("en-IN");
-    
-    // Calculate liquid fund factoring in Invest Inflows & Borrow Outflows
-    var fundInflow = 0;
-    var fundOutflow = 0;
-    fundTransactions.forEach(function(f){
-      var amt = cleanNum(f.amount, 0);
-      if(String(f.type).toUpperCase() === "INVEST") fundInflow += amt;
-      else if(String(f.type).toUpperCase() === "BORROW") fundOutflow += amt;
-    });
-    var fund = totalRdRecv - totalLoan + 45000 + fundInflow - fundOutflow;
+    var fund = totalRdRecv - totalLoan + 45000;
     var elFund = document.getElementById("dispTotalFund");
     elFund.innerText = (fund >= 0 ? "+₹" : "-₹") + Math.abs(fund).toLocaleString("en-IN");
     elFund.className = fund >= 0 ? "kpi-val val-green" : "kpi-val val-red";
@@ -2776,21 +2196,6 @@ function getClientScriptPartB() {
     var toD = document.getElementById("inpBonusFilterTo").value || "2030-12-31";
     var q = (document.getElementById("searchBonusInput").value || "").toLowerCase().trim();
 
-    // Compute live global bonus stats
-    var totalIntReceived = 0;
-    payments.forEach(function(p){ totalIntReceived += cleanNum(p.interest, 0); });
-    var totalCumulativeRd = 0;
-    members.forEach(function(m){ if(String(m.status).toUpperCase() === "ACTIVE") totalCumulativeRd += getMemberTotalRd(m); });
-    var totalAccruedBonus = 0;
-    members.forEach(function(m){ totalAccruedBonus += getMemberBonus(m); });
-
-    var elInt = document.getElementById("dispBonusTotalInterestRecv");
-    var elRd = document.getElementById("dispBonusTotalRdBase");
-    var elAcc = document.getElementById("dispBonusTotalAccrued");
-    if(elInt) elInt.innerText = "₹" + totalIntReceived.toLocaleString("en-IN");
-    if(elRd) elRd.innerText = "₹" + totalCumulativeRd.toLocaleString("en-IN");
-    if(elAcc) elAcc.innerText = "₹" + totalAccruedBonus.toLocaleString("en-IN");
-
     var filtered = members.filter(function(m){
       var matchSearch = String(m.name||"").toLowerCase().indexOf(q) >= 0 || String(m.id||"").toLowerCase().indexOf(q) >= 0;
       var hasSettled = bonusSettlements.some(function(b){ return String(b.id) === String(m.id); });
@@ -2844,115 +2249,6 @@ function getClientScriptPartB() {
         "<td style='color:#F59E0B;'>₹" + sumPen.toLocaleString("en-IN") + "</td>" +
         "<td colspan='2'></td>" +
       "</tr>";
-  }
-
-  function renderBonusSetoffRegister(){
-    var fromD = document.getElementById("inpBonusSetoffFilterFrom").value || "2026-01-01";
-    var toD = document.getElementById("inpBonusSetoffFilterTo").value || "2026-12-31";
-    var tbody = document.getElementById("tbodyBonusSetoffRegister"); if(!tbody) return;
-    
-    var filtered = bonusSettlements.filter(function(b){
-      var d = b.date || "2026-01-01";
-      return (d >= fromD && d <= toD);
-    });
-
-    if(filtered.length === 0){
-      tbody.innerHTML = "<tr><td colspan='10' style='text-align:center;color:#94A3B8;'>No bonus set-offs recorded in date range (" + toDisplayDate(fromD) + " to " + toDisplayDate(toD) + ")</td></tr>";
-      var tf = document.getElementById("tfootBonusSetoffRegister"); if(tf) tf.innerHTML = "";
-      return;
-    }
-
-    var h = "";
-    var totalBonusSum = 0, totalNetPaid = 0;
-    filtered.forEach(function(b){
-      var bTot = cleanNum(b.totalBonus, 0);
-      var netP = cleanNum(b.netPaid, 0);
-      totalBonusSum += bTot;
-      totalNetPaid += netP;
-      h += "<tr>" +
-        "<td style='font-family:monospace;color:#FBBF24;'>" + (b.settlementId || "-") + "</td>" +
-        "<td>" + toDisplayDate(b.date) + "</td>" +
-        "<td><strong>" + b.name + "</strong> (" + b.id + ")</td>" +
-        "<td style='color:#C084FC;font-weight:700;'>₹" + bTot.toLocaleString("en-IN") + "</td>" +
-        "<td>₹" + cleanNum(b.adjLoan, 0).toLocaleString("en-IN") + "</td>" +
-        "<td>₹" + cleanNum(b.adjInt, 0).toLocaleString("en-IN") + "</td>" +
-        "<td>₹" + cleanNum(b.adjRd, 0).toLocaleString("en-IN") + "</td>" +
-        "<td>₹" + cleanNum(b.adjPenalty, 0).toLocaleString("en-IN") + "</td>" +
-        "<td style='color:#10B981;font-weight:800;'>₹" + netP.toLocaleString("en-IN") + "</td>" +
-        "<td><span style='font-size:0.75rem;color:" + (b.mode==="CASH"?"#F59E0B":"#38BDF8") + ";font-weight:700;'>" + (b.mode||"ONLINE") + "</span></td>" +
-      "</tr>";
-    });
-    tbody.innerHTML = h;
-
-    var tf = document.getElementById("tfootBonusSetoffRegister");
-    if(tf) {
-      tf.innerHTML = 
-        "<tr class='tfoot-total-row'>" +
-          "<td colspan='3' style='color:#FBBF24;'>TOTAL SET-OFFS IN DATE RANGE</td>" +
-          "<td style='color:#C084FC;font-weight:800;'>₹" + totalBonusSum.toLocaleString("en-IN") + "</td>" +
-          "<td colspan='4'></td>" +
-          "<td style='color:#10B981;font-weight:800;'>₹" + totalNetPaid.toLocaleString("en-IN") + "</td>" +
-          "<td></td>" +
-        "</tr>";
-    }
-  }
-
-  function renderFundRegister(){
-    var fromD = document.getElementById("inpFundFilterFrom").value || "2026-01-01";
-    var toD = document.getElementById("inpFundFilterTo").value || "2026-12-31";
-    var accFilter = document.getElementById("selFundFilterAccount").value;
-    var typeFilter = document.getElementById("selFundFilterType").value;
-    var tbody = document.getElementById("tbodyFundRegisterList"); if(!tbody) return;
-
-    var filtered = fundTransactions.filter(function(f){
-      var d = f.date || "2026-01-01";
-      var matchDate = (d >= fromD && d <= toD);
-      var matchAcc = (accFilter === "ALL" || String(f.account).toUpperCase() === accFilter);
-      var matchType = (typeFilter === "ALL" || String(f.type).toUpperCase() === typeFilter);
-      return matchDate && matchAcc && matchType;
-    });
-
-    if(filtered.length === 0){
-      tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;color:#94A3B8;'>No fund transactions recorded in selected filter range</td></tr>";
-      var tf = document.getElementById("tfootFundRegisterList"); if(tf) tf.innerHTML = "";
-      return;
-    }
-
-    var h = "";
-    var totalInvest = 0, totalBorrow = 0;
-    filtered.forEach(function(f){
-      var amt = cleanNum(f.amount, 0);
-      var isInvest = (String(f.type).toUpperCase() === "INVEST");
-      if(isInvest) totalInvest += amt; else totalBorrow += amt;
-
-      var typeBadge = isInvest 
-        ? "<span class='badge-active'>INVESTMENT (+)</span>"
-        : "<span class='badge-inactive'>BORROWING (-)</span>";
-      var amtColor = isInvest ? "#10B981" : "#EF4444";
-
-      h += "<tr>" +
-        "<td>" + toDisplayDate(f.date) + "</td>" +
-        "<td style='font-family:monospace;color:#38BDF8;'>" + (f.id || "-") + "</td>" +
-        "<td>" + typeBadge + "</td>" +
-        "<td><strong style='color:#FBBF24;'>" + (f.account === "BANK" ? "CASH AT BANK" : "CASH IN HAND") + "</strong></td>" +
-        "<td>" + (f.entity || "-") + "</td>" +
-        "<td style='font-weight:800;color:" + amtColor + ";'>" + (isInvest ? "+₹" : "-₹") + amt.toLocaleString("en-IN") + "</td>" +
-        "<td><small style='color:#CBD5E1;'>" + (f.narration || "-") + "</small></td>" +
-      "</tr>";
-    });
-    tbody.innerHTML = h;
-
-    var tf = document.getElementById("tfootFundRegisterList");
-    if(tf) {
-      tf.innerHTML = 
-        "<tr class='tfoot-total-row'>" +
-          "<td colspan='5' style='color:#FBBF24;'>NET FUND IMPACT: INVEST (+₹" + totalInvest.toLocaleString("en-IN") + ") | BORROW (-₹" + totalBorrow.toLocaleString("en-IN") + ")</td>" +
-          "<td style='font-weight:800;color:" + (totalInvest >= totalBorrow ? "#10B981" : "#EF4444") + ";'>" +
-            (totalInvest >= totalBorrow ? "+₹" : "-₹") + Math.abs(totalInvest - totalBorrow).toLocaleString("en-IN") +
-          "</td>" +
-          "<td></td>" +
-        "</tr>";
-    }
   }
 
   // TAB 5: DEDICATED PENALTY REGISTER (₹10/DAY OVERDUE)
@@ -3047,10 +2343,10 @@ function getClientScriptPartB() {
 
     var txns = [];
     if(cleanNum(m.rdPaid, 0) > 0){
-      txns.push({ date: m.dateJoined || "2026-01-01", ref: "OPENING", partic: "Opening RD Balance (As on 31 Dec 2025)", rdDeposit: cleanNum(m.rdPaid, 0), loanIssued: 0, loanRepaid: 0, mode: "SYSTEM" });
+      txns.push({ date: m.dateJoined || "2026-01-01", ref: "OPENING", partic: "Opening RD Balance (As on 31 Dec 2025)", debit: 0, credit: cleanNum(m.rdPaid, 0), mode: "SYSTEM" });
     }
     if(cleanNum(m.opLoan, 0) > 0){
-      txns.push({ date: m.dateJoined || "2026-01-01", ref: "OP-LOAN", partic: "Opening Loan Principal", rdDeposit: 0, loanIssued: cleanNum(m.opLoan, 0), loanRepaid: 0, mode: "SYSTEM" });
+      txns.push({ date: m.dateJoined || "2026-01-01", ref: "OP-LOAN", partic: "Opening Loan Principal", debit: cleanNum(m.opLoan, 0), credit: 0, mode: "SYSTEM" });
     }
 
     // Match all loans for this member by ID or Name
@@ -3061,9 +2357,8 @@ function getClientScriptPartB() {
           date: l.date,
           ref: l.loanId,
           partic: "Loan Disbursed (" + l.type + " @ " + l.rate + "% p.m.)" + lNarr,
-          rdDeposit: 0,
-          loanIssued: cleanNum(l.principal, 0),
-          loanRepaid: 0,
+          debit: cleanNum(l.principal, 0),
+          credit: 0,
           mode: "ONLINE"
         });
       }
@@ -3077,7 +2372,7 @@ function getClientScriptPartB() {
         if(cleanNum(p.rd, 0) > 0) parts.push("RD ₹" + p.rd);
         if(cleanNum(p.interest, 0) > 0) parts.push("Int ₹" + p.interest);
         if(cleanNum(p.penalty, 0) > 0) parts.push("Pen ₹" + p.penalty);
-        if(cleanNum(p.loanRepay, 0) > 0) parts.push("Loan Repay ₹" + p.loanRepay);
+        if(cleanNum(p.loanRepay, 0) > 0) parts.push("Repay ₹" + p.loanRepay);
         if(cleanNum(p.waiver, 0) > 0) parts.push("Waiver ₹" + p.waiver);
 
         var safeMode = String(p.mode||"CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "ONLINE" : "CASH";
@@ -3085,9 +2380,8 @@ function getClientScriptPartB() {
           date: p.date,
           ref: p.receiptNo,
           partic: "Receipt: " + parts.join(", ") + pNarr,
-          rdDeposit: cleanNum(p.rd, 0),
-          loanIssued: 0,
-          loanRepaid: cleanNum(p.loanRepay, 0),
+          debit: 0,
+          credit: cleanNum(p.total, 0),
           mode: safeMode
         });
       }
@@ -3096,29 +2390,24 @@ function getClientScriptPartB() {
     // Sort by date ascending
     txns.sort(function(a,b){ return new Date(a.date||"2026-01-01") - new Date(b.date||"2026-01-01"); });
 
-    var runningRdBal = 0;
-    var runningLoanBal = 0;
+    var runningBal = 0;
     var filteredTxns = txns.filter(function(t){ return (t.date >= fromD && t.date <= toD); });
 
     var tbody = document.getElementById("tbodyLedgerTxns");
     if(filteredTxns.length === 0){
-      tbody.innerHTML = "<tr><td colspan='9' style='text-align:center;color:#94A3B8;'>No transactions in selected date range (" + toDisplayDate(fromD) + " to " + toDisplayDate(toD) + ")</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;color:#94A3B8;'>No transactions in selected date range (" + toDisplayDate(fromD) + " to " + toDisplayDate(toD) + ")</td></tr>";
     } else {
       var h = "";
       filteredTxns.forEach(function(t){
-        runningRdBal += t.rdDeposit;
-        runningLoanBal += t.loanIssued;
-        runningLoanBal = Math.max(0, runningLoanBal - t.loanRepaid);
-
+        runningBal += (t.credit - t.debit);
+        var balCol = runningBal >= 0 ? "#10B981" : "#EF4444";
         h += "<tr>" +
           "<td>" + toDisplayDate(t.date) + "</td>" +
           "<td style='font-family:monospace;color:#FBBF24;'>" + t.ref + "</td>" +
           "<td>" + t.partic + "</td>" +
-          "<td style='color:#10B981;font-weight:700;'>" + (t.rdDeposit > 0 ? "₹" + t.rdDeposit.toLocaleString("en-IN") : "-") + "</td>" +
-          "<td style='color:#10B981;font-weight:800;'>₹" + runningRdBal.toLocaleString("en-IN") + "</td>" +
-          "<td style='color:#EF4444;'>" + (t.loanIssued > 0 ? "₹" + t.loanIssued.toLocaleString("en-IN") : "-") + "</td>" +
-          "<td style='color:#38BDF8;font-weight:700;'>" + (t.loanRepaid > 0 ? "₹" + t.loanRepaid.toLocaleString("en-IN") : "-") + "</td>" +
-          "<td style='color:#EF4444;font-weight:800;'>₹" + runningLoanBal.toLocaleString("en-IN") + "</td>" +
+          "<td style='color:#EF4444;'>" + (t.debit > 0 ? "₹" + t.debit.toLocaleString("en-IN") : "-") + "</td>" +
+          "<td style='color:#10B981;font-weight:700;'>" + (t.credit > 0 ? "₹" + t.credit.toLocaleString("en-IN") : "-") + "</td>" +
+          "<td style='color:" + balCol + ";font-weight:800;'>₹" + runningBal.toLocaleString("en-IN") + "</td>" +
           "<td><span style='font-size:0.75rem;color:" + (t.mode==="CASH"?"#F59E0B":"#38BDF8") + ";font-weight:700;'>" + t.mode + "</span></td>" +
         "</tr>";
       });
@@ -3145,16 +2434,16 @@ function getClientScriptPartB() {
       var initialTotal = safeRd + intDue + penDue;
 
       h += "<tr data-id='" + mid + "'>" +
-        "<td style='text-align:center;'><input type='checkbox' class='b-chk' checked onchange='calcBulkTotals()'></td>" +
+        "<td style='text-align:center;'><input type=\"checkbox\" class=\"b-chk\" checked onchange=\"calcBulkTotals()\"></td>" +
         "<td><strong>" + m.name + "</strong><br><small style='color:#38BDF8;'>RD ₹" + safeRd + " | Int ₹" + intDue + " | Pen ₹" + penDue + "</small></td>" +
-        "<td><input type='number' class='field-ctrl b-rd' value='" + safeRd + "' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
-        "<td><input type='number' class='field-ctrl b-int' value='" + intDue + "' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
-        "<td><input type='number' class='field-ctrl b-repay' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
-        "<td><input type='number' class='field-ctrl b-pen' value='" + penDue + "' oninput='calcBulkRow(this)' style='width:75px;text-align:right;'></td>" +
-        "<td><input type='number' class='field-ctrl b-wvr' value='0' oninput='calcBulkRow(this)' style='width:75px;text-align:right;'></td>" +
-        "<td style='text-align:right; font-weight:800; color:#10B981;' class='b-tot-cell'>₹" + initialTotal.toLocaleString("en-IN") + "</td>" +
-        "<td><select class='field-ctrl b-mode' style='width:85px;padding:4px;'><option value='CASH'>CASH</option><option value='ONLINE'>ONLINE</option></select></td>" +
-        "<td><input type='text' class='field-ctrl b-narr' placeholder='Remarks' style='width:130px;padding:4px;font-size:0.78rem;'></td>" +
+        "<td><input type=\"number\" class=\"field-ctrl b-rd\" value=\"" + safeRd + "\" oninput=\"calcBulkRow(this)\" style=\"width:80px;text-align:right;\"></td>" +
+        "<td><input type=\"number\" class=\"field-ctrl b-int\" value=\"" + intDue + "\" oninput=\"calcBulkRow(this)\" style=\"width:80px;text-align:right;\"></td>" +
+        "<td><input type=\"number\" class=\"field-ctrl b-repay\" value=\"0\" oninput=\"calcBulkRow(this)\" style=\"width:80px;text-align:right;\"></td>" +
+        "<td><input type=\"number\" class=\"field-ctrl b-pen\" value=\"" + penDue + "\" oninput=\"calcBulkRow(this)\" style=\"width:75px;text-align:right;\"></td>" +
+        "<td><input type=\"number\" class=\"field-ctrl b-wvr\" value=\"0\" oninput=\"calcBulkRow(this)\" style=\"width:75px;text-align:right;\"></td>" +
+        "<td style=\"text-align:right; font-weight:800; color:#10B981;\" class=\"b-tot-cell\">₹" + initialTotal.toLocaleString("en-IN") + "</td>" +
+        "<td><select class=\"field-ctrl b-mode\" style=\"width:85px;padding:4px;\"><option value=\"CASH\">CASH</option><option value=\"ONLINE\">ONLINE</option></select></td>" +
+        "<td><input type=\"text\" class=\"field-ctrl b-narr\" placeholder=\"Remarks\" style=\"width:130px;padding:4px;font-size:0.78rem;\"></td>" +
       "</tr>";
     });
     tbody.innerHTML = h;
@@ -3257,30 +2546,23 @@ function getClientScriptPartB() {
   // NOTICE POPUP THAT DOES NOT CLOSE FORM ON OK
   var activeKeepModal = null;
   function showNotice(title, message, keepModalId){
-    var h = document.getElementById("noticeHeader");
-    var b = document.getElementById("noticeBody");
-    if(h) h.innerText = title || "Notice";
-    if(b) b.innerText = message || "";
+    document.getElementById("noticeHeader").innerText = title || "Notice";
+    document.getElementById("noticeBody").innerText = message || "";
     activeKeepModal = keepModalId || null;
     openModal("modalNotice");
   }
 
-  function handleNoticeOkClick(){
+  document.getElementById("btnNoticeOk").addEventListener("click", function(){
     closeModal("modalNotice");
     if(activeKeepModal){
       openModal(activeKeepModal);
       activeKeepModal = null;
     }
-  }
+  });
 
   // OPEN RECEIVE MODAL FOR MEMBER (AUTO-FILL LIVE DUES)
   function openReceiveModalFor(mid, recNo){
-    if(!mid){
-      var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
-      mid = firstActive ? firstActive.id : (members[0] ? members[0].id : "");
-    }
-    if(!mid) return;
-    var m = members.find(function(x){ return String(x.id).trim().toUpperCase() === String(mid).trim().toUpperCase() || String(x.name).trim().toLowerCase() === String(mid).trim().toLowerCase(); });
+    var m = members.find(function(x){ return String(x.id).trim().toUpperCase() === mid.trim().toUpperCase() || String(x.name).trim().toLowerCase() === mid.trim().toLowerCase(); });
     if(!m) return;
 
     var actualMid = String(m.id);
@@ -3329,11 +2611,7 @@ function getClientScriptPartB() {
 
   // OPEN LOAN MODAL FOR MEMBER
   function openLoanModalFor(mid, lId){
-    if(!mid){
-      var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
-      mid = firstActive ? firstActive.id : (members[0] ? members[0].id : "");
-    }
-    var m = mid ? members.find(function(x){ return String(x.id).trim().toUpperCase() === String(mid).trim().toUpperCase() || String(x.name).trim().toLowerCase() === String(mid).trim().toLowerCase(); }) : null;
+    var m = mid ? members.find(function(x){ return String(x.id).trim().toUpperCase() === mid.trim().toUpperCase() || String(x.name).trim().toLowerCase() === mid.trim().toLowerCase(); }) : null;
     document.getElementById("editLoanId").value = lId || "";
     document.getElementById("lblLoanModalHead").innerText = lId ? ("✏️ Edit Society Loan: " + lId) : "💸 Issue Society Loan";
 
@@ -3341,7 +2619,7 @@ function getClientScriptPartB() {
     sel.innerHTML = "";
     members.forEach(function(mem){
       if(String(mem.status).toUpperCase() === "ACTIVE"){
-        var isSel = (m && String(mem.id) === String(mem.id)) ? "selected" : "";
+        var isSel = (m && String(mem.id) === String(m.id)) ? "selected" : "";
         sel.innerHTML += "<option value='" + mem.id + "' " + isSel + ">" + mem.name + " (" + mem.id + ")</option>";
       }
     });
@@ -3410,44 +2688,11 @@ function getClientScriptPartB() {
       }
     } catch(e) {}
 
-    // Global ESC key and Arrow Up / Down listener
+    // F11 Listener for clean fullscreen toggle
     window.addEventListener("keydown", function(e){
-      if(e.key === "Escape" || e.keyCode === 27){
-        if(typeof closeAllModals === "function"){
-          closeAllModals();
-        }
-      }
       if(e.key === "F11" || e.keyCode === 122){
         e.preventDefault();
         window.safeToggleFullscreen();
-      }
-      // Arrow Up and Down scroll support in Fullscreen mode (both Dashboard and inside any open Form)
-      var activeModalBox = document.querySelector(".modal-backdrop[style*='display: flex'] .modal-dialog-box") ||
-                           document.querySelector(".modal-backdrop[style*='display: block'] .modal-dialog-box");
-      if(e.key === "ArrowDown"){
-        if(activeModalBox){
-          activeModalBox.scrollTop += 60;
-        } else {
-          window.scrollBy(0, 60);
-        }
-      } else if(e.key === "ArrowUp"){
-        if(activeModalBox){
-          activeModalBox.scrollTop -= 60;
-        } else {
-          window.scrollBy(0, -60);
-        }
-      } else if(e.key === "PageDown"){
-        if(activeModalBox){
-          activeModalBox.scrollTop += 300;
-        } else {
-          window.scrollBy(0, 300);
-        }
-      } else if(e.key === "PageUp"){
-        if(activeModalBox){
-          activeModalBox.scrollTop -= 300;
-        } else {
-          window.scrollBy(0, -300);
-        }
       }
     });
 
@@ -3463,15 +2708,6 @@ function getClientScriptPartB() {
       lDateInp.addEventListener("change", function(){
         document.getElementById("dispLoanDateFormatted").innerText = "(" + toDisplayDate(this.value) + ")";
       });
-    }
-
-    function safeAddListener(id, evt, fn){
-      var el = document.getElementById(id);
-      if(el) {
-        el.addEventListener(evt, fn);
-        return true;
-      }
-      return false;
     }
 
     // Modal close buttons
@@ -3491,30 +2727,32 @@ function getClientScriptPartB() {
         if(panel) panel.style.display = (i === tIdx) ? "block" : "none";
       }
     }
-    window.switchTab = switchTab;
 
-    safeAddListener("tabHead1", "click", function(){ switchTab(1); renderMembers(); });
-    safeAddListener("tabHead2", "click", function(){ switchTab(2); renderPayments(); });
-    safeAddListener("tabHead3", "click", function(){ switchTab(3); renderLoans(); });
-    safeAddListener("tabHead4", "click", function(){ switchTab(4); renderBonusTab(); });
-    safeAddListener("tabHead5", "click", function(){ switchTab(5); renderPenaltyTab(); });
+    document.getElementById("tabHead1").addEventListener("click", function(){ switchTab(1); renderMembers(); });
+    document.getElementById("tabHead2").addEventListener("click", function(){ switchTab(2); renderPayments(); });
+    document.getElementById("tabHead3").addEventListener("click", function(){ switchTab(3); renderLoans(); });
+    document.getElementById("tabHead4").addEventListener("click", function(){ switchTab(4); renderBonusTab(); });
+    document.getElementById("tabHead5").addEventListener("click", function(){ switchTab(5); renderPenaltyTab(); });
 
     // Top action buttons
-    function openDefaultReceiveModal(){
+    document.getElementById("btnTopReceive").addEventListener("click", function(){
       var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
       openReceiveModalFor(firstActive ? firstActive.id : "MEM010120261");
-    }
-    function openDefaultLoanModal(){
+    });
+    document.getElementById("btnPanelNewReceipt").addEventListener("click", function(){
+      var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
+      openReceiveModalFor(firstActive ? firstActive.id : "MEM010120261");
+    });
+    document.getElementById("btnTopLoan").addEventListener("click", function(){
       var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
       openLoanModalFor(firstActive ? firstActive.id : "MEM010120261");
-    }
+    });
+    document.getElementById("btnPanelNewLoan").addEventListener("click", function(){
+      var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
+      openLoanModalFor(firstActive ? firstActive.id : "MEM010120261");
+    });
 
-    safeAddListener("btnTopReceive", "click", openDefaultReceiveModal);
-    safeAddListener("btnPanelNewReceipt", "click", openDefaultReceiveModal);
-    safeAddListener("btnTopLoan", "click", openDefaultLoanModal);
-    safeAddListener("btnPanelNewLoan", "click", openDefaultLoanModal);
-
-    safeAddListener("btnTopAddMember", "click", function(){
+    document.getElementById("btnTopAddMember").addEventListener("click", function(){
       document.getElementById("editMemId").value = "";
       document.getElementById("lblMemberModalHead").innerText = "👤 Add New Member Profile";
       document.getElementById("inpNewMemName").value = "";
@@ -3533,7 +2771,7 @@ function getClientScriptPartB() {
       openModal("modalMember");
     });
 
-    safeAddListener("btnTopBulk", "click", function(){
+    document.getElementById("btnTopBulk").addEventListener("click", function(){
       var today = getTodayYMD();
       document.getElementById("inpBulkDate").value = today;
       document.getElementById("dispBulkDateFormatted").innerText = "(" + toDisplayDate(today) + ")";
@@ -3541,52 +2779,44 @@ function getClientScriptPartB() {
       openModal("modalBulk");
     });
 
-    safeAddListener("btnBulkSetAllCash", "click", function(){
+    document.getElementById("btnBulkSetAllCash").addEventListener("click", function(){
       document.querySelectorAll("#tbodyBulkList .b-mode").forEach(function(sel){ sel.value = "CASH"; });
     });
-    safeAddListener("btnBulkSetAllOnline", "click", function(){
+    document.getElementById("btnBulkSetAllOnline").addEventListener("click", function(){
       document.querySelectorAll("#tbodyBulkList .b-mode").forEach(function(sel){ sel.value = "ONLINE"; });
     });
-    safeAddListener("chkSelectAllBulk", "change", function(){
+    document.getElementById("chkSelectAllBulk").addEventListener("change", function(){
       var isChk = this.checked;
       document.querySelectorAll("#tbodyBulkList .b-chk").forEach(function(c){ c.checked = isChk; });
       calcBulkTotals();
     });
 
-    safeAddListener("btnTopExit", "click", function(){
+    document.getElementById("btnTopExit").addEventListener("click", function(){
       var sel = document.getElementById("selExitMember");
-      if(sel){
-        sel.innerHTML = "<option value=''>-- Select Member --</option>";
-        members.forEach(function(m){
-          if(String(m.status).toUpperCase() === "ACTIVE"){
-            sel.innerHTML += "<option value='" + m.id + "'>" + m.name + " (" + m.id + ")</option>";
-          }
-        });
-      }
+      sel.innerHTML = "<option value=''>-- Select Member --</option>";
+      members.forEach(function(m){
+        if(String(m.status).toUpperCase() === "ACTIVE"){
+          sel.innerHTML += "<option value='" + m.id + "'>" + m.name + " (" + m.id + ")</option>";
+        }
+      });
       openModal("modalExit");
     });
 
-    safeAddListener("btnTopSettings", "click", function(){
-      var d = document.getElementById("inpGlobalDueDay");
-      var r = document.getElementById("inpGlobalRate");
-      if(d) d.value = globalDefaultDue;
-      if(r) r.value = globalDefaultRate;
+    document.getElementById("btnTopSettings").addEventListener("click", function(){
+      document.getElementById("inpGlobalDueDay").value = globalDefaultDue;
+      document.getElementById("inpGlobalRate").value = globalDefaultRate;
       openModal("modalSettings");
     });
 
-    safeAddListener("btnOpenGoogleSheet", "click", window.handleOpenSpreadsheet);
-
-    safeAddListener("btnApplyGlobalSettings", "click", function(){
-      globalDefaultDue = (document.getElementById("inpGlobalDueDay").value || "").trim() || "15th of every month";
+    document.getElementById("btnApplyGlobalSettings").addEventListener("click", function(){
+      globalDefaultDue = document.getElementById("inpGlobalDueDay").value.trim() || "15th of every month";
       globalDefaultRate = Number(document.getElementById("inpGlobalRate").value) || 1.0;
       closeModal("modalSettings");
       showNotice("Settings Saved", "Global default due date set to " + globalDefaultDue + " and default loan rate set to " + globalDefaultRate + "% p.m.");
     });
 
-    safeAddListener("btnNoticeOk", "click", handleNoticeOkClick);
-
     // SYNC FROM GOOGLE SHEET DATABASE
-    safeAddListener("btnTopReload", "click", function(){
+    document.getElementById("btnTopReload").addEventListener("click", function(){
       if(typeof google !== "undefined" && google.script && google.script.run){
         showNotice("Syncing...", "Fetching verified records from Google Spreadsheet...");
         google.script.run.withSuccessHandler(function(res){
@@ -3598,7 +2828,6 @@ function getClientScriptPartB() {
             exitSettlements = res.exitSettlements || [];
             bonusSettlements = res.bonusSettlements || [];
             if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
-            if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
             saveStore();
             showNotice("Sync Complete", "Successfully synchronized " + members.length + " members, " + payments.length + " receipts, and " + loans.length + " loans from Google Sheet!");
           }
@@ -3610,71 +2839,68 @@ function getClientScriptPartB() {
     });
 
     // KPI Card Click Events
-    safeAddListener("kpiCardMembers", "click", function(){ switchTab(1); });
-    safeAddListener("kpiCardRd", "click", function(){ switchTab(2); });
-    safeAddListener("kpiCardLoans", "click", function(){ switchTab(3); });
-    safeAddListener("kpiCardBonus", "click", function(){ switchTab(4); });
-    safeAddListener("kpiCardNpa", "click", function(){
+    document.getElementById("kpiCardMembers").addEventListener("click", function(){ switchTab(1); });
+    document.getElementById("kpiCardRd").addEventListener("click", function(){ switchTab(2); });
+    document.getElementById("kpiCardLoans").addEventListener("click", function(){ switchTab(3); });
+    document.getElementById("kpiCardBonus").addEventListener("click", function(){ switchTab(4); });
+    document.getElementById("kpiCardNpa").addEventListener("click", function(){
       renderNpaList();
       openModal("modalNpa");
     });
-    safeAddListener("btnApplyNpaFilter", "click", function(){
+    document.getElementById("btnApplyNpaFilter").addEventListener("click", function(){
       renderNpaList();
     });
 
-    safeAddListener("kpiCardFund", "click", function(){
+    document.getElementById("kpiCardFund").addEventListener("click", function(){
       var cSum = 0, bSum = 0;
       payments.forEach(function(p){
         var safeMode = String(p.mode||"CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "ONLINE" : "CASH";
         if(safeMode === "ONLINE") bSum += cleanNum(p.total, 0); else cSum += cleanNum(p.total, 0);
       });
-      var cashEl = document.getElementById("lblRegCashBal");
-      var bankEl = document.getElementById("lblRegBankBal");
-      var fundEl = document.getElementById("lblRegTotalFund");
-      if(cashEl) cashEl.innerText = "₹" + cSum.toLocaleString("en-IN");
-      if(bankEl) bankEl.innerText = "₹" + bSum.toLocaleString("en-IN");
-      if(fundEl) fundEl.innerText = "₹" + (cSum + bSum).toLocaleString("en-IN");
+      document.getElementById("lblRegCashBal").innerText = "₹" + cSum.toLocaleString("en-IN");
+      document.getElementById("lblRegBankBal").innerText = "₹" + bSum.toLocaleString("en-IN");
+      document.getElementById("lblRegTotalFund").innerText = "₹" + (cSum + bSum).toLocaleString("en-IN");
       openModal("modalFund");
     });
 
     // Filters on change
-    safeAddListener("selFilterStatus", "change", renderMembers);
-    safeAddListener("selSortMembers", "change", renderMembers);
-    safeAddListener("memberFilterInput", "input", renderMembers);
+    document.getElementById("selFilterStatus").addEventListener("change", renderMembers);
+    document.getElementById("selSortMembers").addEventListener("change", renderMembers);
+    document.getElementById("memberFilterInput").addEventListener("input", renderMembers);
 
-    safeAddListener("inpPayFilterFrom", "change", renderPayments);
-    safeAddListener("inpPayFilterTo", "change", renderPayments);
-    safeAddListener("selFilterPayMode", "change", renderPayments);
-    safeAddListener("selSortPayDate", "change", renderPayments);
-    safeAddListener("searchPayInput", "input", renderPayments);
+    document.getElementById("inpPayFilterFrom").addEventListener("change", renderPayments);
+    document.getElementById("inpPayFilterTo").addEventListener("change", renderPayments);
+    document.getElementById("selFilterPayMode").addEventListener("change", renderPayments);
+    document.getElementById("selSortPayDate").addEventListener("change", renderPayments);
+    document.getElementById("searchPayInput").addEventListener("input", renderPayments);
 
-    safeAddListener("inpLoanFilterFrom", "change", renderLoans);
-    safeAddListener("inpLoanFilterTo", "change", renderLoans);
-    safeAddListener("selFilterLoanType", "change", renderLoans);
-    safeAddListener("selFilterLoanStatus", "change", renderLoans);
-    safeAddListener("searchLoanInput", "input", renderLoans);
+    document.getElementById("inpLoanFilterFrom").addEventListener("change", renderLoans);
+    document.getElementById("inpLoanFilterTo").addEventListener("change", renderLoans);
+    document.getElementById("selFilterLoanType").addEventListener("change", renderLoans);
+    document.getElementById("selFilterLoanStatus").addEventListener("change", renderLoans);
+    document.getElementById("searchLoanInput").addEventListener("input", renderLoans);
 
-    safeAddListener("inpBonusFilterFrom", "change", renderBonusTab);
-    safeAddListener("inpBonusFilterTo", "change", renderBonusTab);
-    safeAddListener("selFilterBonusStatus", "change", renderBonusTab);
-    safeAddListener("selSortBonus", "change", renderBonusTab);
-    safeAddListener("searchBonusInput", "input", renderBonusTab);
+    document.getElementById("inpBonusFilterFrom").addEventListener("change", renderBonusTab);
+    document.getElementById("inpBonusFilterTo").addEventListener("change", renderBonusTab);
+    document.getElementById("selFilterBonusStatus").addEventListener("change", renderBonusTab);
+    document.getElementById("selSortBonus").addEventListener("change", renderBonusTab);
+    document.getElementById("searchBonusInput").addEventListener("input", renderBonusTab);
 
-    safeAddListener("inpPenFilterFrom", "change", renderPenaltyTab);
-    safeAddListener("inpPenFilterTo", "change", renderPenaltyTab);
-    safeAddListener("selFilterPenStatus", "change", renderPenaltyTab);
-    safeAddListener("selSortPen", "change", renderPenaltyTab);
-    safeAddListener("searchPenInput", "input", renderPenaltyTab);
+    document.getElementById("inpPenFilterFrom").addEventListener("change", renderPenaltyTab);
+    document.getElementById("inpPenFilterTo").addEventListener("change", renderPenaltyTab);
+    document.getElementById("selFilterPenStatus").addEventListener("change", renderPenaltyTab);
+    document.getElementById("selSortPen").addEventListener("change", renderPenaltyTab);
+    document.getElementById("searchPenInput").addEventListener("input", renderPenaltyTab);
 
-    safeAddListener("selFinancialYear", "change", function(){
+    document.getElementById("selFinancialYear").addEventListener("change", function(){
       refreshAll();
     });
 
     // Passbook dynamic date filter
-    safeAddListener("inpLedgerFilterFrom", "change", function(){
+    document.getElementById("inpLedgerFilterFrom").addEventListener("change", function(){
       if(currentActiveLedgerMember) openMemberLedger(currentActiveLedgerMember.id);
     });
-    safeAddListener("inpLedgerFilterTo", "change", function(){
+    document.getElementById("inpLedgerFilterTo").addEventListener("change", function(){
       if(currentActiveLedgerMember) openMemberLedger(currentActiveLedgerMember.id);
     });
 
@@ -3721,19 +2947,6 @@ function getClientScriptPartB() {
           openModal("modalMember");
         }
       }
-      if(t.classList.contains("action-setoff-bonus")){
-        var mid = t.getAttribute("data-id");
-        var m = members.find(function(x){ return String(x.id) === mid; });
-        if(m){
-          var bVal = getMemberBonus(m);
-          document.getElementById("bonusMemId").value = m.id;
-          document.getElementById("lblBonusTargetMember").innerText = m.name + " (" + m.id + ")";
-          document.getElementById("lblBonusAmount").innerText = "₹" + bVal.toLocaleString("en-IN");
-          document.getElementById("inpBonusDate").value = getTodayYMD();
-          document.getElementById("inpBonusNetPaid").value = bVal;
-          openModal("modalBonusSetoff");
-        }
-      }
       if(t.classList.contains("action-view-bonus-stmt")){
         var mid = t.getAttribute("data-id");
         var m = members.find(function(x){ return String(x.id) === mid; });
@@ -3761,118 +2974,8 @@ function getClientScriptPartB() {
       }
     });
 
-    // SUBMIT BONUS SET-OFF
-    safeAddListener("btnSubmitBonusSetoff", "click", function(){
-      var mid = document.getElementById("bonusMemId").value;
-      var m = members.find(function(x){ return String(x.id) === mid; });
-      if(!m) return;
-      var bVal = getMemberBonus(m);
-      var sDate = document.getElementById("inpBonusDate").value || getTodayYMD();
-      var mode = document.getElementById("selBonusMode").value || "ONLINE";
-      var setoffId = generateAutoId("SET", sDate);
-
-      var rec = {
-        settlementId: setoffId,
-        date: sDate,
-        id: m.id,
-        name: m.name,
-        totalBonus: bVal,
-        adjLoan: 0,
-        adjInt: 0,
-        adjRd: 0,
-        adjPenalty: 0,
-        netPaid: bVal,
-        mode: mode
-      };
-      bonusSettlements.push(rec);
-      saveStore();
-      closeModal("modalBonusSetoff");
-      refreshAll();
-      showNotice("Bonus Settled", "Bonus set-off of ₹" + bVal.toLocaleString("en-IN") + " has been posted successfully for " + m.name + ".\\nRef ID: " + setoffId);
-    });
-
-    // BONUS SUB-TABS (INTEREST RECEIVED & SET-OFF REGISTER)
-    safeAddListener("btnBonusSubTab1", "click", function(){
-      document.getElementById("btnBonusSubTab1").classList.add("active");
-      document.getElementById("btnBonusSubTab2").classList.remove("active");
-      document.getElementById("bonusSubView1").style.display = "block";
-      document.getElementById("bonusSubView2").style.display = "none";
-    });
-    safeAddListener("btnBonusSubTab2", "click", function(){
-      document.getElementById("btnBonusSubTab2").classList.add("active");
-      document.getElementById("btnBonusSubTab1").classList.remove("active");
-      document.getElementById("bonusSubView2").style.display = "block";
-      document.getElementById("bonusSubView1").style.display = "none";
-      renderBonusSetoffRegister();
-    });
-    safeAddListener("inpBonusSetoffFilterFrom", "change", renderBonusSetoffRegister);
-    safeAddListener("inpBonusSetoffFilterTo", "change", renderBonusSetoffRegister);
-
-    // SETTINGS MODAL & FUND REGISTER SUB-TABS
-    function switchSettingsSubTab(tabNum){
-      [1, 2, 3].forEach(function(n){
-        var b = document.getElementById("btnSettingsSubTab" + n);
-        var v = document.getElementById("settingsSubView" + n);
-        if(b) {
-          if(n === tabNum) b.classList.add("active"); else b.classList.remove("active");
-        }
-        if(v) {
-          v.style.display = (n === tabNum) ? "block" : "none";
-        }
-      });
-      if(tabNum === 2) renderFundRegister();
-    }
-    safeAddListener("btnSettingsSubTab1", "click", function(){ switchSettingsSubTab(1); });
-    safeAddListener("btnSettingsSubTab2", "click", function(){ switchSettingsSubTab(2); });
-    safeAddListener("btnSettingsSubTab3", "click", function(){ switchSettingsSubTab(3); });
-    safeAddListener("btnSwitchToFundForm", "click", function(){ switchSettingsSubTab(3); });
-
-    safeAddListener("inpFundFilterFrom", "change", renderFundRegister);
-    safeAddListener("inpFundFilterTo", "change", renderFundRegister);
-    safeAddListener("selFundFilterAccount", "change", renderFundRegister);
-    safeAddListener("selFundFilterType", "change", renderFundRegister);
-
-    // SUBMIT FUND ENTRY (BORROW / INVEST)
-    safeAddListener("btnSubmitFundEntry", "click", function(){
-      var fType = document.getElementById("inpFundEntryType").value;
-      var fAcc = document.getElementById("inpFundEntryAccount").value;
-      var fDate = document.getElementById("inpFundEntryDate").value || getTodayYMD();
-      var fAmt = cleanNum(document.getElementById("inpFundEntryAmount").value, 0);
-      var fEntity = (document.getElementById("inpFundEntryEntity").value || "").trim();
-      var fNarr = (document.getElementById("inpFundEntryNarration").value || "").trim();
-
-      if(fAmt <= 0){
-        showNotice("Validation Error", "Please enter a valid amount greater than 0.", "modalSettings");
-        return;
-      }
-      var txnId = generateAutoId("FUND", fDate);
-      var fObj = {
-        id: txnId,
-        date: fDate,
-        type: fType,
-        account: fAcc,
-        entity: fEntity,
-        amount: fAmt,
-        narration: fNarr
-      };
-      fundTransactions.push(fObj);
-      window.fundTransactions = fundTransactions;
-      saveStore();
-
-      if(typeof google !== "undefined" && google.script && google.script.run){
-        google.script.run.saveFundTransactionBackend(fObj);
-      }
-
-      document.getElementById("inpFundEntryAmount").value = "";
-      document.getElementById("inpFundEntryEntity").value = "";
-      document.getElementById("inpFundEntryNarration").value = "";
-      switchSettingsSubTab(2);
-      refreshAll();
-      showNotice("Transaction Saved", "Fund transaction " + txnId + " (" + fType + ": ₹" + fAmt.toLocaleString("en-IN") + ") saved successfully.", "modalSettings");
-    });
-
     // SUBMIT RECEIVE AMOUNT / EDIT RECEIPT
-    safeAddListener("btnSubmitReceive", "click", function(){
+    document.getElementById("btnSubmitReceive").addEventListener("click", function(){
       var recNo = document.getElementById("editReceiptNo").value.trim();
       var mid = document.getElementById("selPayMember").value;
       var m = members.find(function(x){ return String(x.id) === mid; });
@@ -3891,7 +2994,16 @@ function getClientScriptPartB() {
       if(tot < 0) tot = 0;
 
       if(!recNo){
-        recNo = generateAutoId("REC", pDate);
+        // STRICT ID FORMAT: CER + DD + MM + YY
+        var dateSuffix = getDDMMYYFromYMD(pDate);
+        var baseId = "CER" + dateSuffix;
+        var finalId = baseId;
+        var counter = 1;
+        while(payments.some(function(p){ return String(p.receiptNo) === finalId; })){
+          finalId = baseId + counter;
+          counter++;
+        }
+        recNo = finalId;
       }
 
       var newP = {
@@ -3941,7 +3053,7 @@ function getClientScriptPartB() {
     });
 
     // SUBMIT ISSUE LOAN / EDIT LOAN
-    safeAddListener("btnSubmitLoan", "click", function(){
+    document.getElementById("btnSubmitLoan").addEventListener("click", function(){
       var lId = document.getElementById("editLoanId").value.trim();
       var mid = document.getElementById("selLoanMember").value;
       var m = members.find(function(x){ return String(x.id) === mid; });
@@ -3966,7 +3078,16 @@ function getClientScriptPartB() {
           return;
         }
 
-        lId = generateAutoId("LN", lDate);
+        // STRICT ID FORMAT: LOAN + DD + MM + YY
+        var dateSuffix = getDDMMYYFromYMD(lDate);
+        var baseId = "LOAN" + dateSuffix;
+        var finalId = baseId;
+        var counter = 1;
+        while(loans.some(function(l){ return String(l.loanId) === finalId; })){
+          finalId = baseId + counter;
+          counter++;
+        }
+        lId = finalId;
       }
 
       var newL = {
@@ -4003,7 +3124,7 @@ function getClientScriptPartB() {
     });
 
     // SUBMIT ADD / EDIT MEMBER (WITH STRICT MEMDDMMYYYY AND PRESERVING FORM ON VALIDATION NOTICE)
-    safeAddListener("btnSubmitMember", "click", function(){
+    document.getElementById("btnSubmitMember").addEventListener("click", function(){
       var mid = document.getElementById("editMemId").value.trim();
       var name = document.getElementById("inpNewMemName").value.trim();
       var mob = document.getElementById("inpNewMemMobile").value.trim();
@@ -4038,7 +3159,16 @@ function getClientScriptPartB() {
       }
 
       if(!mid){
-        mid = generateAutoId("MEM", jDate);
+        // STRICT ID FORMAT: MEM + DD + MM + YYYY (4 digits, e.g. MEM04092026)
+        var dateSuffix = getDDMMYYYYFromYMD(jDate);
+        var baseId = "MEM" + dateSuffix;
+        var finalId = baseId;
+        var counter = 1;
+        while(members.some(function(m){ return String(m.id) === finalId; })){
+          finalId = baseId + counter;
+          counter++;
+        }
+        mid = finalId;
       }
 
       var newM = {
@@ -4076,7 +3206,7 @@ function getClientScriptPartB() {
     });
 
     // SUBMIT BULK ENTRY (WITH SHORT NARRATION)
-    safeAddListener("btnSubmitBulk", "click", function(){
+    document.getElementById("btnSubmitBulk").addEventListener("click", function(){
       var bDate = document.getElementById("inpBulkDate").value || getTodayYMD();
       var rows = document.querySelectorAll("#tbodyBulkList tr");
       var postedCount = 0;
@@ -4098,7 +3228,14 @@ function getClientScriptPartB() {
 
             var tot = rdVal + intVal + repayVal + penVal - wvrVal;
             if(tot > 0){
-              var finalId = generateAutoId("REC", bDate);
+              var dateSuffix = getDDMMYYFromYMD(bDate);
+              var baseId = "CER" + dateSuffix;
+              var finalId = baseId;
+              var counter = 1;
+              while(payments.some(function(p){ return String(p.receiptNo) === finalId; })){
+                finalId = baseId + counter;
+                counter++;
+              }
 
               var newP = {
                 receiptNo: finalId,
@@ -4152,10 +3289,10 @@ function getClientScriptPartB() {
     });
 
     // PRINTING PASSBOOK
-    safeAddListener("btnPrintLedgerPdf", "click", function(){
+    document.getElementById("btnPrintLedgerPdf").addEventListener("click", function(){
       window.print();
     });
-    safeAddListener("btnPrintBonusPdf", "click", function(){
+    document.getElementById("btnPrintBonusPdf").addEventListener("click", function(){
       window.print();
     });
 
@@ -4172,7 +3309,6 @@ function getClientScriptPartB() {
           exitSettlements = res.exitSettlements || [];
           bonusSettlements = res.bonusSettlements || [];
           if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
-          if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
           saveStore();
           refreshAll();
         }
@@ -4180,105 +3316,11 @@ function getClientScriptPartB() {
     }
   }
 
-  // EXPOSE ALL ESSENTIAL FUNCTIONS GLOBALLY
-  window.bootApplication = bootApplication;
-  window.refreshAll = refreshAll;
-  window.openModal = openModal;
-  window.closeModal = closeModal;
-  window.closeAllModals = closeAllModals;
-  window.showNotice = showNotice;
-  window.openReceiveModalFor = openReceiveModalFor;
-  window.openLoanModalFor = openLoanModalFor;
-  window.renderMembers = renderMembers;
-  window.renderPayments = renderPayments;
-  window.renderLoans = renderLoans;
-  window.renderBonusTab = renderBonusTab;
-  window.renderPenaltyTab = renderPenaltyTab;
-
-  window.openAddMemberModal = function(){
-    var editId = document.getElementById("editMemId");
-    if(editId) editId.value = "";
-    var lbl = document.getElementById("lblMemberModalHead");
-    if(lbl) lbl.innerText = "👤 Add New Member Profile";
-    var nameEl = document.getElementById("inpNewMemName"); if(nameEl) nameEl.value = "";
-    var mobEl = document.getElementById("inpNewMemMobile"); if(mobEl) mobEl.value = "";
-    var stEl = document.getElementById("inpNewMemStatus"); if(stEl) stEl.value = "ACTIVE";
-    var jDateEl = document.getElementById("inpNewMemJoinDate"); if(jDateEl) jDateEl.value = getTodayYMD();
-    var rdEl = document.getElementById("inpNewMemRd"); if(rdEl) rdEl.value = 400;
-    var dueEl = document.getElementById("inpNewMemDueDay"); if(dueEl) dueEl.value = "15th of every month";
-    var addrEl = document.getElementById("inpNewMemAddress"); if(addrEl) addrEl.value = "";
-    var nomEl = document.getElementById("inpNewMemNominee"); if(nomEl) nomEl.value = "";
-    var balEl = document.getElementById("inpNewMemBal"); if(balEl) balEl.value = 0;
-    var opLoanEl = document.getElementById("inpNewMemOpLoan"); if(opLoanEl) opLoanEl.value = 0;
-    var opIntEl = document.getElementById("inpNewMemOpInt"); if(opIntEl) opIntEl.value = 0;
-    var opPenEl = document.getElementById("inpNewMemOpPen"); if(opPenEl) opPenEl.value = 0;
-    var limEl = document.getElementById("inpNewMemCustomLimit"); if(limEl) limEl.value = 0;
-    openModal("modalMember");
-  };
-
-  window.openBulkModal = function(){
-    var today = getTodayYMD();
-    var bDate = document.getElementById("inpBulkDate"); if(bDate) bDate.value = today;
-    var bFmt = document.getElementById("dispBulkDateFormatted"); if(bFmt) bFmt.innerText = "(" + toDisplayDate(today) + ")";
-    renderBulkList();
-    openModal("modalBulk");
-  };
-
-  window.openFundModal = function(){
-    var cSum = 0, bSum = 0;
-    payments.forEach(function(p){
-      var safeMode = String(p.mode||"CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "ONLINE" : "CASH";
-      if(safeMode === "ONLINE") bSum += cleanNum(p.total, 0); else cSum += cleanNum(p.total, 0);
-    });
-    var cashEl = document.getElementById("lblRegCashBal");
-    var bankEl = document.getElementById("lblRegBankBal");
-    var fundEl = document.getElementById("lblRegTotalFund");
-    if(cashEl) cashEl.innerText = "₹" + cSum.toLocaleString("en-IN");
-    if(bankEl) bankEl.innerText = "₹" + bSum.toLocaleString("en-IN");
-    if(fundEl) fundEl.innerText = "₹" + (cSum + bSum).toLocaleString("en-IN");
-    openModal("modalFund");
-  };
-
-  window.openNpaModal = function(){
-    renderNpaList();
-    openModal("modalNpa");
-  };
-
-  window.logoutSession = function(){
-    try { sessionStorage.removeItem("gullak_v21_active_user"); } catch(e){}
-    var overlay = document.getElementById("windowsLoginOverlay");
-    if(overlay) overlay.style.display = "flex";
-  };
-
-  window.handleTopReload = function(){
-    if(typeof google !== "undefined" && google.script && google.script.run){
-      showNotice("Syncing...", "Fetching verified records from Google Spreadsheet...");
-      google.script.run.withSuccessHandler(function(res){
-        closeModal("modalNotice");
-        if(res && res.members && res.members.length > 0){
-          members = res.members;
-          payments = res.payments || [];
-          loans = res.loans || [];
-          exitSettlements = res.exitSettlements || [];
-          bonusSettlements = res.bonusSettlements || [];
-          if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
-          if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-          saveStore();
-          showNotice("Sync Complete", "Successfully synchronized " + members.length + " members, " + payments.length + " receipts, and " + loans.length + " loans from Google Sheet!");
-        }
-      }).getSocietyFullData();
-    } else {
-      refreshAll();
-      showNotice("Local Reloaded", "Database re-indexed locally.");
-    }
-  };
-
-  // RUN IMMEDIATELY AND ON READY
-  bootApplication();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootApplication);
+  } else {
+    bootApplication();
   }
-  window.addEventListener("load", bootApplication);
 })();
 </script>
 `;
@@ -4288,5 +3330,3 @@ function getCompleteSoftwareClientScript() {
   return getClientScriptPartA() + getClientScriptPartB();
 }
 
-""".trimIndent()
-}

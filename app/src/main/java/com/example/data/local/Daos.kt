@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UserDao {
-    @Query("SELECT * FROM users WHERE role = 'MEMBER' AND status != 'DELETED' ORDER BY id ASC")
+    @Query("SELECT * FROM users WHERE role = 'MEMBER' AND status = 'ACTIVE' ORDER BY id ASC")
     fun getAllActiveMembers(): Flow<List<UserEntity>>
 
     @Query("SELECT * FROM users WHERE role = 'MEMBER' ORDER BY id ASC")
@@ -29,6 +29,9 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE userId = :userId LIMIT 1")
     suspend fun getUserByUserId(userId: String): UserEntity?
+
+    @Query("SELECT * FROM users WHERE userId = :userId LIMIT 1")
+    suspend fun getUserById(userId: String): UserEntity?
 
     @Query("SELECT * FROM users WHERE role = 'ADMIN' LIMIT 1")
     suspend fun getAdminUser(): UserEntity?

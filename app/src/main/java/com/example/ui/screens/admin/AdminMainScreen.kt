@@ -206,35 +206,7 @@ fun AdminMainScreen(
             GullakTopBar(
                 title = "GULLAK ADMIN",
                 subtitle = "Admin • ${adminUser.name}",
-                onLogoutClick = null,
-                actions = {
-                    Button(
-                        onClick = { showGlobalGoogleScriptModal = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GullakGold,
-                            contentColor = Color(0xFF0F172A)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier
-                            .height(34.dp)
-                            .padding(end = 6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Code,
-                            contentDescription = "Code.gs",
-                            modifier = Modifier.size(15.dp),
-                            tint = Color(0xFF0F172A)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Code.gs 📥",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
-                        )
-                    }
-                }
+                onLogoutClick = null
             )
         },
         bottomBar = {
@@ -625,68 +597,6 @@ fun AdminDashboardTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Section: Google Sheets Master Database Quick Card
-        item {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                border = BorderStroke(1.5.dp, GullakGold),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenScriptModal() }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudSync,
-                            contentDescription = null,
-                            tint = GullakGold,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Google Sheets Database (Code.gs) 📋",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = GullakGoldLight
-                            )
-                            Text(
-                                text = "Share/Save .gs File ya Copy karein",
-                                fontSize = 11.sp,
-                                color = Color.LightGray
-                            )
-                        }
-                    }
-                    Button(
-                        onClick = onOpenScriptModal,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GullakGold,
-                            contentColor = Color(0xFF0F172A)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "Code.gs 📥",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
-                        )
-                    }
-                }
-            }
-        }
-
         // Section: Quick Admin Actions
         item {
             Row(
@@ -2991,15 +2901,16 @@ fun GoogleAppsScriptViewerDialog(
                     ) {
                         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "💡 'Run' Button Disable Kyun Dikhta Hai?",
+                                text = "💡 Google Sheets & Web App Fix Guide (V25)",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
                                 color = GullakGoldLight
                             )
                             Text(
-                                text = "1. Code paste karne ke baad pehle Save (Ctrl+S / 💾 Icon) dabana zaroori hai.\n2. Uske baad upar Function dropdown se 'installAndRunDatabase' select karein, tab 'Run ▶' button enable ho jayega!",
+                                text = "1. Sheets Create Karne Ke Liye: Google Sheet me Extensions > Apps Script me code paste karein, Save (Ctrl+S) karein, aur function dropdown se 'installAndRunDatabase' select karke 'Run ▶' dabayein (ya spreadsheet ko reload karein). Saari 6 sheets (Users, Members, Payments, Loans, Exit, Bonus) aur #VALUE! fix automatically create ho jayengi!\n2. Web Link Update Karne Ke Liye: Deploy > Manage deployments > Edit (✏️) > Version dropdown se 'New version' chunein > Deploy dabayein! Isse live link par V25 latest changes turant live ho jayenge.\n3. Login: SANISH / Password (Eye icon, Enter key, Fullscreen aur 1-Click Quick Sign In ab 100% active hain).",
                                 fontSize = 11.sp,
-                                color = Color.White
+                                color = Color.White,
+                                lineHeight = 16.sp
                             )
                         }
                     }

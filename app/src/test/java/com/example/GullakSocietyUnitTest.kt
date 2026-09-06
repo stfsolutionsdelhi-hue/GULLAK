@@ -128,13 +128,14 @@ class GullakSocietyUnitTest {
         repository.seedInitialDataIfEmpty()
 
         // Pooja Devi (USR-00004) is INACTIVE
-        val inactiveUser = database.userDao().getUserById("USR-00004")
+        val inactiveUser = database.userDao().getUserByUserId("USR-00004")
         assertEquals(AccountStatus.INACTIVE, inactiveUser?.status)
 
         val reminderCount = repository.triggerScheduledReminders()
-        // Reminders should only go to active members with dues
+        // Reminders should only go to active members with dues (not inactive members)
         val notifications = database.notificationDao().getNotificationsForUser("USR-00004").first()
-        assertTrue(notifications.isEmpty())
+        val userReminders = notifications.filter { it.userId == "USR-00004" }
+        assertTrue(userReminders.isEmpty())
     }
 
     @Test

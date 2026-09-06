@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gullak Society V21 - Master Download Hub</title>
+  <style>
+    :root {
+      --bg: #0B0F19;
+      --card-bg: #151D2F;
+      --card-border: #243049;
+      --accent: #3B82F6;
+      --accent-hover: #2563EB;
+      --success: #10B981;
+      --gold: #F59E0B;
+      --text: #F3F4F6;
+      --text-muted: #9CA3AF;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 920px;
+      width: 100%;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    h1 {
+      font-size: 2.1rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #FFFFFF, #93C5FD);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    p.sub {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+    .alert-card {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1.5px solid #F59E0B;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 25px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .main-download-card {
+      background: linear-gradient(135deg, #1E293B, #0F172A);
+      border: 2px solid #3B82F6;
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.4);
+    }
+    .btn-download-master {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: #2563EB;
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 1.25rem;
+      font-weight: 700;
+      padding: 16px 36px;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.5);
+      margin: 15px 0;
+    }
+    .btn-download-master:hover {
+      background: #1D4ED8;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.7);
+    }
+    .file-meta {
+      font-size: 0.9rem;
+      color: #94A3B8;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+    .file-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .file-card h3 {
+      font-size: 1.1rem;
+      color: #F8FAFC;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .file-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      flex-grow: 1;
+    }
+    .file-card a {
+      display: inline-block;
+      text-align: center;
+      background: #1E293B;
+      color: #38BDF8;
+      border: 1px solid #334155;
+      padding: 10px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .file-card a:hover {
+      background: #334155;
+      color: #FFFFFF;
+    }
+    .instruction-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 25px;
+    }
+    .instruction-card h2 {
+      font-size: 1.25rem;
+      color: var(--gold);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .instruction-card ol {
+      padding-left: 20px;
+      color: #E2E8F0;
+      line-height: 1.8;
+      font-size: 0.95rem;
+    }
+    .instruction-card li strong {
+      color: #60A5FA;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <div class="badge">UPDATED &amp; VERIFIED &bull; V36 MASTER PRO</div>
+      <h1>Gullak Co-operative Society — Direct Download Hub</h1>
+      <p class="sub">V36 Update: Society Penalty Start Date, Skip Penalty Checkbox, Month-wise Fund Summary &amp; Breakdown, Borrow/Invest Amount Sanitization, and ESC Fullscreen Lock</p>
+    </div>
+
+    <!-- CREDENTIALS BANNER -->
+    <div class="alert-card">
+      <div style="font-size: 2rem;">🔑</div>
+      <div>
+        <div style="font-weight: 800; color: #FBBF24; font-size: 1rem; margin-bottom: 3px;">
+          Default Login Credentials (V36 PRO):
+        </div>
+        <div style="font-size: 0.95rem; color: #F1F5F9;">
+          <strong>Username:</strong> <span style="color: #60A5FA;">SANISH</span> (ya ADMIN) &nbsp;|&nbsp; 
+          <strong>Default Password:</strong> <span style="color: #34D399; font-weight: 800;">12345</span>
+        </div>
+        <div style="font-size: 0.82rem; color: #94A3B8; margin-top: 5px;">
+          💡 <em>Password box me koi default text ya 12345 placeholder show nahi hoga. Aap apne Google Sheet ke <strong>'Users'</strong> tab me jaakar Column B (Password) me jo bhi naya password likhenge, wahi se login hoga.</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRIMARY MASTER ZIP CARD (V36) -->
+    <div class="main-download-card">
+      <div style="font-size: 2.5rem; margin-bottom: 10px;">📦</div>
+      <div class="badge" style="background:rgba(16,185,129,0.2); color:#10B981; border-color:rgba(16,185,129,0.4); margin-bottom:8px;">LATEST VERSION 36 PRODUCTION RELEASE</div>
+      <h2 style="font-size: 1.6rem; margin-bottom: 8px; color:#FFFFFF;">Gullak_V36_Master_Code.zip</h2>
+      <p style="color: #CBD5E1; margin-bottom: 16px; font-size: 0.95rem;">
+        Complete Package containing all updated files: <strong>Code.gs</strong> (Monolithic All-in-One), <strong>Part1_Server.gs</strong>, <strong>Part2_Html.gs</strong>, <strong>Part3A.gs</strong>, and <strong>Part3B.gs</strong> with Version 36 Penalty Start Date, Skip Penalty Toggle, Month-wise Fund Register Breakdown, Borrow/Invest Amount Sanitization, and ESC Key Fullscreen Lock.
+      </p>
+      <div>
+        <a href="Gullak_V36_Master_Code.zip" download="Gullak_V36_Master_Code.zip" class="btn-download-master">
+          <span>⬇️</span> Download Gullak_V36_Master_Code.zip (95 KB)
+        </a>
+      </div>
+      <div class="file-meta">Version 36 &bull; Penalty Start Date &amp; Skip Checkbox &bull; Month-wise Fund Summary &bull; Borrow/Invest Amount Sanitization &bull; ESC Fullscreen Protection</div>
+    </div>
+
+    <!-- INDIVIDUAL FILES DOWNLOAD -->
+    <h2 style="font-size: 1.3rem; margin-bottom: 16px; color: #94A3B8;">Ya Single Files Download Karein (V36):</h2>
+    <div class="grid">
+      <div class="file-card">
+        <h3>📄 Code.gs</h3>
+        <p>Complete Monolithic All-in-One File (Sabhi 4 parts ek sath combined, 226 KB).</p>
+        <a href="Code.gs" download="Code.gs">⬇️ Download Code.gs</a>
+      </div>
+
+      <div class="file-card">
+        <h3>⚙️ Part1_Server.gs</h3>
+        <p>Backend Server Engine, Sheet Automation, Users Sync &amp; Fund Register Backend (31 KB).</p>
+        <a href="Part1_Server.gs" download="Part1_Server.gs">⬇️ Download Part 1</a>
+      </div>
+
+      <div class="file-card">
+        <h3>🖥️ Part2_Html.gs</h3>
+        <p>Penalty Start Date &amp; Skip Checkbox UI, Borrow/Invest Amount Sanitization, Month-wise Fund Breakdown UI (75 KB).</p>
+        <a href="Part2_Html.gs" download="Part2_Html.gs">⬇️ Download Part 2</a>
+      </div>
+
+      <div class="file-card">
+        <h3>📊 Part3A.gs</h3>
+        <p>Penalty Start Date &amp; Skip Logic, Monthly RD Deposit Accumulating 1% Bonus Engine, DD-MM-YYYY Date Helpers (36 KB).</p>
+        <a href="Part3A.gs" download="Part3A.gs">⬇️ Download Part 3A</a>
+      </div>
+
+      <div class="file-card">
+        <h3>📝 Part3B.gs</h3>
+        <p>Month-wise Fund Summary &amp; Drilldown Engine, Borrow/Invest Amount Sanitizer, ESC Key Fullscreen Protection (83 KB).</p>
+        <a href="Part3B.gs" download="Part3B.gs">⬇️ Download Part 3B</a>
+      </div>
+
+      <div class="file-card">
+        <h3>📦 V35 Previous Zip</h3>
+        <p>Previous V35 build package kept for reference &amp; backward compatibility (95 KB).</p>
+        <a href="Gullak_V35_Master_Code.zip" download="Gullak_V35_Master_Code.zip">⬇️ Download V35 Zip</a>
+      </div>
+    </div>
+
+    <!-- RESOLVED ISSUES OVERVIEW (VERSION 36) -->
+    <div class="instruction-card">
+      <h2>✅ What Has Been Fixed &amp; Added in Version 36 Master Update:</h2>
+      <ol>
+        <li>
+          <strong>1. ESC Key Fullscreen Protection:</strong> Form ya Report open hone per ESC button dabane se sirf active Form / Modal close hoti hai, browser Fullscreen mode exit nahi hota.
+        </li>
+        <li>
+          <strong>2. Standardized DD-MM-YYYY Date Formatting:</strong> Sabhi forms aur reports me DD-MM-YYYY date format enforce kar diya gaya hai.
+        </li>
+        <li>
+          <strong>3. Month-wise Fund Summary &amp; Breakdown Engine:</strong> Cash / Bank Register modal me Month-wise Fund Breakdown table fully active kar di gayi hai, jisme Jan se Dec tak ka Inflow, Outflow, Net Status aur Drilldown details visible hai.
+        </li>
+        <li>
+          <strong>4. Borrow / Investment Form Amount Sanitization:</strong> Form me Amount field validation ko sanitize kar diya gaya hai jisse formatted amounts (e.g. 50,000 ya text input) cleanly post hoti hain aur false validation error nahi aata.
+        </li>
+        <li>
+          <strong>5. Society Penalty Start Date &amp; Skip Checkbox (Global Settings):</strong> General Settings me <strong>Society Penalty Start Date</strong> (default <code>2026-10-01</code>) aur <strong>Skip / Hold All Overdue Penalty</strong> checkbox add kar diya gaya hai. Isse meeting hone tak puri society ke liye penalty hold / skip rakhi ja sakti hai.
+        </li>
+      </ol>
+    </div>
+
+    <!-- HOW TO DEPLOY IN GOOGLE SHEETS -->
+    <div class="instruction-card">
+      <h2>🚀 Google Sheets me Deploy Kaise Karein (Easy 3 Steps):</h2>
+      <ol>
+        <li><strong>Extensions &gt; Apps Script</strong> me jayein.</li>
+        <li>Wahan <strong>Code.gs</strong> ka sara purana code delete karke naya <strong>Code.gs</strong> paste kar dein (ya ZIP file se chaaron files add karein).</li>
+        <li>Upar blue button <strong>Deploy &gt; Manage deployments &gt; Edit (pencil icon) &gt; Version: New version &gt; Deploy</strong> par click karein. Aapka live portal naye fixes ke sath ready ho jayega!</li>
+      </ol>
+    </div>
+
+  </div>
+</body>
+</html>
