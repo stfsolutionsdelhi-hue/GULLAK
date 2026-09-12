@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,12 +30,13 @@ fun MainScreen(
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableStateOf(5) }
     // Tab 0: Tasks, 1: Members, 2: Payments, 3: Reminders, 4: Settings, 5: Member Portal
     val isLiveSyncActive by repository.isLiveSyncActive.collectAsState()
     val members by repository.members.collectAsState()
     val payments by repository.payments.collectAsState()
     val isSessionLocked by repository.isSessionLocked.collectAsState()
+    val loggedInMemberId by repository.loggedInMemberId.collectAsState()
 
     var showAccountSummaryDialog by remember { mutableStateOf(false) }
     var showLoanSummaryDialog by remember { mutableStateOf(false) }
@@ -56,35 +61,51 @@ fun MainScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Side Panel Header
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.padding(bottom = 8.dp)
+                    // Side Panel Header
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(if (selectedTab != 5) AccentGold else AccentBlue),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(CircleShape)
-                                    .background(AccentGold),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("🏦", fontSize = 20.sp)
-                            }
-                            Column {
-                                Text("GULLAK CO-OPERATIVE", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 14.sp)
-                                Text("Society Management • Kakrola", color = PrimaryGreen, fontSize = 11.sp)
-                            }
+                            Text(if (selectedTab != 5) "👑" else "👤", fontSize = 20.sp)
                         }
+                        Column {
+                            Text(
+                                text = if (selectedTab != 5) "GULLAK CO-OPERATIVE" else "MEMBER PORTAL",
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (selectedTab != 5) "Admin Control • Kakrola" else "Passbook & Online Pay",
+                                color = if (selectedTab != 5) PrimaryGreen else AccentBlue,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
 
-                        HorizontalDivider(color = CardBorder)
+                    HorizontalDivider(color = CardBorder)
 
-                        // Section 1: Admin Panel Tabs
-                        Text("👑 ADMIN PANEL", color = AccentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp, top = 4.dp))
+                    if (selectedTab != 5) {
+                        // ================== ADMIN SIDE DRAWER PANEL ==================
+                        Text(
+                            text = "👑 ADMIN TOOLS",
+                            color = AccentGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 6.dp, top = 4.dp)
+                        )
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard", tint = if (selectedTab == 0) PrimaryGreen else TextMuted) },
@@ -168,8 +189,13 @@ fun MainScreen(
 
                         HorizontalDivider(color = CardBorder, modifier = Modifier.padding(vertical = 4.dp))
 
-                        // Section 2: Quick Insights (Requirements 7 & 8)
-                        Text("📊 SOCIETY INSIGHTS", color = PrimaryGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
+                        Text(
+                            text = "📊 SOCIETY INSIGHTS",
+                            color = PrimaryGreen,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 6.dp)
+                        )
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Assessment, contentDescription = "Account Summary", tint = AccentGold) },
@@ -201,30 +227,9 @@ fun MainScreen(
                             shape = RoundedCornerShape(8.dp)
                         )
 
-                        HorizontalDivider(color = CardBorder, modifier = Modifier.padding(vertical = 4.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Section 3: Member Portal Login (Requirement 6)
-                        Text("👤 MEMBER SECTION", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
-
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.AccountCircle, contentDescription = "Member Portal", tint = if (selectedTab == 5) AccentBlue else TextMuted) },
-                            label = { Text("Member Portal & Passbook", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
-                            selected = selectedTab == 5,
-                            onClick = {
-                                selectedTab = 5
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = Color(0xFF075985),
-                                selectedTextColor = TextPrimary,
-                                unselectedTextColor = TextSecondary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                    }
-
-                    // Bottom info & Logout in Side Panel (Requirement 6)
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Bottom live sync status card for admins
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = if (isLiveSyncActive) PrimaryGreenDark else Color(0xFF451A03),
@@ -245,7 +250,7 @@ fun MainScreen(
                             }
                         }
 
-                        // Clean Drawer Logout Button (Requirement 6)
+                        // Admin Logout Button
                         Surface(
                             onClick = {
                                 showDrawerLogoutDialog = true
@@ -266,8 +271,85 @@ fun MainScreen(
                             }
                         }
 
-                        Text("Gullak Android Pro • V64 Master", color = TextMuted, fontSize = 10.sp)
+                    } else {
+                        // ================== MEMBER SIDE DRAWER PANEL ==================
+                        Text(
+                            text = "👤 MEMBER PASSBOOK TABS",
+                            color = AccentBlue,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 6.dp, top = 4.dp)
+                        )
+
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.AccountCircle, contentDescription = "Passbook", tint = AccentBlue) },
+                            label = { Text("My Passbook & Details", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                            selected = true,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                            },
+                            colors = NavigationDrawerItemDefaults.colors(
+                                selectedContainerColor = Color(0xFF075985),
+                                selectedTextColor = TextPrimary,
+                                unselectedTextColor = TextSecondary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Only show logout button if member is logged in (Requirement 5)
+                        if (loggedInMemberId != null) {
+                            Surface(
+                                onClick = {
+                                    repository.logoutMember()
+                                    scope.launch { drawerState.close() }
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF3B0712).copy(alpha = 0.6f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Logout, contentDescription = "Logout Member", tint = AccentRed, modifier = Modifier.size(16.dp))
+                                    Text("Logout Passbook 🚪", color = Color(0xFFFCA5A5), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+
+                        // Switch to Admin / Staff Login
+                        Surface(
+                            onClick = {
+                                selectedTab = 0
+                                scope.launch { drawerState.close() }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1E293B),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Switch", tint = AccentGold, modifier = Modifier.size(16.dp))
+                                Text("Admin / Staff Login 🔑", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Gullak Android Pro • V64 Master",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(start = 6.dp)
+                    )
                 }
             }
         }
@@ -299,28 +381,6 @@ fun MainScreen(
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Open Drawer", tint = AccentGold)
-                        }
-                    },
-                    actions = {
-                        // Quick switch to Member Portal or Admin
-                        if (selectedTab != 5) {
-                            TextButton(
-                                onClick = { selectedTab = 5 },
-                                colors = ButtonDefaults.textButtonColors(contentColor = AccentBlue)
-                            ) {
-                                Icon(Icons.Default.AccountCircle, contentDescription = "Member", modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Member", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        } else {
-                            TextButton(
-                                onClick = { selectedTab = 0 },
-                                colors = ButtonDefaults.textButtonColors(contentColor = PrimaryGreen)
-                            ) {
-                                Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin", modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Admin", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -358,13 +418,84 @@ fun MainScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                when (selectedTab) {
-                    0 -> TasksScreen(repository = repository, onNavigateToPayments = { selectedTab = 2 })
-                    1 -> MembersScreen(repository = repository)
-                    2 -> PaymentsScreen(repository = repository)
-                    3 -> RemindersScreen(repository = repository)
-                    4 -> SettingsScreen(repository = repository)
-                    5 -> MemberPortalScreen(repository = repository, onSwitchToAdmin = { selectedTab = 0 })
+                if (isSessionLocked && selectedTab != 5) {
+                    var unlockPasscode by remember { mutableStateOf("") }
+                    val context = LocalContext.current
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(BgDark)
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF450A0A)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = "Locked", tint = AccentRed, modifier = Modifier.size(30.dp))
+                        }
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text("Admin Panel Locked", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                        Text("Enter admin passkey to unlock admin controls", color = TextSecondary, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        OutlinedTextField(
+                            value = unlockPasscode,
+                            onValueChange = { unlockPasscode = it },
+                            singleLine = true,
+                            placeholder = { Text("Enter admin passkey", color = TextMuted) },
+                            modifier = Modifier.fillMaxWidth(0.85f),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PrimaryGreen,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                if (repository.unlockSession(unlockPasscode)) {
+                                    Toast.makeText(context, "Welcome Admin! Session Unlocked.", Toast.LENGTH_SHORT).show()
+                                    unlockPasscode = ""
+                                } else {
+                                    Toast.makeText(context, "Invalid key! Enter correct admin passkey to unlock.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .height(44.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Unlock Admin Session 🔓", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold)
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        TextButton(
+                            onClick = { selectedTab = 5 }
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = AccentBlue, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Go back to Member Passbook", color = AccentBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    when (selectedTab) {
+                        0 -> TasksScreen(repository = repository, onNavigateToPayments = { selectedTab = 2 })
+                        1 -> MembersScreen(repository = repository)
+                        2 -> PaymentsScreen(repository = repository)
+                        3 -> RemindersScreen(repository = repository)
+                        4 -> SettingsScreen(repository = repository)
+                        5 -> MemberPortalScreen(repository = repository, onSwitchToAdmin = { selectedTab = 0 })
+                    }
                 }
             }
         }

@@ -14,25 +14,25 @@ import com.example.MainActivity
 
 object NotificationHelper {
 
-    const val CHANNEL_ID = "gullak_society_channel_v2"
-    private const val CHANNEL_NAME = "Gullak Society Alerts"
-    private const val CHANNEL_DESC = "Official updates for RD, loan dues, approvals and reminders with sound & vibration."
+    const val CHANNEL_ID = "gullak_society_channel_v4_loud"
+    private const val CHANNEL_NAME = "Gullak Society Alerts (Loud)"
+    private const val CHANNEL_DESC = "Official high-volume alerts for RD, loan dues, approvals and reminders."
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val importance = NotificationManager.IMPORTANCE_HIGH
-            val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val loudSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .build()
 
             val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance).apply {
                 description = CHANNEL_DESC
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 250, 150, 250)
+                vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
                 enableLights(true)
-                setSound(defaultSoundUri, audioAttributes)
+                setSound(loudSoundUri, audioAttributes)
             }
             val notificationManager: NotificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -58,7 +58,7 @@ object NotificationHelper {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val loudSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -68,13 +68,33 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .setSound(soundUri)
-            .setVibrate(longArrayOf(0, 250, 150, 250))
-            .setDefaults(NotificationCompat.DEFAULT_SOUND or NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_LIGHTS)
+            .setSound(loudSoundUri)
+            .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500))
+            .setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_LIGHTS)
 
         try {
             val notificationManager = NotificationManagerCompat.from(context)
             notificationManager.notify(notificationId, builder.build())
+
+            // Programmatically play a loud, attention-grabbing ringtone for 2 seconds
+            val ringtone = RingtoneManager.getRingtone(context, loudSoundUri)
+            if (ringtone != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    ringtone.audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                }
+                ringtone.play()
+                // Stop after 2 seconds to make it a distinct short chime
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    try {
+                        if (ringtone.isPlaying) {
+                            ringtone.stop()
+                        }
+                    } catch (e: Exception) {}
+                }, 2000)
+            }
         } catch (e: SecurityException) {
             // Permission not granted on Android 13+
         } catch (e: Exception) {

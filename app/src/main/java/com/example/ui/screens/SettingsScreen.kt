@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +56,9 @@ fun SettingsScreen(
     val societyQrUri by repository.societyQrUri.collectAsState()
     val societySettings by repository.societySettings.collectAsState()
 
+    val appDownloadUrl by repository.appDownloadUrl.collectAsState()
+    var inputAppDownloadUrl by remember(appDownloadUrl) { mutableStateOf(appDownloadUrl) }
+
     var inputUrl by remember(webAppUrl) { mutableStateOf(webAppUrl) }
     var showUrlConfirmDialog1 by remember { mutableStateOf(false) }
     var showUrlConfirmDialog2 by remember { mutableStateOf(false) }
@@ -73,6 +79,8 @@ fun SettingsScreen(
     var oldAdminPass by remember { mutableStateOf("") }
     var newAdminPass by remember { mutableStateOf("") }
     var confirmAdminPass by remember { mutableStateOf("") }
+
+    var isAuditLogsExpanded by remember { mutableStateOf(false) }
 
     // Photo picker launcher for custom QR image upload
     val qrImageLauncher = rememberLauncherForActivityResult(
@@ -271,46 +279,89 @@ fun SettingsScreen(
                         fontSize = 10.sp
                     )
 
-                    OutlinedTextField(
-                        value = inputUrl,
-                        onValueChange = { inputUrl = it },
+                    // Web App Script URL Field with Label Above
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Web App Script URL (Editable & Auto-filled)") },
-                        placeholder = { Text("https://script.google.com/macros/s/.../exec", color = TextMuted, fontSize = 11.sp) },
-                        trailingIcon = {
-                            IconButton(
-                                onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    if (clipboard.hasPrimaryClip() && clipboard.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true) {
-                                        val item = clipboard.primaryClip?.getItemAt(0)
-                                        val text = item?.text?.toString() ?: ""
-                                        if (text.isNotEmpty()) {
-                                            inputUrl = text
-                                            Toast.makeText(context, "Pasted from Clipboard!", Toast.LENGTH_SHORT).show()
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Web App Script URL (Editable & Auto-filled)",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        OutlinedTextField(
+                            value = inputUrl,
+                            onValueChange = { inputUrl = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("https://script.google.com/macros/s/.../exec", color = TextMuted, fontSize = 11.sp) },
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        if (clipboard.hasPrimaryClip() && clipboard.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true) {
+                                            val item = clipboard.primaryClip?.getItemAt(0)
+                                            val text = item?.text?.toString() ?: ""
+                                            if (text.isNotEmpty()) {
+                                                inputUrl = text
+                                                Toast.makeText(context, "Pasted from Clipboard!", Toast.LENGTH_SHORT).show()
+                                            }
                                         }
-                                    }
-                                },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ContentPaste,
-                                    contentDescription = "Paste",
-                                    tint = AccentGold,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PrimaryGreen,
-                            unfocusedBorderColor = CardBorder,
-                            focusedTextColor = AccentGold,
-                            unfocusedTextColor = TextPrimary,
-                            focusedContainerColor = BgDark,
-                            unfocusedContainerColor = BgDark
-                        ),
-                        singleLine = true,
-                        shape = RoundedCornerShape(6.dp)
-                    )
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentPaste,
+                                        contentDescription = "Paste",
+                                        tint = AccentGold,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PrimaryGreen,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = AccentGold,
+                                unfocusedTextColor = TextPrimary,
+                                focusedContainerColor = BgDark,
+                                unfocusedContainerColor = BgDark
+                            ),
+                            singleLine = true,
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                    }
+
+                    // App Download URL Field with Label Above
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "App Download URL (For Invite SMS)",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        OutlinedTextField(
+                            value = inputAppDownloadUrl,
+                            onValueChange = { 
+                                inputAppDownloadUrl = it
+                                repository.updateAppDownloadUrl(it)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("https://gullaksociety.in/download", color = TextMuted, fontSize = 11.sp) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PrimaryGreen,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = AccentGold,
+                                unfocusedTextColor = TextPrimary,
+                                focusedContainerColor = BgDark,
+                                unfocusedContainerColor = BgDark
+                            ),
+                            singleLine = true,
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                    }
 
                     if (syncStatus.isNotEmpty()) {
                         Text(
@@ -721,13 +772,23 @@ fun SettingsScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Canvas(modifier = Modifier.size(100.dp)) {
-                                drawRect(color = Color.Black, size = Size(size.width, size.height), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()))
-                                val finderSize = 22.dp.toPx()
-                                drawRect(color = Color.Black, topLeft = Offset(4f, 4f), size = Size(finderSize, finderSize))
-                                drawRect(color = Color.Black, topLeft = Offset(size.width - finderSize - 4f, 4f), size = Size(finderSize, finderSize))
-                                drawRect(color = Color.Black, topLeft = Offset(4f, size.height - finderSize - 4f), size = Size(finderSize, finderSize))
-                                drawCircle(color = Color(0xFF047857), radius = 8.dp.toPx(), center = Offset(size.width / 2, size.height / 2))
+                            if (societyQrUri != null) {
+                                coil.compose.AsyncImage(
+                                    model = societyQrUri,
+                                    contentDescription = "Society QR Code",
+                                    modifier = Modifier
+                                        .size(110.dp)
+                                        .padding(4.dp)
+                                )
+                            } else {
+                                Canvas(modifier = Modifier.size(100.dp)) {
+                                    drawRect(color = Color.Black, size = Size(size.width, size.height), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()))
+                                    val finderSize = 22.dp.toPx()
+                                    drawRect(color = Color.Black, topLeft = Offset(4f, 4f), size = Size(finderSize, finderSize))
+                                    drawRect(color = Color.Black, topLeft = Offset(size.width - finderSize - 4f, 4f), size = Size(finderSize, finderSize))
+                                    drawRect(color = Color.Black, topLeft = Offset(4f, size.height - finderSize - 4f), size = Size(finderSize, finderSize))
+                                    drawCircle(color = Color(0xFF047857), radius = 8.dp.toPx(), center = Offset(size.width / 2, size.height / 2))
+                                }
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -851,47 +912,83 @@ fun SettingsScreen(
 
         // Card 5: System Audit Logs
         item {
-            Text(
-                text = "System Audit Logs (${auditLogs.size})",
-                color = TextPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        items(auditLogs) { log ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, CardBorder, RoundedCornerShape(6.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1120)),
-                shape = RoundedCornerShape(6.dp)
+                    .clickable { isAuditLogsExpanded = !isAuditLogsExpanded }
+                    .border(1.dp, CardBorder, RoundedCornerShape(8.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(10.dp),
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = log.title,
-                            color = PrimaryGreen,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "Logs",
+                            tint = AccentGold,
+                            modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = log.details,
-                            color = TextSecondary,
-                            fontSize = 10.sp
+                            text = "System Audit Logs (${auditLogs.size})",
+                            color = TextPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                    Text(
-                        text = log.timestamp,
-                        color = TextMuted,
-                        fontSize = 9.sp
+                    Icon(
+                        imageVector = if (isAuditLogsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (isAuditLogsExpanded) "Collapse" else "Expand",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
                     )
+                }
+            }
+        }
+
+        if (isAuditLogsExpanded) {
+            items(auditLogs) { log ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, CardBorder, RoundedCornerShape(6.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1120)),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = log.title,
+                                color = PrimaryGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                            Text(
+                                text = log.details,
+                                color = TextSecondary,
+                                fontSize = 10.sp
+                            )
+                        }
+                        Text(
+                            text = log.timestamp,
+                            color = TextMuted,
+                            fontSize = 9.sp
+                        )
+                    }
                 }
             }
         }

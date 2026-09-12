@@ -43,6 +43,18 @@ class SocietyRepository(private val context: Context) {
     private val _isSessionLocked = MutableStateFlow(false)
     val isSessionLocked: StateFlow<Boolean> = _isSessionLocked.asStateFlow()
 
+    private val _loggedInMemberId = MutableStateFlow<String?>(null)
+    val loggedInMemberId: StateFlow<String?> = _loggedInMemberId.asStateFlow()
+
+    fun loginMember(id: String) {
+        _loggedInMemberId.value = id
+        addAuditLog("MEMBER_LOGIN", "Member logged in: $id")
+    }
+
+    fun logoutMember() {
+        _loggedInMemberId.value = null
+    }
+
     private val _auditLogs = MutableStateFlow<List<AuditLog>>(emptyList())
     val auditLogs: StateFlow<List<AuditLog>> = _auditLogs.asStateFlow()
 
@@ -73,6 +85,9 @@ class SocietyRepository(private val context: Context) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
+    private val _appDownloadUrl = MutableStateFlow("https://gullaksociety.example.com/download")
+    val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
+
     init {
         loadLocalData()
     }
@@ -101,6 +116,7 @@ class SocietyRepository(private val context: Context) {
         _societyUpiId.value = socUpi
         _isLiveSyncActive.value = prefs.getBoolean("live_sync_active", true)
         _societyQrUri.value = prefs.getString("society_qr_uri", null)
+        _appDownloadUrl.value = prefs.getString("app_download_url", "https://gullaksociety.example.com/download") ?: "https://gullaksociety.example.com/download"
 
         val isAutoRemEnabled = prefs.getBoolean("auto_rem_enabled", true)
         val remFreq = prefs.getString("auto_rem_freq", "Every 2 Days") ?: "Every 2 Days"
@@ -171,10 +187,37 @@ class SocietyRepository(private val context: Context) {
         addAuditLog("SOCIETY UPI UPDATED", "Official Society UPI ID set to: $clean")
     }
 
+    fun updateAppDownloadUrl(newUrl: String) {
+        val clean = newUrl.trim()
+        _appDownloadUrl.value = clean
+        prefs.edit().putString("app_download_url", clean).apply()
+        addAuditLog("SETTINGS_UPDATE", "App download invitation URL updated to: $clean")
+    }
+
     fun updateSocietyQrImage(uriString: String?) {
-        _societyQrUri.value = uriString
-        prefs.edit().putString("society_qr_uri", uriString).apply()
-        addAuditLog("SOCIETY QR UPDATED", if (uriString != null) "Custom QR Image Uploaded & Set." else "Reset to Default UPI QR.")
+        var finalUriString: String? = null
+        if (uriString != null) {
+            try {
+                val uri = android.net.Uri.parse(uriString)
+                val inputStream = context.contentResolver.openInputStream(uri)
+                if (inputStream != null) {
+                    val localFile = java.io.File(context.filesDir, "society_qr.png")
+                    val outputStream = java.io.FileOutputStream(localFile)
+                    inputStream.use { input ->
+                        outputStream.use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    finalUriString = android.net.Uri.fromFile(localFile).toString()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                finalUriString = uriString // Fallback
+            }
+        }
+        _societyQrUri.value = finalUriString
+        prefs.edit().putString("society_qr_uri", finalUriString).apply()
+        addAuditLog("SOCIETY QR UPDATED", if (finalUriString != null) "Custom QR Image Uploaded & Set." else "Reset to Default UPI QR.")
     }
 
     fun updateMemberPin(memberId: String, newPin: String) {
@@ -257,7 +300,14 @@ class SocietyRepository(private val context: Context) {
     }
 
     fun saveWebAppUrl(url: String) {
-        val clean = url.trim()
+        var clean = url.trim()
+        if (clean.startsWith("https://script.google.com/") && !clean.endsWith("/exec")) {
+            if (clean.endsWith("/")) {
+                clean += "exec"
+            } else {
+                clean += "/exec"
+            }
+        }
         _webAppUrl.value = clean
         prefs.edit().putString("web_app_url", clean).apply()
         addAuditLog("CLOUD URL UPDATED", "Connected Web App: $clean")
@@ -609,7 +659,14 @@ class SocietyRepository(private val context: Context) {
         if (!_isLiveSyncActive.value) {
             return@withContext Pair(false, "Live Sync is currently PAUSED by Admin. Enable Live Sync to synchronize.")
         }
-        val url = _webAppUrl.value.trim()
+        var url = _webAppUrl.value.trim()
+        if (url.startsWith("https://script.google.com/") && !url.endsWith("/exec")) {
+            if (url.endsWith("/")) {
+                url += "exec"
+            } else {
+                url += "/exec"
+            }
+        }
         if (url.isEmpty()) {
             return@withContext Pair(false, "Web App URL not configured in Settings.")
         }

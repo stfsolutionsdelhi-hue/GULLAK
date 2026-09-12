@@ -487,49 +487,84 @@ fun PaymentsScreen(
                     // Auto-fill Indicator
                     Text("⚡ Auto-filled Columns (Penalty, Waiver, RD, Interest)", color = PrimaryGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
 
-                    // Row 1: RD & Interest
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = rdText,
-                            onValueChange = { rdText = it },
-                            label = { Text("RD (₹) [Auto]") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = interestText,
-                            onValueChange = { interestText = it },
-                            label = { Text("Interest (₹) [Auto]") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                    }
+                    // RD Input
+                    OutlinedTextField(
+                        value = rdText,
+                        onValueChange = { rdText = it },
+                        label = { Text("RD Amount (₹)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryGreen,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
 
-                    // Row 2: Penalty & Loan Repay (User Request 3)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = penaltyText,
-                            onValueChange = { penaltyText = it },
-                            label = { Text("Penalty (₹) [Auto]") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = loanRepayText,
-                            onValueChange = { loanRepayText = it },
-                            label = { Text("Loan Repay (₹)") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                    }
+                    // Interest Input
+                    OutlinedTextField(
+                        value = interestText,
+                        onValueChange = { interestText = it },
+                        label = { Text("Interest Amount (₹)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryGreen,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
 
-                    // Row 3: Waiver (User Request 3)
+                    // Penalty Input
+                    OutlinedTextField(
+                        value = penaltyText,
+                        onValueChange = { penaltyText = it },
+                        label = { Text("Penalty Amount (₹)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryGreen,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+
+                    // Loan Repay Input
+                    OutlinedTextField(
+                        value = loanRepayText,
+                        onValueChange = { loanRepayText = it },
+                        label = { Text("Loan Repay Amount (₹)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryGreen,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+
+                    // Waiver Input
                     OutlinedTextField(
                         value = waiverText,
                         onValueChange = { waiverText = it },
-                        label = { Text("Waiver / Discount (₹) [Auto]") },
+                        label = { Text("Waiver / Discount Amount (₹)") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryGreen,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
                     )
 
                     // Payment Mode Toggle

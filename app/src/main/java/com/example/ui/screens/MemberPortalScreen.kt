@@ -39,6 +39,22 @@ import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+data class CombinedTxn(
+    val txnId: String,
+    val date: String,
+    val type: String, // CREDIT / DEBIT
+    val totalAmount: Int,
+    val rdAmount: Int,
+    val interestAmount: Int,
+    val penaltyAmount: Int,
+    val loanRepayAmount: Int,
+    val waiverAmount: Int,
+    val mode: String,
+    val remarks: String,
+    val utrNumber: String,
+    val status: String // "PENDING", "APPROVED", "APPROVED WITH EDITED"
+)
+
 @Composable
 fun MemberPortalScreen(
     repository: SocietyRepository,
@@ -53,12 +69,11 @@ fun MemberPortalScreen(
     val societyUpiId by repository.societyUpiId.collectAsState()
     val societyQrUri by repository.societyQrUri.collectAsState()
 
-    var loggedInMemberId by remember { mutableStateOf<String?>(null) }
-    var selectedMemberForLogin by remember { mutableStateOf<Member?>(members.firstOrNull()) }
+    val loggedInMemberId by repository.loggedInMemberId.collectAsState()
     var enteredMobile by remember { mutableStateOf("") }
     var enteredPin by remember { mutableStateOf("") }
-    var isMemberPickerOpen by remember { mutableStateOf(false) }
-    var memberSearchQuery by remember { mutableStateOf("") }
+    var multiAccountSelectionList by remember { mutableStateOf<List<Member>>(emptyList()) }
+    var showMultiAccountDialog by remember { mutableStateOf(false) }
 
     // Dues Payment Form Dialog States (Requirement 8, 9, 10)
     var showDuesDialog by remember { mutableStateOf(false) }
@@ -119,74 +134,12 @@ fun MemberPortalScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Select / Search Member:", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-
-                    // Member Selector Dropdown
-                    OutlinedButton(
-                        onClick = { isMemberPickerOpen = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = selectedMemberForLogin?.name ?: "Select Society Member",
-                            color = TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
-                    }
-
-                    if (isMemberPickerOpen) {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 240.dp)
-                                .border(1.dp, CardBorder, RoundedCornerShape(8.dp)),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1120))
-                        ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                OutlinedTextField(
-                                    value = memberSearchQuery,
-                                    onValueChange = { memberSearchQuery = it },
-                                    placeholder = { Text("Search by name or phone...", fontSize = 11.sp) },
-                                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(6.dp)
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                val filteredList = members.filter {
-                                    it.name.contains(memberSearchQuery, ignoreCase = true) ||
-                                            it.mobile.contains(memberSearchQuery) ||
-                                            it.id.contains(memberSearchQuery, ignoreCase = true)
-                                }
-                                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                                    items(filteredList) { m ->
-                                        Surface(
-                                            onClick = {
-                                                selectedMemberForLogin = m
-                                                enteredMobile = m.mobile
-                                                isMemberPickerOpen = false
-                                            },
-                                            color = Color.Transparent,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Column(modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp)) {
-                                                Text(m.name, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                                Text("📱 ${m.mobile} • ID: ${m.id}", color = TextSecondary, fontSize = 10.sp)
-                                            }
-                                        }
-                                        HorizontalDivider(color = Color(0xFF1E293B), thickness = 0.5.dp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Mobile Number Display
+                    // Mobile Number Input
                     OutlinedTextField(
-                        value = if (enteredMobile.isNotEmpty()) enteredMobile else (selectedMemberForLogin?.mobile ?: ""),
+                        value = enteredMobile,
                         onValueChange = { enteredMobile = it },
                         label = { Text("Mobile Number") },
+                        placeholder = { Text("Enter your registered mobile", color = TextMuted) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -225,11 +178,10 @@ fun MemberPortalScreen(
                     ) {
                         TextButton(
                             onClick = {
-                                val targetMobile = if (enteredMobile.isNotBlank()) enteredMobile else (selectedMemberForLogin?.mobile ?: "")
-                                val memberName = selectedMemberForLogin?.name ?: "Member"
+                                val targetMobile = enteredMobile.trim()
                                 val adminPhone = societySettings.adminWhatsApp.ifEmpty { "9718174244" }
                                 val cleanPhone = if (adminPhone.startsWith("+91")) adminPhone else "91$adminPhone"
-                                val message = "Namaste Admin Ji,\n\nI forgot my Gullak Society Member Portal PIN.\n\nMember Name: $memberName\nMobile: $targetMobile\n\nPlease provide or reset my login PIN. Dhanyawad!"
+                                val message = "Namaste Admin Ji,\n\nI forgot my Gullak Society Member Portal PIN.\n\nMobile: $targetMobile\n\nPlease provide or reset my login PIN. Dhanyawad!"
                                 try {
                                     val uri = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(message)}")
                                     val waIntent = Intent(Intent.ACTION_VIEW, uri)
@@ -248,22 +200,39 @@ fun MemberPortalScreen(
                     // Login Button (Requirement 5)
                     Button(
                         onClick = {
-                            val activeMember = selectedMemberForLogin ?: members.find { it.mobile == enteredMobile.trim() }
-                            if (activeMember == null) {
-                                Toast.makeText(context, "Please select or enter a valid registered mobile number.", Toast.LENGTH_SHORT).show()
+                            val cleanMobile = enteredMobile.trim()
+                            if (cleanMobile.isEmpty()) {
+                                Toast.makeText(context, "Please enter a valid registered mobile number.", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
                             if (enteredPin.length < 4) {
                                 Toast.makeText(context, "Please enter 4-digit PIN.", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            // PIN verification: matches member's loginPin or default 1234
-                            if (enteredPin == activeMember.loginPin || enteredPin == "1234") {
-                                loggedInMemberId = activeMember.id
-                                enteredPin = ""
-                                Toast.makeText(context, "Welcome ${activeMember.name}!", Toast.LENGTH_SHORT).show()
-                            } else {
+
+                            // Find matching member accounts
+                            val matchingMembers = members.filter { it.mobile.trim() == cleanMobile }
+                            if (matchingMembers.isEmpty()) {
+                                Toast.makeText(context, "No registered member found with this mobile number. Please contact Admin.", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            // PIN Verification
+                            val correctMatches = matchingMembers.filter { enteredPin == it.loginPin || enteredPin == "1234" }
+                            if (correctMatches.isEmpty()) {
                                 Toast.makeText(context, "Incorrect PIN! Please contact Admin on WhatsApp.", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            if (correctMatches.size == 1) {
+                                // Single matched account
+                                repository.loginMember(correctMatches.first().id)
+                                enteredPin = ""
+                                Toast.makeText(context, "Welcome ${correctMatches.first().name}!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                // Multiple accounts matched
+                                multiAccountSelectionList = correctMatches
+                                showMultiAccountDialog = true
                             }
                         },
                         modifier = Modifier
@@ -292,6 +261,55 @@ fun MemberPortalScreen(
     // ==================== MEMBER PASSBOOK SCREEN (Requirement 7) ====================
     val memberTxns = payments.filter { it.memberId == loggedInMember.id }
     val memberPendingApprovals = approvals.filter { it.memberId == loggedInMember.id }
+
+    val combinedTxns = remember(memberTxns, memberPendingApprovals) {
+        val list = mutableListOf<CombinedTxn>()
+        // Map approved transactions
+        memberTxns.forEach { t ->
+            list.add(
+                CombinedTxn(
+                    txnId = t.txnId,
+                    date = t.date,
+                    type = t.type,
+                    totalAmount = t.totalAmount,
+                    rdAmount = t.rdAmount,
+                    interestAmount = t.interestAmount,
+                    penaltyAmount = t.penaltyAmount,
+                    loanRepayAmount = t.loanRepayAmount,
+                    waiverAmount = t.waiverAmount,
+                    mode = t.mode,
+                    remarks = t.remarks,
+                    utrNumber = t.utrNumber,
+                    status = if (t.isEdited) "APPROVED WITH EDITED" else "APPROVED"
+                )
+            )
+        }
+        // Map pending transactions
+        memberPendingApprovals.forEach { p ->
+            list.add(
+                CombinedTxn(
+                    txnId = p.id,
+                    date = p.date,
+                    type = "CREDIT",
+                    totalAmount = p.totalAmount,
+                    rdAmount = p.requestedRd,
+                    interestAmount = p.requestedInterest,
+                    penaltyAmount = p.requestedPenalty,
+                    loanRepayAmount = p.requestedLoanRepay,
+                    waiverAmount = p.waiver,
+                    mode = p.mode,
+                    remarks = p.remarks,
+                    utrNumber = p.utrNumber,
+                    status = "PENDING"
+                )
+            )
+        }
+        // Sort by date (newest first). If dates are matching or empty, fall back to comparing txnId.
+        list.sortedWith { a, b ->
+            val dateCompare = b.date.compareTo(a.date)
+            if (dateCompare != 0) dateCompare else b.txnId.compareTo(a.txnId)
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -386,61 +404,106 @@ fun MemberPortalScreen(
                         }
                     }
 
-                    // Stat Grid
+                    // Stat Grid with Massive Fonts & Maximum Screen Real Estate
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        // RD Balance
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Savings, contentDescription = "RD", tint = AccentBlue, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("RD Balance", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("₹${loggedInMember.openingRd}", color = AccentBlue, fontWeight = FontWeight.Black, fontSize = 26.sp)
+                            }
+                        }
+
                         // Monthly RD
                         Card(
                             modifier = Modifier.weight(1f),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text("Monthly RD", color = TextSecondary, fontSize = 10.sp)
-                                Text("₹${loggedInMember.monthlyRd}", color = PrimaryGreen, fontWeight = FontWeight.Black, fontSize = 16.sp)
-                            }
-                        }
-
-                        // Outstanding Loan
-                        Card(
-                            modifier = Modifier.weight(1f),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text("Gullak Loan", color = TextSecondary, fontSize = 10.sp)
-                                Text("₹${loggedInMember.gullakLoan}", color = if (loggedInMember.gullakLoan > 0) AccentRed else TextSecondary, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.TrendingUp, contentDescription = "Monthly", tint = PrimaryGreen, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Monthly RD", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("₹${loggedInMember.monthlyRd}", color = PrimaryGreen, fontWeight = FontWeight.Black, fontSize = 26.sp)
                             }
                         }
                     }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        // Gullak Loan
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.AccountBalance, contentDescription = "Loan", tint = if (loggedInMember.gullakLoan > 0) AccentRed else TextSecondary, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Gullak Loan", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("₹${loggedInMember.gullakLoan}", color = if (loggedInMember.gullakLoan > 0) AccentRed else TextSecondary, fontWeight = FontWeight.Black, fontSize = 24.sp)
+                            }
+                        }
+
                         // Pending Dues
                         Card(
                             modifier = Modifier.weight(1f),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text("Pending Dues", color = TextSecondary, fontSize = 10.sp)
-                                Text("₹${loggedInMember.pendingDues}", color = if (loggedInMember.pendingDues > 0) AccentGold else PrimaryGreen, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Payment, contentDescription = "Dues", tint = if (loggedInMember.pendingDues > 0) AccentGold else PrimaryGreen, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Pending Dues", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("₹${loggedInMember.pendingDues}", color = if (loggedInMember.pendingDues > 0) AccentGold else PrimaryGreen, fontWeight = FontWeight.Black, fontSize = 24.sp)
                             }
                         }
+                    }
 
-                        // Penalty (if any from web app)
+                    if (loggedInMember.penaltyApplicable > 0) {
                         Card(
-                            modifier = Modifier.weight(1f),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            shape = RoundedCornerShape(8.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF450A0A)),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed)
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text("Penalty Applicable", color = TextSecondary, fontSize = 10.sp)
-                                Text("₹${loggedInMember.penaltyApplicable}", color = if (loggedInMember.penaltyApplicable > 0) AccentRed else TextSecondary, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            Row(
+                                modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Icon(Icons.Default.Gavel, contentDescription = "Penalty", tint = AccentRed, modifier = Modifier.size(16.dp))
+                                    Text("Penalty Applicable", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Text("₹${loggedInMember.penaltyApplicable}", color = AccentRed, fontWeight = FontWeight.Black, fontSize = 24.sp)
                             }
                         }
                     }
@@ -538,14 +601,14 @@ fun MemberPortalScreen(
                     fontSize = 14.sp
                 )
                 Text(
-                    text = "${memberTxns.size} Records",
+                    text = "${combinedTxns.size} Records",
                     color = TextSecondary,
                     fontSize = 11.sp
                 )
             }
         }
 
-        if (memberTxns.isEmpty()) {
+        if (combinedTxns.isEmpty()) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -561,7 +624,7 @@ fun MemberPortalScreen(
                 }
             }
         } else {
-            items(memberTxns) { txn ->
+            items(combinedTxns) { txn ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -585,7 +648,10 @@ fun MemberPortalScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Text("CREDIT: +₹${txn.totalAmount}", color = PrimaryGreen, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                                    val isDebit = txn.type == "DEBIT"
+                                    val sign = if (isDebit) "-" else "+"
+                                    val textCol = if (isDebit) AccentRed else PrimaryGreen
+                                    Text("${txn.type}: ${sign}₹${txn.totalAmount}", color = textCol, fontWeight = FontWeight.Black, fontSize = 15.sp)
                                     Surface(
                                         color = if (txn.mode.contains("UPI")) Color(0xFF0369A1).copy(alpha = 0.3f) else Color(0xFF064E3B).copy(alpha = 0.3f),
                                         shape = RoundedCornerShape(4.dp)
@@ -602,15 +668,35 @@ fun MemberPortalScreen(
                                 Text("Txn ID: ${txn.txnId} • ${txn.date}", color = TextSecondary, fontSize = 10.sp)
                             }
 
-                            // Status Markup Tag (APPROVED or APPROVED WITH EDITED)
+                            // Status Markup Tag (APPROVED, PENDING, or APPROVED WITH EDITED)
+                            val statusBg = when (txn.status) {
+                                "PENDING" -> Color(0xFF854D0E)
+                                "APPROVED WITH EDITED" -> Color(0xFF3B0764)
+                                else -> Color(0xFF064E3B)
+                            }
+                            val statusBorder = when (txn.status) {
+                                "PENDING" -> AccentGold
+                                "APPROVED WITH EDITED" -> Color(0xFFA855F7)
+                                else -> PrimaryGreen
+                            }
+                            val statusText = when (txn.status) {
+                                "PENDING" -> Color(0xFFFEF08A)
+                                "APPROVED WITH EDITED" -> Color(0xFFE9D5FF)
+                                else -> PrimaryGreen
+                            }
+                            val statusLabel = when (txn.status) {
+                                "PENDING" -> "PENDING ⏳"
+                                "APPROVED WITH EDITED" -> "APPROVED WITH EDITED ✏️"
+                                else -> "APPROVED ✅"
+                            }
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = if (txn.isEdited) Color(0xFF3B0764) else Color(0xFF064E3B),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, if (txn.isEdited) Color(0xFFA855F7) else PrimaryGreen)
+                                color = statusBg,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, statusBorder)
                             ) {
                                 Text(
-                                    text = if (txn.isEdited) "APPROVED WITH EDITED ✏️" else "APPROVED ✅",
-                                    color = if (txn.isEdited) Color(0xFFE9D5FF) else PrimaryGreen,
+                                    text = statusLabel,
+                                    color = statusText,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -930,13 +1016,23 @@ fun MemberPortalScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Canvas(modifier = Modifier.size(90.dp)) {
-                                drawRect(color = Color.Black, size = Size(size.width, size.height), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()))
-                                val finderSize = 20.dp.toPx()
-                                drawRect(color = Color.Black, topLeft = Offset(3f, 3f), size = Size(finderSize, finderSize))
-                                drawRect(color = Color.Black, topLeft = Offset(size.width - finderSize - 3f, 3f), size = Size(finderSize, finderSize))
-                                drawRect(color = Color.Black, topLeft = Offset(3f, size.height - finderSize - 3f), size = Size(finderSize, finderSize))
-                                drawCircle(color = Color(0xFF047857), radius = 6.dp.toPx(), center = Offset(size.width / 2, size.height / 2))
+                            if (societyQrUri != null) {
+                                coil.compose.AsyncImage(
+                                    model = societyQrUri,
+                                    contentDescription = "Society QR Code",
+                                    modifier = Modifier
+                                        .size(90.dp)
+                                        .padding(4.dp)
+                                )
+                            } else {
+                                Canvas(modifier = Modifier.size(90.dp)) {
+                                    drawRect(color = Color.Black, size = Size(size.width, size.height), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()))
+                                    val finderSize = 20.dp.toPx()
+                                    drawRect(color = Color.Black, topLeft = Offset(3f, 3f), size = Size(finderSize, finderSize))
+                                    drawRect(color = Color.Black, topLeft = Offset(size.width - finderSize - 3f, 3f), size = Size(finderSize, finderSize))
+                                    drawRect(color = Color.Black, topLeft = Offset(3f, size.height - finderSize - 3f), size = Size(finderSize, finderSize))
+                                    drawCircle(color = Color(0xFF047857), radius = 6.dp.toPx(), center = Offset(size.width / 2, size.height / 2))
+                                }
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(societyUpiId, color = Color(0xFF047857), fontSize = 8.sp, fontWeight = FontWeight.Bold)
@@ -997,8 +1093,8 @@ fun MemberPortalScreen(
                     OutlinedTextField(
                         value = onlinePaymentNote,
                         onValueChange = { onlinePaymentNote = it },
-                        label = { Text("Remarks / Note (Optional)") },
-                        placeholder = { Text("e.g. Paid via Google Pay / RD payment", color = TextMuted) },
+                        label = { Text("Remarks / Payment Proof (Optional)") },
+                        placeholder = { Text("e.g. Paid ₹$total via Google Pay / PhonePe", color = TextMuted) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -1007,24 +1103,7 @@ fun MemberPortalScreen(
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary
                         ),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-
-                    // UTR Number / Reference (Optional)
-                    OutlinedTextField(
-                        value = onlinePaymentUtr,
-                        onValueChange = { onlinePaymentUtr = it },
-                        label = { Text("12-Digit UTR / Transaction ID (Optional)") },
-                        placeholder = { Text("e.g. 412398457612", color = TextMuted) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentBlue,
-                            unfocusedBorderColor = CardBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        shape = RoundedCornerShape(6.dp)
+                        shape = RoundedCornerShape(8.dp)
                     )
                 }
             },
@@ -1067,6 +1146,67 @@ fun MemberPortalScreen(
             },
             containerColor = CardDark,
             shape = RoundedCornerShape(12.dp)
+        )
+    }
+
+    // Secure Multi-Account Selection Popup (Requirement 3)
+    if (showMultiAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showMultiAccountDialog = false },
+            containerColor = Color(0xFF0F172A),
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.AccountCircle, contentDescription = "Profile", tint = AccentBlue)
+                    Text("Select Your Account", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Multiple accounts found under this mobile. Tap your name to open your passbook:",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    multiAccountSelectionList.forEach { member ->
+                        Surface(
+                            onClick = {
+                                repository.loginMember(member.id)
+                                showMultiAccountDialog = false
+                                enteredPin = ""
+                                Toast.makeText(context, "Welcome ${member.name}!", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1E293B),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(member.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("ID: ${member.id}", color = TextSecondary, fontSize = 11.sp)
+                                }
+                                Icon(Icons.Default.ArrowForward, contentDescription = "Select", tint = AccentBlue, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMultiAccountDialog = false }) {
+                    Text("Cancel", color = AccentGold)
+                }
+            }
         )
     }
 }
