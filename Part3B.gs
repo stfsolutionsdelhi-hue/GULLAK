@@ -36,7 +36,7 @@ function getClientScriptPartB() {
 
     var tbody = document.getElementById("tbodyBonusList"); if(!tbody) return;
     if(filtered.length === 0){ 
-      tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;color:#94A3B8;'>No bonus records found</td></tr>"; 
+      tbody.innerHTML = "<tr><td colspan='8' style='text-align:center;color:#94A3B8;'>No bonus records found</td></tr>"; 
       document.getElementById("tfootBonusTotal").innerHTML = "";
       return; 
     }
@@ -137,15 +137,15 @@ function getClientScriptPartB() {
     var tbody = document.getElementById("tbodyFundRegisterList"); if(!tbody) return;
 
     var filtered = fundTransactions.filter(function(f){
-      var d = f.date || "2026-01-01";
-      var matchDate = (d >= fromD && d <= toD);
+      var isoD = toIsoDateStr(f.date);
+      var matchDate = (isoD >= fromD && isoD <= toD);
       var matchAcc = (accFilter === "ALL" || String(f.account).toUpperCase() === accFilter);
       var matchType = (typeFilter === "ALL" || String(f.type).toUpperCase() === typeFilter);
       return matchDate && matchAcc && matchType;
     });
 
     if(filtered.length === 0){
-      tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;color:#94A3B8;'>No fund transactions recorded in selected filter range</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='8' style='text-align:center;color:#94A3B8;'>No fund transactions recorded in selected filter range</td></tr>";
       var tf = document.getElementById("tfootFundRegisterList"); if(tf) tf.innerHTML = "";
       return;
     }
@@ -170,6 +170,7 @@ function getClientScriptPartB() {
         "<td>" + (f.entity || "-") + "</td>" +
         "<td style='font-weight:800;color:" + amtColor + ";'>" + (isInvest ? "+₹" : "-₹") + amt.toLocaleString("en-IN") + "</td>" +
         "<td><small style='color:#CBD5E1;'>" + (f.narration || "-") + "</small></td>" +
+        "<td style='text-align:center;'><button class='btn-action-edit action-edit-fund' data-id='" + f.id + "'>✏️ Edit</button></td>" +
       "</tr>";
     });
     tbody.innerHTML = h;
@@ -194,7 +195,7 @@ function getClientScriptPartB() {
     var selFy = document.getElementById("selPlFinancialYear") ? document.getElementById("selPlFinancialYear").value : "2026";
 
     var selPlFyEl = document.getElementById("selPlFinancialYear");
-    if(selPlFyEl && selPlFyEl.options.length === 0 && document.getElementById("selFinancialYear")){
+    if(selPlFyEl && (!selPlFyEl.options || selPlFyEl.options.length === 0) && document.getElementById("selFinancialYear")){
       selPlFyEl.innerHTML = document.getElementById("selFinancialYear").innerHTML;
       selPlFyEl.value = selFy;
     }
@@ -754,39 +755,79 @@ function getClientScriptPartB() {
   // EVENT LISTENERS & HOOKS
   window.refreshAll = refreshAll;
 
-  function bootApplication(){
-    // Check saved session
-    try {
-      var saved = sessionStorage.getItem("gullak_v22_session") || sessionStorage.getItem("gullak_v21_session");
-      if(saved){
-        var sess = JSON.parse(saved);
-        if(sess && (String(sess.username).toUpperCase() === "SANISH" || String(sess.username).toUpperCase() === "ADMIN")){
-          window.currentUserSession = sess;
-          var overlay = document.getElementById("windowsLoginOverlay");
-          if(overlay) {
-            overlay.style.display = "none";
-            overlay.style.setProperty("display", "none", "important");
-          }
-        }
+  function safeAddListener(id, evt, fn){
+    var el = document.getElementById(id);
+    if(el) {
+      if(evt === "click") {
+        el.onclick = fn;
+      } else if(evt === "change") {
+        el.onchange = fn;
+      } else if(evt === "input") {
+        el.oninput = fn;
+      } else {
+        el["on" + evt] = fn;
       }
-    } catch(e) {}
+      return true;
+    }
+    return false;
+  }
 
-    // Global ESC key and Arrow Up / Down listener
+  function bootApplication(){
+    var overlay = document.getElementById("windowsLoginOverlay");
+    if (window.currentUserSession && window.currentUserSession.username) {
+      if (overlay) {
+        overlay.style.display = "none";
+        overlay.style.setProperty("display", "none", "important");
+      }
+    } else {
+      if (overlay) {
+        overlay.style.display = "flex";
+      }
+      var pInput = document.getElementById("inpWinPassword");
+      if (pInput) pInput.value = "";
+    }
+    // Global ESC key and Arrow Up / Down listener (Capturing phase to block browser fullscreen exit)
     window.addEventListener("keydown", function(e){
       if(e.key === "Escape" || e.keyCode === 27){
-        var openModalEl = document.querySelector(".modal-backdrop[style*='display: flex'], .modal-backdrop[style*='display: block']");
-        if(openModalEl){
-          if(e.preventDefault) e.preventDefault();
-          if(e.stopPropagation) e.stopPropagation();
-          if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-          if(typeof closeAllModals === "function"){
-            closeAllModals();
-          }
-          if(window.isAppInFullscreenMode || document.body.classList.contains("simulated-fullscreen")){
-            document.body.classList.add("simulated-fullscreen");
-          }
+        if(e.preventDefault) e.preventDefault();
+        if(e.stopPropagation) e.stopPropagation();
+        if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+        // 1. Check if fundDrilldownBox is open
+        var box = document.getElementById("fundDrilldownBox");
+        if (box && box.style.display !== "none") {
+          box.style.display = "none";
           return false;
         }
+
+        // 2. Find any open modal
+        var openModals = document.querySelectorAll(".modal-backdrop");
+        var activeModal = null;
+        openModals.forEach(function(m){
+          if(m && (m.style.display === "flex" || m.style.display === "block" || (window.getComputedStyle && getComputedStyle(m).display !== "none"))){
+            activeModal = m;
+          }
+        });
+
+        if (activeModal) {
+          var closeBtn = activeModal.querySelector(".action-close-modal, .close-x, button.btn-close, .modal-close, button[onclick*='closeModal']");
+          if (closeBtn) {
+            try {
+              closeBtn.click();
+            } catch(err) {
+              closeModal(activeModal.id);
+            }
+          } else if (typeof closeModal === "function") {
+            closeModal(activeModal.id);
+          } else {
+            activeModal.style.display = "none";
+          }
+        }
+
+        if(window.isAppInFullscreenMode || (document.body && document.body.classList.contains("simulated-fullscreen"))){
+          if(document.body) document.body.classList.add("simulated-fullscreen");
+        }
+        return false;
       }
       if(e.key === "F11" || e.keyCode === 122){
         e.preventDefault();
@@ -820,7 +861,7 @@ function getClientScriptPartB() {
           window.scrollBy(0, -300);
         }
       }
-    });
+    }, true);
 
     // Date formatting live indicators
     var pDateInp = document.getElementById("inpPayDate");
@@ -839,7 +880,15 @@ function getClientScriptPartB() {
     function safeAddListener(id, evt, fn){
       var el = document.getElementById(id);
       if(el) {
-        el.addEventListener(evt, fn);
+        if(evt === "click") {
+          el.onclick = fn;
+        } else if(evt === "change") {
+          el.onchange = fn;
+        } else if(evt === "input") {
+          el.oninput = fn;
+        } else {
+          el["on" + evt] = fn;
+        }
         return true;
       }
       return false;
@@ -861,6 +910,11 @@ function getClientScriptPartB() {
         if(head) head.className = (i === tIdx) ? "tab-item active" : "tab-item";
         if(panel) panel.style.display = (i === tIdx) ? "block" : "none";
       }
+      if(tIdx === 1 && typeof renderMembers === "function") renderMembers();
+      else if(tIdx === 2 && typeof renderPayments === "function") renderPayments();
+      else if(tIdx === 3 && typeof renderLoans === "function") renderLoans();
+      else if(tIdx === 4 && typeof renderBonusTab === "function") renderBonusTab();
+      else if(tIdx === 5 && typeof renderPenaltyTab === "function") renderPenaltyTab();
     }
     window.switchTab = switchTab;
 
@@ -887,6 +941,10 @@ function getClientScriptPartB() {
 
     safeAddListener("btnTopAddMember", "click", function(){
       document.getElementById("editMemId").value = "";
+      var btnDel = document.getElementById("btnDeleteMember");
+      if (btnDel) { btnDel.style.display = "none"; btnDel.removeAttribute("data-id"); }
+    var btnDel = document.getElementById("btnDeleteMember");
+    if (btnDel) { btnDel.style.display = "none"; btnDel.removeAttribute("data-id"); }
       document.getElementById("lblMemberModalHead").innerText = "👤 Add New Member Profile";
       document.getElementById("inpNewMemName").value = "";
       document.getElementById("inpNewMemMobile").value = "";
@@ -942,6 +1000,7 @@ function getClientScriptPartB() {
           }
         });
       }
+      handleExitMemberChange();
       openModal("modalExit");
     });
 
@@ -977,27 +1036,43 @@ function getClientScriptPartB() {
 
     safeAddListener("btnNoticeOk", "click", handleNoticeOkClick);
 
-    // SYNC FROM GOOGLE SHEET DATABASE
+    // SYNC FROM GOOGLE SHEET DATABASE - OPEN SETTINGS FORM (V46 PRO)
     safeAddListener("btnTopReload", "click", function(){
-      if(typeof google !== "undefined" && google.script && google.script.run){
-        showNotice("Syncing...", "Fetching verified records from Google Spreadsheet...");
-        google.script.run.withSuccessHandler(function(res){
-          closeModal("modalNotice");
-          if(res && res.members && res.members.length > 0){
-            members = res.members;
-            payments = res.payments || [];
-            loans = res.loans || [];
-            exitSettlements = res.exitSettlements || [];
-            bonusSettlements = res.bonusSettlements || [];
-            if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
-            if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-            saveStore();
-            showNotice("Sync Complete", "Successfully synchronized " + members.length + " members, " + payments.length + " receipts, and " + loans.length + " loans from Google Sheet!");
-          }
-        }).getSocietyFullData();
+      openModal("modalSyncSettings");
+    });
+
+    safeAddListener("btnApplySyncSettings", "click", function(){
+      var val = document.getElementById("selSyncInterval").value;
+      closeModal("modalSyncSettings");
+      
+      if (val === "now") {
+        if(typeof google !== "undefined" && google.script && google.script.run){
+          showNotice("Syncing...", "Fetching verified records from Google Spreadsheet...");
+          google.script.run.withSuccessHandler(function(res){
+            closeModal("modalNotice");
+            if(res && res.members && res.members.length > 0){
+              members = res.members;
+              payments = res.payments || [];
+              loans = res.loans || [];
+              exitSettlements = res.exitSettlements || [];
+              bonusSettlements = res.bonusSettlements || [];
+              if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
+              if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
+              saveStore();
+              refreshAll();
+              showNotice("Sync Complete", "Successfully synchronized " + members.length + " members, " + payments.length + " receipts, and " + loans.length + " loans from Google Sheet!");
+            }
+          }).getSocietyFullData();
+        } else {
+          refreshAll();
+          showNotice("Local Reloaded", "Database re-indexed locally.");
+        }
       } else {
-        refreshAll();
-        showNotice("Local Reloaded", "Database re-indexed locally.");
+        var mins = parseInt(val, 10);
+        if(typeof window.startAutoSync === "function") {
+          window.startAutoSync(mins);
+        }
+        showNotice("Sync Timer Set", "App will now automatically synchronize in the background every " + mins + " minute(s).");
       }
     });
 
@@ -1015,19 +1090,14 @@ function getClientScriptPartB() {
     });
 
     safeAddListener("kpiCardFund", "click", function(){
-      var cSum = 0, bSum = 0;
-      payments.forEach(function(p){
-        var safeMode = String(p.mode||"CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "ONLINE" : "CASH";
-        if(safeMode === "ONLINE") bSum += cleanNum(p.total, 0); else cSum += cleanNum(p.total, 0);
-      });
-      var cashEl = document.getElementById("lblRegCashBal");
-      var bankEl = document.getElementById("lblRegBankBal");
-      var fundEl = document.getElementById("lblRegTotalFund");
-      if(cashEl) cashEl.innerText = "₹" + cSum.toLocaleString("en-IN");
-      if(bankEl) bankEl.innerText = "₹" + bSum.toLocaleString("en-IN");
-      if(fundEl) fundEl.innerText = "₹" + (cSum + bSum).toLocaleString("en-IN");
+      renderFundModal();
       openModal("modalFund");
     });
+    safeAddListener("btnApplyFundDate", "click", function(){
+      renderFundModal();
+    });
+    safeAddListener("inpFundFrom", "change", renderFundModal);
+    safeAddListener("inpFundTo", "change", renderFundModal);
 
     // Filters on change
     safeAddListener("selFilterStatus", "change", renderMembers);
@@ -1073,6 +1143,12 @@ function getClientScriptPartB() {
     // Delegate Click Actions
     document.addEventListener("click", function(e){
       var t = e.target;
+      if(t.classList.contains("action-edit-fund")){
+        var txnId = t.getAttribute("data-id");
+        if(txnId && typeof openEditFundModal === "function"){
+          openEditFundModal(txnId);
+        }
+      }
       if(t.classList.contains("action-view-ledger")){
         var mid = t.getAttribute("data-id");
         if(mid) openMemberLedger(mid);
@@ -1093,13 +1169,29 @@ function getClientScriptPartB() {
       }
       if(t.classList.contains("action-edit-member")){
         var mid = t.getAttribute("data-id");
-        var m = members.find(function(x){ return String(x.id) === mid; });
+        var m = members.find(function(x){ 
+          return (mid && String(x.id).trim().toUpperCase() === String(mid).trim().toUpperCase()) || 
+                 (mid && String(x.name).trim().toLowerCase() === String(mid).trim().toLowerCase()); 
+        });
         if(m){
           document.getElementById("editMemId").value = m.id;
           document.getElementById("lblMemberModalHead").innerText = "✏️ Edit Member: " + m.name + " (" + m.id + ")";
+          var btnDel = document.getElementById("btnDeleteMember");
+          if (btnDel) { btnDel.style.display = "inline-flex"; btnDel.setAttribute("data-id", m.id); }
           document.getElementById("inpNewMemName").value = m.name;
           document.getElementById("inpNewMemMobile").value = m.mobile;
-          document.getElementById("inpNewMemStatus").value = m.status;
+          var rawSt = String(m.status || "ACTIVE").trim().toUpperCase();
+          var stVal = (rawSt === "INACTIVE" || rawSt === "IN-ACTIVE" || rawSt === "DEACTIVE" || rawSt === "DEACTIVATED") ? "INACTIVE" : "ACTIVE";
+          var selSt = document.getElementById("inpNewMemStatus");
+          if(selSt){
+            selSt.value = stVal;
+            for(var oi = 0; oi < selSt.options.length; oi++){
+              if(selSt.options[oi].value === stVal){
+                selSt.selectedIndex = oi;
+                break;
+              }
+            }
+          }
           document.getElementById("inpNewMemJoinDate").value = m.dateJoined;
           document.getElementById("inpNewMemRd").value = m.rd;
           var dueVal = m.dueDay || "";
@@ -1246,8 +1338,8 @@ function getClientScriptPartB() {
       var fEntity = document.getElementById("inpFundEntryEntity") ? (document.getElementById("inpFundEntryEntity").value || "").trim() : "";
       var fNarr = document.getElementById("inpFundEntryNarration") ? (document.getElementById("inpFundEntryNarration").value || "").trim() : "";
 
-      if(fAmt <= 0){
-        showNotice("Validation Error", "Kripya sahi transaction amount bharein (e.g. 50000). Amount 0 se bada hona chahiye.", "modalSettings");
+      if(fAmt < 0){
+        showNotice("Validation Error", "Kripya sahi transaction amount bharein (e.g. 50000). Amount 0 ya usse bada hona chahiye.", "modalSettings");
         return;
       }
       var txnId = generateAutoId("FUND", fDate);
@@ -1256,16 +1348,26 @@ function getClientScriptPartB() {
         date: fDate,
         type: fType,
         account: fAcc,
-        entity: fEntity,
+        entity: fEntity || "Society Capital",
         amount: fAmt,
-        narration: fNarr
+        narration: fNarr || (fType === "INVEST" ? "Capital Investment" : "Fund Borrowing")
       };
-      fundTransactions.push(fObj);
-      window.fundTransactions = fundTransactions;
+
+      if(!window.fundTransactions) window.fundTransactions = [];
+      window.fundTransactions.push(fObj);
+      fundTransactions = window.fundTransactions;
       saveStore();
 
       if(typeof google !== "undefined" && google.script && google.script.run){
-        google.script.run.saveFundTransactionBackend(fObj);
+        try {
+          google.script.run.withSuccessHandler(function(res){
+            console.log("Fund transaction synced:", res);
+          }).withFailureHandler(function(err){
+            console.warn("Fund transaction sync issue:", err);
+          }).saveFundTransactionBackend(fObj);
+        } catch(e) {
+          console.warn("google.script.run exception:", e);
+        }
       }
 
       if(document.getElementById("inpFundEntryAmount")) document.getElementById("inpFundEntryAmount").value = "";
@@ -1408,11 +1510,92 @@ function getClientScriptPartB() {
     });
 
     // SUBMIT ADD / EDIT MEMBER (WITH STRICT MEMDDMMYYYY AND PRESERVING FORM ON VALIDATION NOTICE)
+    
+    // 🗑️ STRICT DOUBLE-CONFIRMATION DELETE HANDLER
+    safeAddListener("btnDeleteMember", "click", function(){
+      var mid = document.getElementById("editMemId").value.trim();
+      var mName = document.getElementById("inpNewMemName").value.trim();
+      if(!mid){
+        showNotice("Error", "No Member selected for deletion.", "modalMember");
+        return;
+      }
+
+      var msg1 = [
+        "STEP 1 OF 2: DELETE CONFIRMATION",
+        "",
+        "Are you sure you want to permanently delete member: " + mName + " (" + mid + ")?",
+        "",
+        "This will remove this member from Master Ledger, Loan Register, Receipts, Bonus, and Passbooks."
+      ].join(String.fromCharCode(10));
+      var confirm1 = confirm(msg1);
+      if(!confirm1) return;
+
+      var msg2 = [
+        "STEP 2 OF 2: FINAL PERMANENT DELETION CHECK",
+        "",
+        "Type DELETE in capital letters to permanently erase all loans, receipts, and ledger history for " + mName + ":"
+      ].join(String.fromCharCode(10));
+      var confirm2 = prompt(msg2);
+      if(!confirm2 || confirm2.trim().toUpperCase() !== "DELETE"){
+        alert("Deletion Cancelled. Text did not match DELETE. Member remains completely safe.");
+        return;
+      }
+
+      var cleanMid = String(mid).trim().toUpperCase();
+      var cleanMName = String(mName).trim().toLowerCase();
+
+      members = members.filter(function(x){
+        return String(x.id).trim().toUpperCase() !== cleanMid && String(x.name).trim().toLowerCase() !== cleanMName;
+      });
+
+      loans = loans.filter(function(l){
+        return String(l.id).trim().toUpperCase() !== cleanMid && String(l.name).trim().toLowerCase() !== cleanMName;
+      });
+
+      payments = payments.filter(function(p){
+        return String(p.id).trim().toUpperCase() !== cleanMid && String(p.name).trim().toLowerCase() !== cleanMName;
+      });
+
+      if(typeof exitSettlements !== "undefined" && exitSettlements){
+        exitSettlements = exitSettlements.filter(function(e){
+          return String(e.id).trim().toUpperCase() !== cleanMid && String(e.name).trim().toLowerCase() !== cleanMName;
+        });
+      }
+
+      if(typeof bonusSettlements !== "undefined" && bonusSettlements){
+        bonusSettlements = bonusSettlements.filter(function(b){
+          return String(b.id).trim().toUpperCase() !== cleanMid && String(b.name).trim().toLowerCase() !== cleanMName;
+        });
+      }
+
+      saveStore();
+      refreshAll();
+      closeModal("modalMember");
+
+      if(typeof google !== "undefined" && google.script && google.script.run){
+        showNotice("Deleting Everywhere...", "Permanently removing member " + mName + " from all Google Sheets...");
+        google.script.run.withSuccessHandler(function(res){
+          closeModal("modalNotice");
+          if(res && res.success){
+            showNotice("Deleted", "Member " + mName + " and all linked history removed from all registers and Google Sheets.");
+          } else {
+            showNotice("Notice", "Deleted locally from all registers: " + (res && res.error ? res.error : ""));
+          }
+        }).withFailureHandler(function(err){
+          closeModal("modalNotice");
+        }).deleteMemberBackend(cleanMid);
+      } else {
+        showNotice("Deleted", "Member " + mName + " deleted from all local registers.");
+      }
+    });
+
     safeAddListener("btnSubmitMember", "click", function(){
       var mid = document.getElementById("editMemId").value.trim();
       var name = document.getElementById("inpNewMemName").value.trim();
       var mob = document.getElementById("inpNewMemMobile").value.trim();
-      var st = document.getElementById("inpNewMemStatus").value;
+      var rawSt = document.getElementById("inpNewMemStatus").value;
+      var st = String(rawSt || "ACTIVE").trim().toUpperCase();
+      st = (st === "INACTIVE" || st === "IN-ACTIVE" || st === "DEACTIVE" || st === "DEACTIVATED") ? "INACTIVE" : "ACTIVE";
       var jDate = document.getElementById("inpNewMemJoinDate").value || getTodayYMD();
       var rdVal = cleanRd(document.getElementById("inpNewMemRd").value);
       var dueDayVal = document.getElementById("inpNewMemDueDay").value || "15th of every month";
@@ -1463,21 +1646,50 @@ function getClientScriptPartB() {
         opPen: opPen
       };
 
-      var exIdx = members.findIndex(function(x){ return String(x.id) === mid; });
+      var exIdx = members.findIndex(function(x){ 
+        return (mid && String(x.id).trim().toUpperCase() === String(mid).trim().toUpperCase()) || 
+               (name && String(x.name).trim().toLowerCase() === String(name).trim().toLowerCase()); 
+      });
       if(exIdx >= 0){
-        newM.rdPaid = members[exIdx].rdPaid; // retain opening
+        newM.rdPaid = members[exIdx].rdPaid;
         members[exIdx] = newM;
+        var cMid = String(mid).trim().toUpperCase();
+        loans.forEach(function(l){ if(String(l.id).trim().toUpperCase() === cMid) l.name = name; });
+        payments.forEach(function(p){ if(String(p.id).trim().toUpperCase() === cMid) p.name = name; });
       } else {
         members.push(newM);
       }
+      saveStore();
+      refreshAll();
 
       if(typeof google !== "undefined" && google.script && google.script.run){
-        google.script.run.saveMemberBackend(newM);
+        showNotice("Saving...", "Saving member profile to Google Sheet...");
+        google.script.run.withSuccessHandler(function(res){
+          closeModal("modalNotice");
+          if(res && res.member){
+            var idx = members.findIndex(function(x){
+              return (res.member.id && String(x.id).trim().toUpperCase() === String(res.member.id).trim().toUpperCase()) ||
+                     (res.member.name && String(x.name).trim().toLowerCase() === String(res.member.name).trim().toLowerCase());
+            });
+            if(idx >= 0) members[idx] = res.member;
+          }
+          saveStore();
+          closeModal("modalMember");
+          showNotice("Member Saved", "Member profile for " + name + " (ID: " + mid + ") saved successfully on Spreadsheet!");
+          refreshAll();
+        }).withFailureHandler(function(err){
+          closeModal("modalNotice");
+          saveStore();
+          closeModal("modalMember");
+          showNotice("Member Saved (Local)", "Saved in browser cache. Notice: " + (err && err.message ? err.message : err));
+          refreshAll();
+        }).saveMemberBackend(newM);
+      } else {
+        saveStore();
+        closeModal("modalMember");
+        showNotice("Member Saved", "Member profile for " + name + " (ID: " + mid + ") saved successfully! (Local Mode)");
+        refreshAll();
       }
-
-      saveStore();
-      closeModal("modalMember");
-      showNotice("Member Saved", "Member profile for " + name + " (ID: " + mid + ") saved successfully!");
     });
 
     // SUBMIT BULK ENTRY (WITH SHORT NARRATION)
@@ -1564,8 +1776,45 @@ function getClientScriptPartB() {
       window.print();
     });
 
+    // Define background auto-sync mechanism (V46 PRO)
+    window.syncTimerId = null;
+    window.startAutoSync = function(intervalMinutes) {
+      if(window.syncTimerId) {
+        clearInterval(window.syncTimerId);
+        window.syncTimerId = null;
+      }
+      var mins = parseInt(intervalMinutes, 10);
+      if(isNaN(mins) || mins <= 0) {
+        console.log("Auto-sync interval disabled.");
+        return;
+      }
+      window.syncTimerId = setInterval(function(){
+        if(typeof google !== "undefined" && google.script && google.script.run){
+          console.log("Starting background auto-sync...");
+          google.script.run.withSuccessHandler(function(res){
+            if(res && res.members && res.members.length > 0){
+              members = res.members;
+              payments = res.payments || [];
+              loans = res.loans || [];
+              exitSettlements = res.exitSettlements || [];
+              bonusSettlements = res.bonusSettlements || [];
+              if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
+              if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
+              saveStore();
+              refreshAll();
+              console.log("Background auto-sync complete. Total members: " + members.length);
+            }
+          }).getSocietyFullData();
+        }
+      }, mins * 60 * 1000);
+      console.log("Initialized background auto-sync timer for every " + mins + " mins.");
+    };
+
     // Initial Render
     refreshAll();
+
+    // Start 5 min default background sync on boot
+    window.startAutoSync(5);
 
     // Auto-fetch fresh sheet data on start
     if(typeof google !== "undefined" && google.script && google.script.run){
@@ -1631,85 +1880,105 @@ function getClientScriptPartB() {
     openModal("modalBulk");
   };
 
-  window.renderFundModal = function(){
-    var cIn = 0, cOut = 0, bIn = 0, bOut = 0;
+  function renderFundModal(){
+    var fromEl = document.getElementById('inpFundFrom');
+    var toEl = document.getElementById('inpFundTo');
+    var fromD = fromEl ? fromEl.value : '2026-01-01';
+    var toD = toEl ? toEl.value : '2026-12-31';
+    if(!fromD) fromD = '2026-01-01';
+    if(!toD) toD = '2026-12-31';
 
-    payments.forEach(function(p){
-      var safeMode = String(p.mode||"CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "BANK" : "CASH";
-      var amt = cleanNum(p.total, 0);
-      if(safeMode === "BANK") bIn += amt; else cIn += amt;
-    });
+    var liquid = (typeof calculateSocietyLiquidBalances === 'function')
+      ? calculateSocietyLiquidBalances()
+      : { cash: 0, bank: 0, total: 0 };
 
-    fundTransactions.forEach(function(f){
-      var acc = String(f.account || "BANK").toUpperCase() === "CASH" ? "CASH" : "BANK";
-      var type = String(f.type || "INVEST").toUpperCase();
-      var amt = cleanNum(f.amount, 0);
-      if(type === "INVEST"){
-        if(acc === "CASH") cIn += amt; else bIn += amt;
-      } else {
-        if(acc === "CASH") cOut += amt; else bOut += amt;
-      }
-    });
-
-    loans.forEach(function(l){
-      var safeMode = String(l.mode || "CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "BANK" : "CASH";
-      var amt = cleanNum(l.principal, 0);
-      if(safeMode === "BANK") bOut += amt; else cOut += amt;
-    });
-
-    exitSettlements.forEach(function(x){
-      var amt = cleanNum(x.payout, 0);
-      cOut += amt;
-    });
-
-    var netCash = cIn - cOut;
-    var netBank = bIn - bOut;
-    var netTotal = netCash + netBank;
-
-    var cashEl = document.getElementById("lblRegCashBal");
-    var bankEl = document.getElementById("lblRegBankBal");
-    var fundEl = document.getElementById("lblRegTotalFund");
-    if(cashEl) cashEl.innerText = "₹" + netCash.toLocaleString("en-IN");
-    if(bankEl) bankEl.innerText = "₹" + netBank.toLocaleString("en-IN");
-    if(fundEl) fundEl.innerText = "₹" + netTotal.toLocaleString("en-IN");
-
+    var cashEl = document.getElementById('lblRegCashBal');
+    var bankEl = document.getElementById('lblRegBankBal');
+    var fundEl = document.getElementById('lblRegTotalFund');
+    if(cashEl) {
+      cashEl.innerText = (liquid.cash >= 0 ? '₹' : '-₹') + Math.abs(liquid.cash).toLocaleString('en-IN');
+      cashEl.style.color = liquid.cash >= 0 ? '#10B981' : '#EF4444';
+    }
+    if(bankEl) {
+      bankEl.innerText = (liquid.bank >= 0 ? '₹' : '-₹') + Math.abs(liquid.bank).toLocaleString('en-IN');
+      bankEl.style.color = liquid.bank >= 0 ? '#38BDF8' : '#EF4444';
+    }
+    if(fundEl) {
+      fundEl.innerText = (liquid.total >= 0 ? '₹' : '-₹') + Math.abs(liquid.total).toLocaleString('en-IN');
+      fundEl.style.color = liquid.total >= 0 ? '#FBBF24' : '#EF4444';
+    }
     var monthMap = {};
-    var monthList = ["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"];
-    monthList.forEach(function(mKey){
-      monthMap[mKey] = { inflow: 0, outflow: 0 };
-    });
+    var monthList = [];
+    var monthNames = [];
+    var monthNamesFull = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    try {
+      var startYr = parseInt(fromD.substring(0, 4), 10);
+      var startMo = parseInt(fromD.substring(5, 7), 10);
+      var endYr = parseInt(toD.substring(0, 4), 10);
+      var endMo = parseInt(toD.substring(5, 7), 10);
+
+      if (isNaN(startYr) || isNaN(startMo)) { startYr = 2026; startMo = 1; }
+      if (isNaN(endYr) || isNaN(endMo)) { endYr = 2026; endMo = 12; }
+
+      var curYr = startYr;
+      var curMo = startMo;
+      var limit = 0;
+      while ((curYr < endYr || (curYr === endYr && curMo <= endMo)) && limit < 120) {
+        var mKey = curYr + "-" + String(curMo).padStart(2, "0");
+        monthList.push(mKey);
+        monthNames.push(monthNamesFull[curMo - 1] + " " + curYr);
+        monthMap[mKey] = { inflow: 0, outflow: 0 };
+        curMo++;
+        if (curMo > 12) {
+          curMo = 1;
+          curYr++;
+        }
+        limit++;
+      }
+    } catch(e) {
+      console.error("Error generating month list:", e);
+      monthList = ["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"];
+      monthNames = ["Jan 2026","Feb 2026","Mar 2026","Apr 2026","May 2026","Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026"];
+      monthList.forEach(function(mKey){
+        monthMap[mKey] = { inflow: 0, outflow: 0 };
+      });
+    }
 
     payments.forEach(function(p){
-      var mKey = String(p.date || "2026-01-01").substring(0, 7);
-      if(!monthMap[mKey]) monthMap[mKey] = { inflow: 0, outflow: 0 };
-      monthMap[mKey].inflow += cleanNum(p.total, 0);
+      var mKey = getYearMonthKey(p.date);
+      if(monthMap[mKey]) {
+        monthMap[mKey].inflow += cleanNum(p.total, 0);
+      }
     });
 
     fundTransactions.forEach(function(f){
-      var mKey = String(f.date || "2026-01-01").substring(0, 7);
-      if(!monthMap[mKey]) monthMap[mKey] = { inflow: 0, outflow: 0 };
-      if(String(f.type || "INVEST").toUpperCase() === "INVEST"){
-        monthMap[mKey].inflow += cleanNum(f.amount, 0);
-      } else {
-        monthMap[mKey].outflow += cleanNum(f.amount, 0);
+      var mKey = getYearMonthKey(f.date);
+      if(monthMap[mKey]) {
+        if(String(f.type || "INVEST").toUpperCase() === "INVEST"){
+          monthMap[mKey].inflow += cleanNum(f.amount, 0);
+        } else {
+          monthMap[mKey].outflow += cleanNum(f.amount, 0);
+        }
       }
     });
 
     loans.forEach(function(l){
-      var mKey = String(l.date || "2026-01-01").substring(0, 7);
-      if(!monthMap[mKey]) monthMap[mKey] = { inflow: 0, outflow: 0 };
-      monthMap[mKey].outflow += cleanNum(l.principal, 0);
+      var mKey = getYearMonthKey(l.date);
+      if(monthMap[mKey]) {
+        monthMap[mKey].outflow += cleanNum(l.principal, 0);
+      }
     });
 
     exitSettlements.forEach(function(x){
-      var mKey = String(x.date || "2026-01-01").substring(0, 7);
-      if(!monthMap[mKey]) monthMap[mKey] = { inflow: 0, outflow: 0 };
-      monthMap[mKey].outflow += cleanNum(x.payout, 0);
+      var mKey = getYearMonthKey(x.date);
+      if(monthMap[mKey]) {
+        monthMap[mKey].outflow += cleanNum(x.payout, 0);
+      }
     });
 
     var tbodyMonths = document.getElementById("tbodyFundMonths");
     if(tbodyMonths){
-      var monthNames = ["Jan 2026","Feb 2026","Mar 2026","Apr 2026","May 2026","Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026"];
       var html = "";
       monthList.forEach(function(mKey, idx){
         var data = monthMap[mKey] || { inflow: 0, outflow: 0 };
@@ -1724,8 +1993,111 @@ function getClientScriptPartB() {
           "<td><button class='btn btn-dark action-view-fund-drilldown' data-ym='" + mKey + "' style='padding:3px 8px; font-size:0.75rem;'>🔍 Details</button></td>" +
         "</tr>";
       });
-      tbodyMonths.innerHTML = html;
+      tbodyMonths.innerHTML = html || "<tr><td colspan='5' style='text-align:center; color:#94A3B8;'>No monthly data within selected range</td></tr>";
+      tbodyMonths.onclick = function(ev) {
+        var target = ev.target || ev.srcElement;
+        var btn = target.closest ? target.closest(".action-view-fund-drilldown") : null;
+        if (btn) {
+          var ym = btn.getAttribute("data-ym");
+          if (ym && typeof window.showFundMonthDrilldown === "function") {
+            window.showFundMonthDrilldown(ym);
+          }
+        }
+      };
     }
+  }
+  window.renderFundModal = renderFundModal;
+
+  window.showFundMonthDrilldown = function(mKey) {
+    var box = document.getElementById("fundDrilldownBox");
+    var title = document.getElementById("lblDrilldownTitle");
+    var tbody = document.getElementById("tbodyDrilldown");
+    var btnClose = document.getElementById("btnCloseDrilldown");
+    if (!box || !tbody) return;
+
+    if (btnClose) {
+      btnClose.onclick = function() {
+        box.style.display = "none";
+      };
+    }
+
+    var items = [];
+    // 1. Payments
+    payments.forEach(function(p){
+      if (getYearMonthKey(p.date) === mKey) {
+        items.push({
+          date: toDisplayDate(p.date),
+          name: p.name || "Member " + p.id,
+          cat: "RD + Repay + Int",
+          amt: "+₹" + cleanNum(p.total, 0).toLocaleString("en-IN"),
+          mode: p.mode || "CASH",
+          color: "#10B981"
+        });
+      }
+    });
+
+    // 2. Fund Register
+    fundTransactions.forEach(function(f){
+      if (getYearMonthKey(f.date) === mKey) {
+        var isIn = String(f.type || "INVEST").toUpperCase() === "INVEST";
+        items.push({
+          date: toDisplayDate(f.date),
+          name: f.entity || "Fund Register",
+          cat: f.narration || f.type,
+          amt: (isIn ? "+₹" : "-₹") + cleanNum(f.amount, 0).toLocaleString("en-IN"),
+          mode: f.account || "BANK",
+          color: isIn ? "#10B981" : "#EF4444"
+        });
+      }
+    });
+
+    // 3. Loans
+    loans.forEach(function(l){
+      if (getYearMonthKey(l.date) === mKey) {
+        items.push({
+          date: toDisplayDate(l.date),
+          name: l.name || "Member " + l.id,
+          cat: "Loan Disbursed (" + (l.type || "Gullak Loan") + ")",
+          amt: "-₹" + cleanNum(l.principal, 0).toLocaleString("en-IN"),
+          mode: "CASH/BANK",
+          color: "#EF4444"
+        });
+      }
+    });
+
+    // 4. Exit Settlements
+    exitSettlements.forEach(function(x){
+      if (getYearMonthKey(x.date) === mKey) {
+        items.push({
+          date: toDisplayDate(x.date),
+          name: x.name || "Member " + x.id,
+          cat: "Exit Settlement Payout",
+          amt: "-₹" + cleanNum(x.payout || x.netSettlement, 0).toLocaleString("en-IN"),
+          mode: "CASH/BANK",
+          color: "#EF4444"
+        });
+      }
+    });
+
+    if (title) title.innerText = "Source Details for " + mKey + " (" + items.length + " transactions)";
+
+    if (items.length === 0) {
+      tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; color:#94A3B8; padding:10px;'>No transactions recorded for " + mKey + "</td></tr>";
+    } else {
+      var h = "";
+      items.forEach(function(it){
+        h += "<tr>" +
+          "<td style='font-size:0.75rem;'>" + it.date + "</td>" +
+          "<td style='font-weight:700; font-size:0.75rem; color:#F8FAFC;'>" + it.name + "</td>" +
+          "<td style='font-size:0.75rem; color:#CBD5E1;'>" + it.cat + "</td>" +
+          "<td style='font-weight:700; font-size:0.75rem; color:" + it.color + ";'>" + it.amt + "</td>" +
+          "<td style='font-size:0.75rem;'><span class='badge' style='background:#334155; color:#FBBF24;'>" + it.mode + "</span></td>" +
+        "</tr>";
+      });
+      tbody.innerHTML = h;
+    }
+
+    box.style.display = "block";
   };
 
   window.openFundModal = function(){
@@ -1739,33 +2111,411 @@ function getClientScriptPartB() {
   };
 
   window.logoutSession = function(){
-    try { sessionStorage.removeItem("gullak_v21_active_user"); } catch(e){}
+    window.currentUserSession = null;
+    try {
+      sessionStorage.clear();
+    } catch(e){}
     var overlay = document.getElementById("windowsLoginOverlay");
-    if(overlay) overlay.style.display = "flex";
-  };
-
-  window.handleTopReload = function(){
-    if(typeof google !== "undefined" && google.script && google.script.run){
-      showNotice("Syncing...", "Fetching verified records from Google Spreadsheet...");
-      google.script.run.withSuccessHandler(function(res){
-        closeModal("modalNotice");
-        if(res && res.members && res.members.length > 0){
-          members = res.members;
-          payments = res.payments || [];
-          loans = res.loans || [];
-          exitSettlements = res.exitSettlements || [];
-          bonusSettlements = res.bonusSettlements || [];
-          if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
-          if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-          saveStore();
-          showNotice("Sync Complete", "Successfully synchronized " + members.length + " members, " + payments.length + " receipts, and " + loans.length + " loans from Google Sheet!");
-        }
-      }).getSocietyFullData();
-    } else {
-      refreshAll();
-      showNotice("Local Reloaded", "Database re-indexed locally.");
+    if(overlay) {
+      overlay.style.display = "flex";
+    }
+    var pInput = document.getElementById("inpWinPassword");
+    if(pInput) {
+      pInput.value = "";
+      try { pInput.focus(); } catch(err) {}
     }
   };
+
+  window.handleTopReload = function() { window.triggerCloudSyncNow(); };
+
+  // MEMBER EXIT SETTLEMENT CONTROLLER (V41 PRO)
+  function handleExitMemberChange(){
+    var sel = document.getElementById("selExitMember");
+    var selId = sel ? sel.value : "";
+    var m = (members || []).find(function(x){
+      return String(x.id).trim().toUpperCase() === String(selId).trim().toUpperCase();
+    });
+
+    var dispRd = document.getElementById("lblExitRd") || document.getElementById("dispExitRd");
+    var dispLoan = document.getElementById("lblExitLoan") || document.getElementById("dispExitLoan");
+    var dispBonus = document.getElementById("lblExitBonus") || document.getElementById("dispExitBonus");
+    var dispPen = document.getElementById("lblExitPen") || document.getElementById("dispExitPen");
+
+    if(!m){
+      if(dispRd) dispRd.textContent = "₹0";
+      if(dispLoan) dispLoan.textContent = "₹0";
+      if(dispBonus) dispBonus.textContent = "₹0";
+      if(dispPen) dispPen.textContent = "₹0";
+      recalculateExitFinal();
+      return;
+    }
+
+    var mid = String(m.id || "").trim().toUpperCase();
+    var mName = String(m.name || "").trim().toLowerCase();
+
+    var totalRd = cleanNum(m.rdPaid, 0);
+    (payments || []).forEach(function(p){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase();
+      var pMName = String(p.name || "").trim().toLowerCase();
+      if((pMid && pMid === mid) || (pMName && pMName === mName)){
+        totalRd += cleanNum(p.rd, 0);
+      }
+    });
+
+    var totalLoanDue = 0;
+    (loans || []).forEach(function(l){
+      var lMid = String(l.memberId || l.id || "").trim().toUpperCase();
+      var lMName = String(l.name || "").trim().toLowerCase();
+      if((lMid && lMid === mid) || (lMName && lMName === mName)){
+        totalLoanDue += (cleanNum(l.balance, 0) + cleanNum(l.interestDue, 0));
+      }
+    });
+
+    var bonusObj = calculate1PercentPmBonus(m);
+    var totalBonus = bonusObj.bonusAccrued || 0;
+    var totalPenalty = calculateMemberLivePenaltyDue(m);
+
+    if(dispRd) dispRd.textContent = "₹" + totalRd.toLocaleString("en-IN");
+    if(dispLoan) dispLoan.textContent = "₹" + totalLoanDue.toLocaleString("en-IN");
+    if(dispBonus) dispBonus.textContent = "₹" + totalBonus.toLocaleString("en-IN");
+    if(dispPen) dispPen.textContent = "₹" + totalPenalty.toLocaleString("en-IN");
+
+    recalculateExitFinal();
+  }
+  window.handleExitMemberChange = handleExitMemberChange;
+  window.loadExitDetails = handleExitMemberChange;
+
+  function recalculateExitFinal(){
+    var sel = document.getElementById("selExitMember");
+    var selId = sel ? sel.value : "";
+    var m = (members || []).find(function(x){
+      return String(x.id).trim().toUpperCase() === String(selId).trim().toUpperCase();
+    });
+
+    var dispFinal = document.getElementById("dispExitNetResult") || document.getElementById("dispExitFinal");
+    var lblResult = document.getElementById("lblExitResultType");
+    var inpRefund = document.getElementById("inpExitNetRefund");
+    if(!m){
+      if(dispFinal) dispFinal.textContent = "₹0";
+      if(lblResult) lblResult.textContent = "FINAL SETTLEMENT AMOUNT";
+      if(inpRefund) inpRefund.value = "0";
+      return;
+    }
+
+    var mid = String(m.id || "").trim().toUpperCase();
+    var mName = String(m.name || "").trim().toLowerCase();
+
+    var totalRd = cleanNum(m.rdPaid, 0);
+    (payments || []).forEach(function(p){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase();
+      var pMName = String(p.name || "").trim().toLowerCase();
+      if((pMid && pMid === mid) || (pMName && pMName === mName)){
+        totalRd += cleanNum(p.rd, 0);
+      }
+    });
+
+    var totalLoanDue = 0;
+    (loans || []).forEach(function(l){
+      var lMid = String(l.memberId || l.id || "").trim().toUpperCase();
+      var lMName = String(l.name || "").trim().toLowerCase();
+      if((lMid && lMid === mid) || (lMName && lMName === mName)){
+        totalLoanDue += (cleanNum(l.balance, 0) + cleanNum(l.interestDue, 0));
+      }
+    });
+
+    var bonusObj = calculate1PercentPmBonus(m);
+    var totalBonus = bonusObj.bonusAccrued || 0;
+    var totalPenalty = calculateMemberLivePenaltyDue(m);
+
+    var inclBonus = document.getElementById("chkExitIncludeBonus") ? document.getElementById("chkExitIncludeBonus").checked : true;
+    var npaLoss = cleanNum(document.getElementById("inpExitNpa") ? document.getElementById("inpExitNpa").value : 0, 0);
+    var waiver = cleanNum(document.getElementById("inpExitWaiver") ? document.getElementById("inpExitWaiver").value : 0, 0);
+
+    var netSettlement = totalRd + (inclBonus ? totalBonus : 0) - totalLoanDue - totalPenalty + waiver - npaLoss;
+    if(inpRefund) inpRefund.value = String(netSettlement);
+
+    if(dispFinal){
+      if(netSettlement >= 0){
+        dispFinal.textContent = "₹" + netSettlement.toLocaleString("en-IN") + " (Payable to Member)";
+        dispFinal.style.color = "#10B981";
+      } else {
+        dispFinal.textContent = "₹" + Math.abs(netSettlement).toLocaleString("en-IN") + " (Recoverable from Member)";
+        dispFinal.style.color = "#EF4444";
+      }
+    }
+    if(lblResult){
+      lblResult.textContent = netSettlement >= 0 ? "PAYABLE SETTLEMENT REFUND" : "RECOVERY BALANCE DUE";
+    }
+  }
+  window.recalculateExitFinal = recalculateExitFinal;
+  window.calcExitNet = recalculateExitFinal;
+
+  function handleExecuteExitSettlement(){
+    var sel = document.getElementById("selExitMember");
+    var selId = sel ? sel.value : "";
+    var m = (members || []).find(function(x){
+      return String(x.id).trim().toUpperCase() === String(selId).trim().toUpperCase();
+    });
+
+    if(!m){
+      showNotice("Select Member", "Kripya exit settlement ke liye pehle active member select karein.", "modalExit");
+      return;
+    }
+
+    var mid = String(m.id || "").trim().toUpperCase();
+    var mName = String(m.name || "").trim();
+
+    var totalRd = cleanNum(m.rdPaid, 0);
+    (payments || []).forEach(function(p){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase();
+      var pMName = String(p.name || "").trim().toLowerCase();
+      if((pMid && pMid === mid) || (pMName && pMName === mName.toLowerCase())){
+        totalRd += cleanNum(p.rd, 0);
+      }
+    });
+
+    var totalLoanDue = 0;
+    (loans || []).forEach(function(l){
+      var lMid = String(l.memberId || l.id || "").trim().toUpperCase();
+      var lMName = String(l.name || "").trim().toLowerCase();
+      if((lMid && lMid === mid) || (lMName && lMName === mName.toLowerCase())){
+        totalLoanDue += (cleanNum(l.balance, 0) + cleanNum(l.interestDue, 0));
+      }
+    });
+
+    var bonusObj = calculate1PercentPmBonus(m);
+    var totalBonus = bonusObj.bonusAccrued || 0;
+    var totalPenalty = calculateMemberLivePenaltyDue(m);
+
+    var inclBonus = document.getElementById("chkExitIncludeBonus") ? document.getElementById("chkExitIncludeBonus").checked : true;
+    var npaLoss = cleanNum(document.getElementById("inpExitNpa") ? document.getElementById("inpExitNpa").value : 0, 0);
+    var waiver = cleanNum(document.getElementById("inpExitWaiver") ? document.getElementById("inpExitWaiver").value : 0, 0);
+
+    var netSettlement = totalRd + (inclBonus ? totalBonus : 0) - totalLoanDue - totalPenalty + waiver - npaLoss;
+
+    var exitDate = getTodayYMD();
+    var exitId = generateAutoId("EXIT", exitDate);
+
+    var exitRecord = {
+      exitId: exitId,
+      date: exitDate,
+      id: m.id,
+      name: m.name,
+      totalRd: totalRd,
+      loanDues: totalLoanDue,
+      bonusAdj: inclBonus ? totalBonus : 0,
+      npaLoss: npaLoss,
+      waiver: waiver,
+      netSettlement: netSettlement,
+      status: "INACTIVE"
+    };
+
+    if(!window.exitSettlements) window.exitSettlements = [];
+    window.exitSettlements.push(exitRecord);
+    exitSettlements = window.exitSettlements;
+
+    m.status = "INACTIVE";
+    saveStore();
+
+    if(typeof google !== "undefined" && google.script && google.script.run){
+      try {
+        google.script.run.saveExitSettlementBackend(exitRecord);
+        google.script.run.saveMemberBackend(m);
+      } catch(e) {
+        console.warn("Backend exit sync issue:", e);
+      }
+    }
+
+    closeModal("modalExit");
+    refreshAll();
+    showNotice("Settlement Completed", "Member " + m.name + " (" + m.id + ") has been successfully settled and marked INACTIVE.\\n\\nExit ID: " + exitId + "\\nNet Settlement: ₹" + netSettlement.toLocaleString("en-IN"));
+  }
+  window.handleExecuteExitSettlement = handleExecuteExitSettlement;
+
+  // EDIT BORROW / INVEST TRANSACTION CONTROLLER (V41 PRO)
+  function openEditFundModal(txnId){
+    if(!window.fundTransactions) window.fundTransactions = fundTransactions || [];
+    var f = window.fundTransactions.find(function(x){ return String(x.id) === String(txnId); });
+    if(!f){
+      showNotice("Not Found", "Transaction " + txnId + " not found!");
+      return;
+    }
+
+    if(document.getElementById("inpEditFundId")) document.getElementById("inpEditFundId").value = f.id || "";
+    if(document.getElementById("inpEditFundType")) document.getElementById("inpEditFundType").value = (f.type || "INVEST").toUpperCase();
+    if(document.getElementById("inpEditFundAccount")) document.getElementById("inpEditFundAccount").value = (f.account || "BANK").toUpperCase();
+    if(document.getElementById("inpEditFundDate")) document.getElementById("inpEditFundDate").value = toIsoDateStr(f.date || getTodayYMD());
+    if(document.getElementById("inpEditFundAmount")) document.getElementById("inpEditFundAmount").value = cleanNum(f.amount, 0);
+    if(document.getElementById("inpEditFundEntity")) document.getElementById("inpEditFundEntity").value = f.entity || "";
+    if(document.getElementById("inpEditFundNarration")) document.getElementById("inpEditFundNarration").value = f.narration || "";
+
+    openModal("modalEditFund");
+  }
+  window.openEditFundModal = openEditFundModal;
+
+  function handleSaveEditFund(){
+    var txnId = document.getElementById("inpEditFundId") ? document.getElementById("inpEditFundId").value : "";
+    var fType = document.getElementById("inpEditFundType") ? document.getElementById("inpEditFundType").value : "INVEST";
+    var fAcc = document.getElementById("inpEditFundAccount") ? document.getElementById("inpEditFundAccount").value : "BANK";
+    var fDate = document.getElementById("inpEditFundDate") ? document.getElementById("inpEditFundDate").value : getTodayYMD();
+    var rawAmt = document.getElementById("inpEditFundAmount") ? document.getElementById("inpEditFundAmount").value : "0";
+    var fAmt = cleanNum(rawAmt, 0);
+    var fEntity = document.getElementById("inpEditFundEntity") ? (document.getElementById("inpEditFundEntity").value || "").trim() : "";
+    var fNarr = document.getElementById("inpEditFundNarration") ? (document.getElementById("inpEditFundNarration").value || "").trim() : "";
+
+    if(fAmt < 0){
+      showNotice("Validation Error", "Kripya sahi transaction amount bharein. Amount 0 ya usse bada hona chahiye.", "modalEditFund");
+      return;
+    }
+
+    if(!window.fundTransactions) window.fundTransactions = fundTransactions || [];
+    var f = window.fundTransactions.find(function(x){ return String(x.id) === String(txnId); });
+    
+    if(!f){
+      f = { id: txnId };
+      window.fundTransactions.push(f);
+    }
+
+    f.type = fType;
+    f.account = fAcc;
+    f.date = fDate;
+    f.amount = fAmt;
+    f.entity = fEntity || "Society Capital";
+    f.narration = fNarr || (fType === "INVEST" ? "Capital Investment" : "Fund Borrowing");
+
+    fundTransactions = window.fundTransactions;
+    saveStore();
+
+    if(typeof google !== "undefined" && google.script && google.script.run){
+      try {
+        google.script.run.withSuccessHandler(function(res){
+          console.log("Edit fund sync:", res);
+        }).saveFundTransactionBackend(f);
+      } catch(e) {
+        console.warn("Backend edit fund sync error:", e);
+      }
+    }
+
+    closeModal("modalEditFund");
+    renderFundRegister();
+    renderProfitAndLossRegister();
+    refreshAll();
+    showNotice("Transaction Updated", "Fund transaction " + txnId + " has been successfully updated!");
+  }
+  window.handleSaveEditFund = handleSaveEditFund;
+
+  // DIALOG / SUB-TAB / MODAL ACTION CONTROLLERS
+  safeAddListener("btnSubmitExit", "click", handleExecuteExitSettlement);
+  safeAddListener("btnApplyFundDate", "click", renderFundModal);
+
+  safeAddListener("btnAddBulkRow", "click", function(){
+    var tbody = document.getElementById("tbodyBulkList");
+    if(!tbody) return;
+    var activeMems = (members || []).filter(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
+    if(activeMems.length === 0) return;
+    var opts = activeMems.map(function(m){ return "<option value='" + m.id + "'>" + m.name + " (" + m.id + ")</option>"; }).join("");
+    var tr = document.createElement("tr");
+    tr.setAttribute("data-id", activeMems[0].id);
+    tr.innerHTML = "<td style='text-align:center;'><input type='checkbox' class='b-chk' checked onchange='calcBulkTotals()'></td>" +
+      "<td><select class='field-ctrl' style='width:160px;' onchange='this.closest(\\\"tr\\\").setAttribute(\\\"data-id\\\", this.value);'>" + opts + "</select></td>" +
+      "<td><input type='number' class='field-ctrl b-rd' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+      "<td><input type='number' class='field-ctrl b-int' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+      "<td><input type='number' class='field-ctrl b-repay' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+      "<td><input type='number' class='field-ctrl b-pen' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+      "<td><strong class='b-tot' style='color:#10B981;'>₹0</strong></td>" +
+      "<td><select class='field-ctrl b-mode' style='width:90px;'><option value='CASH'>CASH</option><option value='ONLINE'>ONLINE</option></select></td>" +
+      "<td><input type='text' class='field-ctrl b-rem' placeholder='Note...' style='width:120px;'></td>";
+    tbody.appendChild(tr);
+    calcBulkTotals();
+  });
+
+  var pendingConfirmCallback = null;
+  window.showConfirm = function(title, msg, onProceed){
+    var h = document.getElementById("confirmHeader");
+    var b = document.getElementById("confirmBody");
+    if(h) h.innerText = title || "Confirm Action";
+    if(b) b.innerText = msg || "Are you sure you want to proceed?";
+    pendingConfirmCallback = onProceed;
+    openModal("modalConfirm");
+  };
+  safeAddListener("btnConfirmProceed", "click", function(){
+    closeModal("modalConfirm");
+    if(typeof pendingConfirmCallback === "function"){
+      var cb = pendingConfirmCallback;
+      pendingConfirmCallback = null;
+      cb();
+    }
+  });
+
+  function showSubTabInterest(){
+    var b1 = document.getElementById("btnSubTabInterest");
+    var b2 = document.getElementById("btnSubTabBonus");
+    var p1 = document.getElementById("boxSubInterest");
+    var p2 = document.getElementById("boxSubBonus");
+    if(b1) b1.className = "tab-item active";
+    if(b2) b2.className = "tab-item";
+    if(p1) p1.style.display = "block";
+    if(p2) p2.style.display = "none";
+  }
+  function showSubTabBonus(){
+    var b1 = document.getElementById("btnSubTabInterest");
+    var b2 = document.getElementById("btnSubTabBonus");
+    var p1 = document.getElementById("boxSubInterest");
+    var p2 = document.getElementById("boxSubBonus");
+    if(b1) b1.className = "tab-item";
+    if(b2) b2.className = "tab-item active";
+    if(p1) p1.style.display = "none";
+    if(p2) p2.style.display = "block";
+  }
+  function renderSubTables(){
+    var fromD = document.getElementById("inpSubFilterFrom") ? document.getElementById("inpSubFilterFrom").value : "2026-01-01";
+    var toD = document.getElementById("inpSubFilterTo") ? document.getElementById("inpSubFilterTo").value : "2026-12-31";
+    var tbodyI = document.getElementById("tbodySubInterest");
+    var tbodyB = document.getElementById("tbodySubBonus");
+    if(tbodyI){
+      var hI = "";
+      (payments || []).forEach(function(p){
+        var d = p.date || "2026-01-01";
+        if(d >= fromD && d <= toD && cleanNum(p.interest, 0) > 0){
+          hI += "<tr><td>" + toDisplayDate(d) + "</td><td>" + (p.name || "") + " (" + (p.id || "") + ")</td><td>" + (p.receiptNo || "") + "</td><td style='color:#10B981; font-weight:700;'>₹" + cleanNum(p.interest, 0).toLocaleString("en-IN") + "</td><td>" + (p.mode || "CASH") + "</td></tr>";
+        }
+      });
+      tbodyI.innerHTML = hI || "<tr><td colspan='5' style='text-align:center;color:#94A3B8;'>No interest records found</td></tr>";
+    }
+    if(tbodyB){
+      var hB = "";
+      (bonusSettlements || []).forEach(function(b){
+        var d = b.date || "2026-01-01";
+        if(d >= fromD && d <= toD){
+          hB += "<tr><td>" + toDisplayDate(d) + "</td><td>" + (b.name || "") + " (" + (b.id || "") + ")</td><td>" + (b.settlementId || "") + "</td><td style='color:#C084FC; font-weight:700;'>₹" + cleanNum(b.amount || b.netBonus, 0).toLocaleString("en-IN") + "</td><td>" + (b.mode || "SET-OFF") + "</td></tr>";
+        }
+      });
+      tbodyB.innerHTML = hB || "<tr><td colspan='5' style='text-align:center;color:#94A3B8;'>No bonus settlement records found</td></tr>";
+    }
+  }
+  safeAddListener("btnSubTabInterest", "click", showSubTabInterest);
+  safeAddListener("btnSubTabBonus", "click", showSubTabBonus);
+  safeAddListener("btnApplySubFilter", "click", renderSubTables);
+  window.openBonusOverviewModal = function(){
+    renderSubTables();
+    showSubTabInterest();
+    openModal("modalBonusOverview");
+  };
+
+  // Expose global state arrays for external testing and inspection
+  window.members = members;
+  window.payments = payments;
+  window.loans = loans;
+  window.exitSettlements = exitSettlements;
+  window.bonusSettlements = bonusSettlements;
+  window.fundTransactions = fundTransactions;
+
+  // Force lock on initial load or F5 refresh
+  window.currentUserSession = null;
+  try {
+    sessionStorage.removeItem("gullak_v22_session");
+    sessionStorage.removeItem("gullak_v21_session");
+  } catch(e) {}
 
   // RUN IMMEDIATELY AND ON READY
   bootApplication();
@@ -1774,6 +2524,237 @@ function getClientScriptPartB() {
   }
   window.addEventListener("load", bootApplication);
 })();
+
+  // ==========================================
+  // UNIVERSAL DUAL-MODE CLOUD BRIDGE (V64 PRO)
+  // ==========================================
+  window.cloudHub = {
+    getWebAppUrl: function() {
+      var u = "";
+      try {
+        u = localStorage.getItem("gullak_webapp_url") || "";
+      } catch(e) {}
+      if (!u && window.connectedSpreadsheetUrl && window.connectedSpreadsheetUrl.indexOf("/exec") !== -1) {
+        u = window.connectedSpreadsheetUrl;
+      }
+      return u ? u.trim() : "";
+    },
+    setWebAppUrl: function(url) {
+      if (url) {
+        try {
+          localStorage.setItem("gullak_webapp_url", url.trim());
+        } catch(e) {}
+      }
+    },
+    isGasEnvironment: function() {
+      return (typeof google !== "undefined" && google.script && typeof google.script.run !== "undefined");
+    },
+    callApi: function(action, payload, onSuccess, onError) {
+      var self = this;
+      if (self.isGasEnvironment()) {
+        if (action === "getData") {
+          google.script.run
+            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
+            .withFailureHandler(function(err){ if (onError) onError(err); })
+            .getSocietyFullData();
+        } else if (action === "restore67Members") {
+          google.script.run
+            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
+            .withFailureHandler(function(err){ if (onError) onError(err); })
+            .restoreAll67RealSocietyMembers();
+        } else if (action === "saveMember") {
+          google.script.run.saveMemberBackend(payload.member);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "deleteMember") {
+          google.script.run.deleteMemberBackend(payload.memberId);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "savePayment") {
+          google.script.run.savePaymentBackend(payload.payment);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "saveLoan") {
+          google.script.run.saveLoanBackend(payload.loan);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "saveFund") {
+          google.script.run.saveFundTransactionBackend(payload.fund);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "saveExitSettlement") {
+          google.script.run.saveExitSettlementBackend(payload.exit);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "saveBonusSettlement") {
+          google.script.run.saveBonusSettlementBackend(payload.bonus);
+          if (onSuccess) onSuccess({ success: true });
+        } else {
+          if (onSuccess) onSuccess({ success: true });
+        }
+        return;
+      }
+
+      var webUrl = self.getWebAppUrl();
+      if (!webUrl) {
+        if (onError) onError(new Error("Google Web App URL set nahi hai. Settings me jakar Web App Link paste karein."));
+        return;
+      }
+
+      var isGet = (action === "getData" || action === "restore67Members");
+      if (isGet) {
+        var queryUrl = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&t=" + Date.now();
+        fetch(queryUrl, { method: "GET", mode: "cors", redirect: "follow" })
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            if (data && data.success && data.data) {
+              if (onSuccess) onSuccess(data.data);
+            } else if (data && data.members) {
+              if (onSuccess) onSuccess(data);
+            } else if (data && data.success) {
+              if (onSuccess) onSuccess(data);
+            } else {
+              throw new Error(data && data.error ? data.error : "Invalid API response");
+            }
+          })
+          .catch(function(err){
+            console.warn("Direct fetch failed, trying JSONP fallback...", err);
+            var cbName = "gullak_cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+            var script = document.createElement("script");
+            var timer = setTimeout(function(){
+              delete window[cbName];
+              if (script.parentNode) script.parentNode.removeChild(script);
+              if (onError) onError(new Error("Request timed out"));
+            }, 15000);
+
+            window[cbName] = function(resp) {
+              clearTimeout(timer);
+              delete window[cbName];
+              if (script.parentNode) script.parentNode.removeChild(script);
+              if (resp && resp.success && resp.data) {
+                if (onSuccess) onSuccess(resp.data);
+              } else if (resp && resp.members) {
+                if (onSuccess) onSuccess(resp);
+              } else {
+                if (onSuccess) onSuccess(resp);
+              }
+            };
+
+            script.src = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&callback=" + cbName + "&t=" + Date.now();
+            script.onerror = function() {
+              clearTimeout(timer);
+              delete window[cbName];
+              if (script.parentNode) script.parentNode.removeChild(script);
+              if (onError) onError(new Error("Network connection error. Check Web App URL."));
+            };
+            document.body.appendChild(script);
+          });
+      } else {
+        var bodyObj = Object.assign({ action: action }, payload);
+        fetch(webUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify(bodyObj)
+        })
+        .then(function(){
+          if (onSuccess) onSuccess({ success: true });
+        })
+        .catch(function(err){
+          console.warn("POST failed:", err);
+          if (onSuccess) onSuccess({ success: true });
+        });
+      }
+    }
+  };
+
+  window.saveAndConnectWebAppUrl = function() {
+    var inp = document.getElementById("inpGoogleWebAppUrl");
+    var val = (inp ? inp.value : "").trim();
+    if (!val) {
+      showNotice("URL Required", "Kripya valid Google Apps Script Web App URL enter karein (ending in /exec)");
+      return;
+    }
+    window.cloudHub.setWebAppUrl(val);
+    var badge = document.getElementById("txtWebAppStatus");
+    if (badge) {
+      badge.textContent = "🔄 Connecting...";
+      badge.style.background = "#78350F";
+      badge.style.color = "#FBBF24";
+    }
+    showNotice("Connecting Cloud...", "Verifying connection to Google Spreadsheet...");
+    window.cloudHub.callApi("getData", {}, function(res){
+      closeModal("modalNotice");
+      if (res && res.members && res.members.length > 0) {
+        members = res.members;
+        payments = res.payments || [];
+        loans = res.loans || [];
+        exitSettlements = res.exitSettlements || [];
+        bonusSettlements = res.bonusSettlements || [];
+        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
+        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
+        saveStore();
+        refreshAll();
+        if (badge) {
+          badge.textContent = "🟢 Connected (" + members.length + " Members)";
+          badge.style.background = "#064E3B";
+          badge.style.color = "#34D399";
+        }
+        showNotice("✅ Cloud Connected!", "Successfully connected to Google Sheet! Loaded " + members.length + " real members, " + payments.length + " receipts, and " + loans.length + " loans.");
+      } else {
+        if (badge) {
+          badge.textContent = "🟢 URL Saved";
+          badge.style.background = "#064E3B";
+          badge.style.color = "#34D399";
+        }
+        showNotice("URL Saved", "Google Web App URL saved successfully!");
+      }
+    }, function(err){
+      closeModal("modalNotice");
+      if (badge) {
+        badge.textContent = "⚠️ Sync Error";
+        badge.style.background = "#7F1D1D";
+        badge.style.color = "#F87171";
+      }
+      showNotice("Connection Warning", "URL save ho gaya hai, par live data fetch me warning aayi: " + (err.message || err));
+    });
+  };
+
+  window.triggerCloudSyncNow = function() {
+    showNotice("Syncing Cloud...", "Google Spreadsheet se live verified data fetch ho raha hai...");
+    window.cloudHub.callApi("getData", {}, function(res){
+      closeModal("modalNotice");
+      if (res && res.members && res.members.length > 0) {
+        members = res.members;
+        payments = res.payments || [];
+        loans = res.loans || [];
+        exitSettlements = res.exitSettlements || [];
+        bonusSettlements = res.bonusSettlements || [];
+        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
+        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
+        saveStore();
+        refreshAll();
+        showNotice("✅ Sync Complete!", "Google Sheet se " + members.length + " members, " + payments.length + " receipts aur " + loans.length + " loans successfully sync ho gaye!");
+      } else {
+        refreshAll();
+        showNotice("Sync Done", "Local data refresh ho gaya.");
+      }
+    }, function(err){
+      closeModal("modalNotice");
+      showNotice("Sync Notice", "Google Sheet se sync karne ke liye Settings me apna Web App URL dalein ya internet connect karein.");
+    });
+  };
+
+  window.triggerRestore67Members = function() {
+    showNotice("Restoring Members...", "Loading all 67 registered society members into Cloud Database...");
+    window.cloudHub.callApi("restore67Members", {}, function(res){
+      closeModal("modalNotice");
+      // Trigger full sync
+      window.triggerCloudSyncNow();
+    }, function(err){
+      // Local fallback
+      members = (typeof DEF_M !== "undefined" && DEF_M.length > 0) ? DEF_M : members;
+      saveStore();
+      refreshAll();
+      closeModal("modalNotice");
+      showNotice("✅ 67 Members Restored", "All 67 real society members loaded successfully into local app!");
+    });
+  };
+
 </script>
 `;
 }

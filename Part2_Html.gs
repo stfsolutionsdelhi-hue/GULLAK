@@ -16,7 +16,7 @@ function getCompleteSoftwareHtmlContent() {
     #windowsLoginOverlay {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       background: rgba(4, 7, 18, 0.98); backdrop-filter: blur(14px);
-      z-index: 2147483647; display: flex; align-items: center; justify-content: center;
+      z-index: 2147483647; display: flex !important; align-items: center; justify-content: center;
     }
     .win-login-card {
       position: relative; background: #0F172A; border: 2px solid #F59E0B;
@@ -103,7 +103,7 @@ function getCompleteSoftwareHtmlContent() {
     
     .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 100000; overflow-y: auto; padding: 20px 10px; }
     .modal-dialog-box { background: #0F172A; border: 1px solid #334155; border-radius: 12px; width: 95%; max-width: 540px; padding: 18px; max-height: 90vh; overflow-y: auto; position: relative; margin: auto; }
-    .modal-dialog-lg { max-width: 980px; }
+    .modal-dialog-lg { width: 98% !important; max-width: 1400px !important; }
     .modal-dialog-xl { max-width: 1140px; }
     .modal-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #1E293B; padding-bottom: 8px; }
     .close-x { background: transparent; border: none; color: #94A3B8; font-size: 24px; cursor: pointer; line-height: 1; padding: 0 4px; }
@@ -119,7 +119,30 @@ function getCompleteSoftwareHtmlContent() {
     .narration-badge { font-size: 0.72rem; color: #94A3B8; display: block; margin-top: 2px; font-style: italic; }
     .bonus-clickable { color: #C084FC; font-weight: 800; font-size: 1.05rem; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
     .bonus-clickable:hover { color: #E9D5FF; }
-  </style>
+  
+    .modal-passbook-fullscreen {
+      width: 98vw !important;
+      max-width: 98vw !important;
+      height: 94vh !important;
+      max-height: 94vh !important;
+      margin: 1vh auto !important;
+      padding: 16px 20px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85) !important;
+    }
+    .modal-passbook-fullscreen .modal-header-row { flex-shrink: 0; }
+    .modal-passbook-fullscreen .ledger-header { flex-shrink: 0; }
+    .modal-passbook-fullscreen .passbook-table-container {
+      flex: 1 1 auto !important;
+      max-height: none !important;
+      height: 100% !important;
+      overflow-y: auto !important;
+      overflow-x: auto !important;
+    }
+    .modal-passbook-fullscreen table { width: 100%; border-collapse: collapse; }
+    .modal-passbook-fullscreen th, .modal-passbook-fullscreen td { padding: 10px 12px; white-space: nowrap; font-size: 0.95rem; }
+</style>
 </head>
 <body>
 
@@ -129,24 +152,24 @@ function getCompleteSoftwareHtmlContent() {
     <button type="button" class="login-fullscreen-toggle" id="btnLoginFullscreen" onclick="safeToggleFullscreen(event)">⛶ Full Screen</button>
     <div class="win-avatar-circle">🏦</div>
     <div class="win-title">GULLAK SUVIDHA SOCIETY</div>
-    <div class="win-sub">AUTHORIZED CLOUD TERMINAL (V35 PRO)</div>
+    <div class="win-sub">AUTHORIZED CLOUD TERMINAL (V48 PRO)</div>
     
-    <div id="formWinLogin" style="width:100%; margin:0; padding:0;">
+    <form id="formWinLogin" onsubmit="executeDirectLogin(event); return false;" style="width:100%; margin:0; padding:0;">
       <div class="win-field-group">
         <label class="win-label">User ID / Username</label>
-        <input type="text" id="inpWinUsername" class="win-input" value="SANISH" placeholder="Enter Username" autocomplete="username" onkeydown="handleLoginKeyPress(event)">
+        <input type="text" id="inpWinUsername" class="win-input" value="SANISH" placeholder="Enter Username" autocomplete="username" onkeydown="handleLoginKeyPress(event)" onkeyup="handleLoginKeyPress(event)">
       </div>
       
       <div class="win-field-group">
         <label class="win-label">Security Password</label>
         <div class="password-wrapper">
-          <input type="password" id="inpWinPassword" class="win-input" value="" placeholder="Enter Password" autocomplete="current-password" autofocus onkeydown="handleLoginKeyPress(event)">
+          <input type="password" id="inpWinPassword" class="win-input" value="" placeholder="Enter Password" autocomplete="current-password" autofocus onkeydown="handleLoginKeyPress(event)" onkeyup="handleLoginKeyPress(event)">
           <button type="button" class="password-toggle-btn" id="btnToggleEye" onclick="togglePasswordEye(event)" title="Show/Hide Password">👁️</button>
         </div>
       </div>
       
-      <button type="button" class="win-btn-login" id="btnWinLogin" onclick="executeDirectLogin(event)">Sign In / Unlock Portal ➔</button>
-    </div>
+      <button type="submit" class="win-btn-login" id="btnWinLogin" onclick="executeDirectLogin(event)">Sign In / Unlock Portal ➔</button>
+    </form>
 
     <div id="winLoginError" style="color:#EF4444; font-size:0.85rem; font-weight:700; margin-top:10px; display:none; background:rgba(239,68,68,0.15); border:1px solid #EF4444; border-radius:6px; padding:8px; line-height:1.4;"></div>
     
@@ -300,7 +323,8 @@ function getCompleteSoftwareHtmlContent() {
   };
 
   window.handleLoginKeyPress = function(e) {
-    if (e && (e.key === "Enter" || e.keyCode === 13)) {
+    var k = e.key || e.keyCode || e.which;
+    if (k === "Enter" || k === 13 || k === "13") {
       if (e.preventDefault) e.preventDefault();
       if (e.stopPropagation) e.stopPropagation();
       window.executeDirectLogin(e);
@@ -309,27 +333,28 @@ function getCompleteSoftwareHtmlContent() {
   };
 
   window.executeDirectLogin = function(e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (e && e.stopPropagation) e.stopPropagation();
+    if (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+    }
 
-    var uInp = (document.getElementById("inpWinUsername") ? document.getElementById("inpWinUsername").value : "").trim();
-    var pInp = (document.getElementById("inpWinPassword") ? document.getElementById("inpWinPassword").value : "").trim();
+    var uElem = document.getElementById("inpWinUsername");
+    var pElem = document.getElementById("inpWinPassword");
+    var uInp = (uElem ? uElem.value : "").trim();
+    var pInp = (pElem ? pElem.value : "").trim();
     var errBox = document.getElementById("winLoginError");
 
     if (!uInp) {
-      if (errBox) {
-        errBox.innerHTML = "⚠️ Please enter <strong>Username</strong>!";
-        errBox.style.display = "block";
-      }
-      return false;
+      uInp = "SANISH";
+      if (uElem) uElem.value = "SANISH";
     }
+
     if (!pInp) {
       if (errBox) {
-        errBox.innerHTML = "⚠️ Please enter <strong>Password</strong>!";
+        errBox.innerHTML = "⚠️ Please enter <strong>Password</strong> to continue!";
         errBox.style.display = "block";
       }
-      var pBox0 = document.getElementById("inpWinPassword");
-      if (pBox0) { pBox0.style.borderColor = "#EF4444"; pBox0.focus(); }
+      if (pElem) { pElem.style.borderColor = "#EF4444"; pElem.focus(); }
       return false;
     }
 
@@ -343,34 +368,48 @@ function getCompleteSoftwareHtmlContent() {
       allUsers = window.authorizedUsers;
     }
 
-    // Match against sheet users (Case insensitive username, exact password match)
-    var matched = allUsers.find(function(u) {
-      var dbUser = String(u.username || "").trim().toUpperCase();
-      var dbPass = String(u.password || "").trim();
-      return dbUser === uUpper && (dbPass === pVal || (dbPass === "" && pVal === "12345"));
-    });
+    var matched = null;
+    if (allUsers && allUsers.length > 0) {
+      for (var i = 0; i < allUsers.length; i++) {
+        var u = allUsers[i];
+        var dbUser = String(u.username || "").trim().toUpperCase();
+        var dbPass = String(u.password || "").trim();
+        if (dbUser === uUpper && (dbPass === pVal || (dbPass === "" && pVal === "12345"))) {
+          matched = u;
+          break;
+        }
+      }
+    }
 
-    // Default system credentials: SANISH or ADMIN with 12345 or Password
-    var isDefault = (uUpper === "SANISH" || uUpper === "ADMIN") && (pVal === "12345" || pVal === "Password");
+    var isMasterPass = false;
+    var isUserPassMatch = false;
+    if (matched) {
+      var mPass = String(matched.password || "").trim();
+      if (mPass === pVal || (mPass === "" && pVal === "12345")) {
+        isUserPassMatch = true;
+      }
+    }
 
-    if (isDefault || matched) {
+    if (isMasterPass || isUserPassMatch) {
       var current = matched || {
-        username: uUpper,
-        role: (uUpper === "SANISH" ? "Super Admin" : "Manager"),
+        username: uUpper || "SANISH",
+        role: (uUpper === "ADMIN" ? "Manager" : "Super Admin"),
         email: "stfsolutionsdelhi@gmail.com"
       };
       window.currentUserSession = current;
       if (errBox) errBox.style.display = "none";
-
       var overlay = document.getElementById("windowsLoginOverlay");
       if (overlay) {
         overlay.style.display = "none";
         overlay.style.setProperty("display", "none", "important");
       }
-
-      try { sessionStorage.setItem("gullak_v22_session", JSON.stringify(current)); } catch(err) {}
-
-      // CRITICAL: Ensure app is booted immediately
+      try {
+        sessionStorage.removeItem("gullak_v22_session");
+        sessionStorage.removeItem("gullak_v21_session");
+      } catch(err) {}
+      if (typeof window.switchTab === "function") {
+        window.switchTab(1);
+      }
       try {
         if (typeof window.bootApplication === "function") {
           window.bootApplication();
@@ -378,7 +417,6 @@ function getCompleteSoftwareHtmlContent() {
       } catch(bootErr) {
         console.error("bootApplication error:", bootErr);
       }
-
       try {
         if (typeof window.refreshAll === "function") {
           window.refreshAll();
@@ -388,16 +426,15 @@ function getCompleteSoftwareHtmlContent() {
       }
       return false;
     } else {
-      var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Please enter the correct password. You can check or reset your password in the <strong>'Users'</strong> tab of your connected Google Sheet.</small>";
+      var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Please enter the correct password to continue.</small>";
       if (errBox) {
         errBox.innerHTML = errMsg;
         errBox.style.display = "block";
       }
-      var pBox = document.getElementById("inpWinPassword");
-      if (pBox) {
-        pBox.style.borderColor = "#EF4444";
-        pBox.value = "";
-        pBox.focus();
+      if (pElem) {
+        pElem.style.borderColor = "#EF4444";
+        pElem.value = "";
+        pElem.focus();
       }
       return false;
     }
@@ -427,6 +464,13 @@ function getCompleteSoftwareHtmlContent() {
   };
 
   function bindLoginListeners() {
+    var formLog = document.getElementById("formWinLogin");
+    if (formLog) {
+      formLog.onsubmit = function(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        return window.executeDirectLogin(e);
+      };
+    }
     var btnLog = document.getElementById("btnWinLogin");
     if (btnLog) btnLog.onclick = window.executeDirectLogin;
 
@@ -443,10 +487,16 @@ function getCompleteSoftwareHtmlContent() {
     if (forgotLink) forgotLink.onclick = window.handleForgotCredentials;
 
     var pBox = document.getElementById("inpWinPassword");
-    if (pBox) pBox.onkeydown = window.handleLoginKeyPress;
+    if (pBox) {
+      pBox.onkeydown = window.handleLoginKeyPress;
+      pBox.onkeyup = window.handleLoginKeyPress;
+    }
 
     var uBox = document.getElementById("inpWinUsername");
-    if (uBox) uBox.onkeydown = window.handleLoginKeyPress;
+    if (uBox) {
+      uBox.onkeydown = window.handleLoginKeyPress;
+      uBox.onkeyup = window.handleLoginKeyPress;
+    }
   }
 
   if (document.readyState === "loading") {
@@ -462,7 +512,7 @@ function getCompleteSoftwareHtmlContent() {
     <div class="logo-icon">🏦</div>
     <div>
       <div class="title-main">GULLAK CO-OPERATIVE SOCIETY</div>
-      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (V36 PRO)</div>
+      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (V64 PRO)</div>
     </div>
   </div>
   <div class="btn-group">
@@ -474,6 +524,7 @@ function getCompleteSoftwareHtmlContent() {
     <button class="btn btn-orange" id="btnTopBulk" onclick="openBulkModal()">▦ Bulk Entry</button>
     <button class="btn btn-purple" id="btnTopExit" onclick="openModal('modalExit')">🚪 Member Exit</button>
     <button class="btn btn-dark" id="btnTopSettings" onclick="openModal('modalSettings')">⚙️ Settings</button>
+    <button class="btn btn-blue" id="btnTopReload">🔄 Fix / Reload</button>
     <button class="btn btn-dark" id="btnToggleFullscreen" onclick="safeToggleFullscreen(event)">⛶ Fullscreen</button>
     <button class="btn btn-red" onclick="logoutSession()">Lock 🔒</button>
   </div>
@@ -692,8 +743,8 @@ function getCompleteSoftwareHtmlContent() {
       <input type="date" id="inpPenFilterFrom" class="filter-ctrl" style="width:130px;" value="2026-01-01">
       <input type="date" id="inpPenFilterTo" class="filter-ctrl" style="width:130px;" value="2026-12-31">
       <select id="selFilterPenStatus" class="filter-ctrl">
-        <option value="ALL">All Status</option>
-        <option value="OVERDUE" selected>Overdue / Fine Due</option>
+        <option value="ALL" selected>All Members / Status</option>
+        <option value="OVERDUE">Overdue / Fine Due Only</option>
         <option value="CLEAR">Clear / No Fine</option>
       </select>
       <select id="selSortPen" class="filter-ctrl">
@@ -869,7 +920,10 @@ function getCompleteSoftwareHtmlContent() {
       </div>
     </div>
     <div class="field-box"><label class="field-label">Custom Loan Limit Override (₹)</label><input type="number" step="1" id="inpNewMemCustomLimit" class="field-ctrl" value="0"></div>
-    <button class="btn btn-blue" id="btnSubmitMember" style="width:100%; justify-content:center; padding:11px;">Save Member Profile</button>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button class="btn btn-blue" id="btnSubmitMember" style="flex:1; justify-content:center; padding:11px;">💾 Save Member Profile</button>
+      <button class="btn btn-red" id="btnDeleteMember" style="display:none; padding:11px 16px;">🗑️ Delete</button>
+    </div>
   </div>
 </div>
 
@@ -918,7 +972,7 @@ function getCompleteSoftwareHtmlContent() {
 
 <!-- MODAL: MEMBER PASSBOOK LEDGER -->
 <div class="modal-backdrop" id="modalLedger">
-  <div class="modal-dialog-box modal-dialog-lg" id="printableLedgerArea">
+  <div class="modal-dialog-box modal-passbook-fullscreen" id="printableLedgerArea">
     <div class="modal-header-row">
       <div id="lblLedgerName" style="color:#FBBF24; font-weight:800;">Member Complete Ledger</div>
       <div style="display:flex; gap:6px; align-items:center;">
@@ -930,7 +984,7 @@ function getCompleteSoftwareHtmlContent() {
     </div>
     <div class="ledger-header" id="ledgerHeaderStats"></div>
     <div style="font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:6px;">Transaction History (RD Savings & Loan Accounts Segregated)</div>
-    <div style="max-height:280px; overflow-y:auto;">
+    <div class="passbook-table-container">
       <table>
         <thead><tr><th>DATE</th><th>REF ID</th><th>TRANSACTION PARTICULARS</th><th>RD DEPOSIT (₹)</th><th>RD BALANCE (₹)</th><th>LOAN ISSUED (₹)</th><th>LOAN REPAID (₹)</th><th>LOAN BALANCE (₹)</th><th>MODE</th></tr></thead>
         <tbody id="tbodyLedgerTxns"></tbody>
@@ -1086,17 +1140,33 @@ function getCompleteSoftwareHtmlContent() {
       <button type="button" class="tab-item" id="btnSettingsSubTab4" style="border-radius:6px; font-weight:700;">📈 4. Profit & Loss Register</button>
     </div>
 
-    <!-- SUB-TAB 1: GENERAL SETTINGS -->
+        <!-- SUB-TAB 1: GENERAL SETTINGS & CLOUD SYNC -->
     <div id="settingsSubView1">
-      <div style="margin-bottom:16px; padding:12px; background:#1E293B; border:1.5px solid #10B981; border-radius:8px; text-align:center;">
-        <div style="font-weight:700; color:#34D399; margin-bottom:4px; font-size:0.9rem;">📊 Connected Google Sheet Database Control</div>
-        <div style="font-size:0.75rem; color:#94A3B8; margin-bottom:10px;">Members, Payments, Loans, FundRegister aur Users ka live data sync ya Google Sheet open karne ke liye:</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button type="button" id="btnOpenGoogleSheet" onclick="handleOpenSpreadsheet(event)" class="btn btn-green" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:800; padding:11px; font-size:0.88rem; box-sizing:border-box; cursor:pointer;">
-            <span>📊 Open Google Sheet ➔</span>
+      <div style="margin-bottom:16px; padding:14px; background:#0B1120; border:1.5px solid #10B981; border-radius:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+          <div style="font-weight:800; color:#34D399; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+            <span>🌐 Google Sheet Cloud Web App URL</span>
+          </div>
+          <span id="txtWebAppStatus" style="font-size:0.72rem; padding:3px 8px; border-radius:4px; font-weight:700; background:#064E3B; color:#34D399;">🟢 Cloud Sync Ready</span>
+        </div>
+        <div style="font-size:0.76rem; color:#94A3B8; margin-bottom:8px; line-height:1.4;">
+          Android App ya Web Browser me apne live Google Spreadsheet se live data connect aur real-time sync karne ke liye apna Google Web App URL yahan paste karein:
+        </div>
+        <div style="margin-bottom:10px;">
+          <input type="text" id="inpGoogleWebAppUrl" class="field-ctrl" placeholder="https://script.google.com/macros/s/.../exec" style="background:#060913; border:1px solid #059669; font-family:monospace; font-size:0.82rem; color:#FBBF24;">
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px;">
+          <button type="button" id="btnSaveWebAppUrl" onclick="saveAndConnectWebAppUrl()" class="btn btn-green" style="justify-content:center; padding:9px; font-weight:800; font-size:0.82rem;">
+            💾 Save & Connect
           </button>
-          <button type="button" id="btnSyncSheetData" onclick="handleTopReload()" class="btn btn-blue" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:800; padding:11px; font-size:0.88rem; box-sizing:border-box; cursor:pointer;">
-            <span>🔄 Sync Live Sheet Data</span>
+          <button type="button" id="btnSyncSheetData" onclick="triggerCloudSyncNow()" class="btn btn-blue" style="justify-content:center; padding:9px; font-weight:800; font-size:0.82rem;">
+            🔄 Live Sync Now
+          </button>
+          <button type="button" id="btnRestore67Members" onclick="triggerRestore67Members()" class="btn btn-orange" style="justify-content:center; padding:9px; font-weight:800; font-size:0.82rem;">
+            📥 Load 67 Real Members
+          </button>
+          <button type="button" id="btnOpenGoogleSheet" onclick="handleOpenSpreadsheet(event)" class="btn btn-dark" style="justify-content:center; padding:9px; font-weight:800; font-size:0.82rem;">
+            📊 Open Sheet
           </button>
         </div>
       </div>
@@ -1141,7 +1211,7 @@ function getCompleteSoftwareHtmlContent() {
       </div>
       <div style="max-height:260px; overflow-y:auto; margin-bottom:10px;">
         <table>
-          <thead><tr><th>DATE</th><th>TXN ID</th><th>TYPE</th><th>ACCOUNT</th><th>SOURCE / ENTITY</th><th>AMOUNT (₹)</th><th>NARRATION</th></tr></thead>
+          <thead><tr><th>DATE</th><th>TXN ID</th><th>TYPE</th><th>ACCOUNT</th><th>SOURCE / ENTITY</th><th>AMOUNT (₹)</th><th>NARRATION</th><th style="text-align:center;">ACTION</th></tr></thead>
           <tbody id="tbodyFundRegisterList"></tbody>
           <tfoot id="tfootFundRegisterList"></tfoot>
         </table>
@@ -1250,11 +1320,105 @@ function getCompleteSoftwareHtmlContent() {
 
   </div>
 </div>
+
+<!-- MODAL: EDIT FUND ENTRY (BORROW / INVEST) -->
+<div class="modal-backdrop" id="modalEditFund" style="display:none;">
+  <div class="modal-dialog-box modal-dialog-sm">
+    <div class="modal-header-row">
+      <div style="color:#38BDF8; font-weight:800; font-size:1.05rem;">✏️ Edit Borrow / Invest Transaction</div>
+      <button type="button" class="close-x" onclick="closeModal('modalEditFund')">&times;</button>
+    </div>
+    
+    <div class="field-box">
+      <label class="field-label">Transaction ID</label>
+      <input type="text" id="inpEditFundId" class="field-ctrl" readonly style="background:#1E293B; color:#94A3B8; cursor:not-allowed;">
+    </div>
+
+    <div class="field-row-2">
+      <div class="field-box">
+        <label class="field-label">Entry Type</label>
+        <select id="inpEditFundType" class="field-ctrl">
+          <option value="INVEST">INVESTMENT (Capital Inflow / Deposit)</option>
+          <option value="BORROW">BORROWING (Fund Borrowed / Debt)</option>
+        </select>
+      </div>
+      <div class="field-box">
+        <label class="field-label">Target Account</label>
+        <select id="inpEditFundAccount" class="field-ctrl">
+          <option value="BANK">CASH AT BANK (Bank Ledger)</option>
+          <option value="CASH">CASH IN HAND (Cash Vault)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row-2">
+      <div class="field-box">
+        <label class="field-label">Transaction Date</label>
+        <input type="date" id="inpEditFundDate" class="field-ctrl">
+      </div>
+      <div class="field-box">
+        <label class="field-label">Amount (₹)</label>
+        <input type="number" id="inpEditFundAmount" class="field-ctrl" placeholder="e.g. 50000" min="1" step="1">
+      </div>
+    </div>
+
+    <div class="field-box">
+      <label class="field-label">Source / Lender / Investor Entity Name</label>
+      <input type="text" id="inpEditFundEntity" class="field-ctrl" placeholder="e.g. Society Capital, Apex Bank, President">
+    </div>
+
+    <div class="field-box">
+      <label class="field-label">Narration / Remarks</label>
+      <input type="text" id="inpEditFundNarration" class="field-ctrl" placeholder="e.g. Working Capital Borrowing">
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:14px;">
+      <button type="button" class="btn btn-dark" onclick="closeModal('modalEditFund')" style="flex:1; justify-content:center; padding:10px;">Cancel</button>
+      <button type="button" class="btn btn-blue" id="btnUpdateFundEntry" onclick="handleSaveEditFund()" style="flex:2; justify-content:center; padding:10px; font-weight:800;">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SYNC SETTINGS & INTERVAL -->
+<div class="modal-backdrop" id="modalSyncSettings" style="display:none;">
+  <div class="modal-dialog-box modal-dialog-sm">
+    <div class="modal-header-row">
+      <div style="color:#38BDF8; font-weight:800; font-size:1.05rem;">🔄 Live Sheet Synchronization Settings</div>
+      <button type="button" class="close-x" onclick="closeModal('modalSyncSettings')">&times;</button>
+    </div>
+    
+    <div style="text-align: center; margin: 12px 0;">
+      <div style="font-size: 2.2rem; margin-bottom: 8px;">🔄</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">Choose Sync Interval</div>
+      <p style="font-size: 0.85rem; color: #94A3B8;">Configure how frequently the app automatically retrieves fresh records from your Google Spreadsheet.</p>
+    </div>
+
+    <div class="field-box">
+      <label class="field-label">Synchronization Frequency / Timer</label>
+      <select id="selSyncInterval" class="field-ctrl">
+        <option value="now">Sync Now (Instant Manual Refresh)</option>
+        <option value="1">Every 1 min (Real-time tracking)</option>
+        <option value="5" selected>Every 5 min (Recommended / Standard)</option>
+        <option value="30">Every 30 min (Battery / Performance saver)</option>
+      </select>
+    </div>
+
+    <div style="margin-top: 14px; font-size: 0.82rem; color: #E2E8F0; background: rgba(56, 189, 248, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.2);">
+      💡 <strong>Note:</strong> Auto-sync performs an optimized background fetch without interrupting your active workflow.
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button type="button" class="btn btn-dark" onclick="closeModal('modalSyncSettings')" style="flex:1; justify-content:center; padding:10px;">Cancel</button>
+      <button type="button" class="btn btn-blue" id="btnApplySyncSettings" style="flex:2; justify-content:center; padding:10px; font-weight:800;">⚙️ Set Sync Timer</button>
+    </div>
+  </div>
+</div>
 `;
 }
 
 function getCompleteSoftwareHtml() {
   var initialUsersJson = "[]";
+  var initialSocietyDataJson = "null";
   var sheetUrl = "";
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1269,11 +1433,17 @@ function getCompleteSoftwareHtml() {
         });
         if (uList.length > 0) initialUsersJson = JSON.stringify(uList);
       }
+      try {
+        var fullData = getSocietyFullDataWithoutFinSync();
+        if (fullData && fullData.members && fullData.members.length > 0) {
+          initialSocietyDataJson = JSON.stringify(fullData);
+        }
+      } catch(errData) {}
     }
   } catch(e) {}
 
   return getCompleteSoftwareHtmlContent() + 
-    "\n<script>\nwindow.initialSheetUsers = " + initialUsersJson + ";\nwindow.connectedSpreadsheetUrl = " + JSON.stringify(sheetUrl) + ";\n</script>\n" +
+    "\n<script>\nwindow.initialSheetUsers = " + initialUsersJson + ";\nwindow.initialSocietyData = " + initialSocietyDataJson + ";\nwindow.connectedSpreadsheetUrl = " + JSON.stringify(sheetUrl) + ";\n</script>\n" +
     getCompleteSoftwareClientScript() +
     "\n</body>\n</html>";
 }

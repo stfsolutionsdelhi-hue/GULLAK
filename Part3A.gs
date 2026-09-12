@@ -2,6 +2,21 @@ function getClientScriptPartA() {
   return `
 <script>
 // INITIAL AUTHENTICATION & LOGIN LOGIC
+
+window.switchTab = function(tIdx) {
+  for (var i = 1; i <= 5; i++) {
+    var head = document.getElementById("tabHead" + i);
+    var panel = document.getElementById("tabPanel" + i);
+    if (head) head.className = (i === tIdx) ? "tab-item active" : "tab-item";
+    if (panel) panel.style.display = (i === tIdx) ? "block" : "none";
+  }
+  if (tIdx === 1 && typeof window.renderMembers === "function") window.renderMembers();
+  else if (tIdx === 2 && typeof window.renderPayments === "function") window.renderPayments();
+  else if (tIdx === 3 && typeof window.renderLoans === "function") window.renderLoans();
+  else if (tIdx === 4 && typeof window.renderBonusTab === "function") window.renderBonusTab();
+  else if (tIdx === 5 && typeof window.renderPenaltyTab === "function") window.renderPenaltyTab();
+};
+
 window.authorizedUsers = [
   { username: "SANISH", password: "12345", role: "Super Admin", email: "stfsolutionsdelhi@gmail.com" },
   { username: "ADMIN", password: "12345", role: "Manager", email: "stfsolutionsdelhi@gmail.com" }
@@ -67,96 +82,115 @@ window.safeToggleFullscreen = function(e) {
 };
 
 window.executeDirectLogin = function(e) {
-  if (e) {
-    if (e.preventDefault) e.preventDefault();
-    if (e.stopPropagation) e.stopPropagation();
-  }
-  var uInp = (document.getElementById("inpWinUsername").value || "").trim();
-  var pInp = (document.getElementById("inpWinPassword").value || "").trim();
-  var errBox = document.getElementById("winLoginError");
-
-  if (!uInp) {
-    if (errBox) {
-      errBox.innerHTML = "⚠️ Please enter <strong>Username</strong>!";
-      errBox.style.display = "block";
+    if (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
     }
-    return false;
-  }
 
-  var uUpper = uInp.toUpperCase();
-  var pVal = pInp;
+    var uElem = document.getElementById("inpWinUsername");
+    var pElem = document.getElementById("inpWinPassword");
+    var uInp = (uElem ? uElem.value : "").trim();
+    var pInp = (pElem ? pElem.value : "").trim();
+    var errBox = document.getElementById("winLoginError");
 
-  // 1. Gather all authorized users (From live Google Sheet first, then fallback)
-  var allUsers = [];
-  if (window.initialSheetUsers && Array.isArray(window.initialSheetUsers) && window.initialSheetUsers.length > 0) {
-    allUsers = window.initialSheetUsers;
-  } else if (window.authorizedUsers && Array.isArray(window.authorizedUsers) && window.authorizedUsers.length > 0) {
-    allUsers = window.authorizedUsers;
-  }
-
-  // 2. Check matched user from sheet
-  var matched = allUsers.find(function(u) {
-    return String(u.username || "").trim().toUpperCase() === uUpper && 
-           (String(u.password || "").trim() === pVal || pVal === "12345");
-  });
-
-  // 3. Default credentials check (SANISH or ADMIN with 12345 or Password)
-  var isDefault = (uUpper === "SANISH" || uUpper === "ADMIN") && (pVal === "12345" || pVal === "Password" || pVal === "Admin@123");
-
-  if (isDefault || matched) {
-    var current = matched || {
-      username: uUpper,
-      role: (uUpper === "SANISH" ? "Super Admin" : "Manager"),
-      email: "stfsolutionsdelhi@gmail.com"
-    };
-    window.currentUserSession = current;
-    if (errBox) errBox.style.display = "none";
-    
-    // Hide overlay
-    var overlay = document.getElementById("windowsLoginOverlay");
-    if (overlay) {
-      overlay.style.display = "none";
-      overlay.style.setProperty("display", "none", "important");
+    if (!uInp) {
+      uInp = "SANISH";
+      if (uElem) uElem.value = "SANISH";
     }
-    
-    try { sessionStorage.setItem("gullak_v22_session", JSON.stringify(current)); } catch(err) {}
-    
-    // Ensure app is booted
-    try {
-      if (typeof window.bootApplication === "function") {
-        window.bootApplication();
+
+    if (!pInp) {
+      if (errBox) {
+        errBox.innerHTML = "⚠️ Please enter <strong>Password</strong> to continue!";
+        errBox.style.display = "block";
       }
-    } catch(err) {
-      console.error("bootApplication error:", err);
+      if (pElem) { pElem.style.borderColor = "#EF4444"; pElem.focus(); }
+      return false;
     }
 
-    // Render and refresh all views immediately
-    try {
-      if (typeof window.refreshAll === "function") {
-        window.refreshAll();
+    var uUpper = uInp.toUpperCase();
+    var pVal = pInp;
+
+    var allUsers = [];
+    if (window.initialSheetUsers && Array.isArray(window.initialSheetUsers) && window.initialSheetUsers.length > 0) {
+      allUsers = window.initialSheetUsers;
+    } else if (window.authorizedUsers && Array.isArray(window.authorizedUsers) && window.authorizedUsers.length > 0) {
+      allUsers = window.authorizedUsers;
+    }
+
+    var matched = null;
+    if (allUsers && allUsers.length > 0) {
+      for (var i = 0; i < allUsers.length; i++) {
+        var u = allUsers[i];
+        var dbUser = String(u.username || "").trim().toUpperCase();
+        var dbPass = String(u.password || "").trim();
+        if (dbUser === uUpper && (dbPass === pVal || (dbPass === "" && pVal === "12345"))) {
+          matched = u;
+          break;
+        }
       }
-    } catch(err) {
-      console.error("refreshAll error:", err);
     }
-    return false;
-  } else {
-    var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Please enter the correct password. You can check or reset your password in the <strong>'Users'</strong> tab of your connected Google Sheet.</small>";
-    if (errBox) {
-      errBox.innerHTML = errMsg;
-      errBox.style.display = "block";
-    }
-    var pBox = document.getElementById("inpWinPassword");
-    if (pBox) {
-      pBox.style.borderColor = "#EF4444";
-      pBox.value = "";
-      pBox.focus();
-    }
-    return false;
-  }
-};
 
-window.handleLoginKeyPress = function(e) {
-  if (e && (e.key === "Enter" || e.keyCode === 13)) {
+    var isMasterPass = false;
+    var isUserPassMatch = false;
+    if (matched) {
+      var mPass = String(matched.password || "").trim();
+      if (mPass === pVal || (mPass === "" && pVal === "12345")) {
+        isUserPassMatch = true;
+      }
+    }
+    if (isMasterPass || isUserPassMatch) {
+      var current = matched || {
+        username: uUpper || "SANISH",
+        role: (uUpper === "ADMIN" ? "Manager" : "Super Admin"),
+        email: "stfsolutionsdelhi@gmail.com"
+      };
+      window.currentUserSession = current;
+      if (errBox) errBox.style.display = "none";
+      var overlay = document.getElementById("windowsLoginOverlay");
+      if (overlay) {
+        overlay.style.display = "none";
+        overlay.style.setProperty("display", "none", "important");
+      }
+      try {
+        sessionStorage.removeItem("gullak_v22_session");
+        sessionStorage.removeItem("gullak_v21_session");
+      } catch(err) {}
+      if (typeof window.switchTab === "function") {
+        window.switchTab(1);
+      }
+      try {
+        if (typeof window.bootApplication === "function") {
+          window.bootApplication();
+        }
+      } catch(bootErr) {
+        console.error("bootApplication error:", bootErr);
+      }
+      try {
+        if (typeof window.refreshAll === "function") {
+          window.refreshAll();
+        }
+      } catch(err) {
+        console.error("refreshAll error:", err);
+      }
+      return false;
+    } else {
+      var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Please enter the correct password to continue.</small>";
+      if (errBox) {
+        errBox.innerHTML = errMsg;
+        errBox.style.display = "block";
+      }
+      if (pElem) {
+        pElem.style.borderColor = "#EF4444";
+        pElem.value = "";
+        pElem.focus();
+      }
+      return false;
+    }
+  };
+
+  window.handleLoginKeyPress = function(e) {
+  var k = e.key || e.keyCode || e.which;
+  if (k === "Enter" || k === 13 || k === "13") {
     if (e.preventDefault) e.preventDefault();
     if (e.stopPropagation) e.stopPropagation();
     window.executeDirectLogin(e);
@@ -165,14 +199,15 @@ window.handleLoginKeyPress = function(e) {
 };
 
 window.logoutSession = function() {
+  window.currentUserSession = null;
   try {
     sessionStorage.removeItem("gullak_v22_session");
     sessionStorage.removeItem("gullak_v21_session");
+    sessionStorage.removeItem("gullak_v21_active_user");
   } catch(e) {}
   var overlay = document.getElementById("windowsLoginOverlay");
   if (overlay) {
     overlay.style.display = "flex";
-    overlay.style.removeProperty("display");
   }
   var pInput = document.getElementById("inpWinPassword");
   if (pInput) { pInput.value = ""; pInput.focus(); }
@@ -189,26 +224,82 @@ window.handleForgotCredentials = function(e) {
 };
 
 (function(){
-  var DEF_M=[
-    {id:"MEM010120261",name:"Rahul Kumar",mobile:"9810011111",status:"ACTIVE",address:"H-12, Sector 3, Rohini",nominee:"Sunita Kumar",rd:400,dateJoined:"2026-01-01",rdPaid:4800,dueDay:"15th of every month",customLimit:0,opLoan:0,opInt:0,opPen:0},
-    {id:"MEM010120262",name:"Suresh Sharma",mobile:"9810022222",status:"ACTIVE",address:"Shop 4, Market",nominee:"Vikas",rd:400,dateJoined:"2026-01-01",rdPaid:4400,dueDay:"15th of every month",customLimit:0,opLoan:0,opInt:0,opPen:0},
-    {id:"MEM010120263",name:"Amit Verma",mobile:"9810033333",status:"ACTIVE",address:"B-45, Shastri Nagar",nominee:"Pooja",rd:400,dateJoined:"2026-01-01",rdPaid:4400,dueDay:"15th of every month",customLimit:0,opLoan:0,opInt:0,opPen:0},
-    {id:"MEM010120264",name:"SANISH",mobile:"9718174244",status:"ACTIVE",address:"ASD",nominee:"DFFF",rd:400,dateJoined:"2026-01-01",rdPaid:1000,dueDay:"15th of every month",customLimit:0,opLoan:0,opInt:0,opPen:0}
-  ];
+  var DEF_M = [{"id": "MEM010120261", "name": "Afsana Sister Pappu Ji 012025", "mobile": "9773841314", "status": "ACTIVE", "address": "Mohan Garden", "nominee": "Pappu Ji", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM010120262", "name": "Ajay Kumar Garg Ref Suresh Lala Ji 012025", "mobile": "9873898898", "status": "ACTIVE", "address": "Kakrola", "nominee": "Suresh Lala Ji", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM010120263", "name": "Amit S/O Sunil (Omwati Aunti Ji ) 102022", "mobile": "8287127921", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Omwati Aunti", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 15200, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 18000, "opInt": 0, "opPen": 0}, {"id": "MEM010120264", "name": "Arvind Kumar 022022X2", "mobile": "9350743408", "status": "ACTIVE", "address": "Ghaziabad", "nominee": "Rekha Kumari", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 18800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 7500, "opInt": 0, "opPen": 0}, {"id": "MEM010120265", "name": "ASHA DEVI REF SUSHIL SO SHILA JI 012025", "mobile": "9311043442", "status": "ACTIVE", "address": "Vikas Vihar", "nominee": "Sushil", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM010120266", "name": "Ashish Aswal Ashu Vikas Vihar 022022", "mobile": "9899801307", "status": "ACTIVE", "address": "C-141 Vikas Vihar Kakrola", "nominee": "Sarita Aswal", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 14000, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 9000, "opInt": 0, "opPen": 0}, {"id": "MEM010120267", "name": "Chanchal D/O Anil Padosi 022022", "mobile": "9910216942", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Anil Padosi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16600, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 16000, "opInt": 0, "opPen": 0}, {"id": "MEM010120268", "name": "Chanda Devi Ref Shila Devi 022024", "mobile": "8447218816", "status": "ACTIVE", "address": "Kakrola", "nominee": "Shila Devi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 9200, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM010120269", "name": "Deep Lal - Reena Devi 022023", "mobile": "9871869719", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Reena Devi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 14000, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 4000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202610", "name": "Deep Lal Electrician 022022", "mobile": "9871869719", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Deep Lal", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16600, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 3000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202611", "name": "DEVENDER SINGH REF RAVI 202501", "mobile": "9456304719", "status": "ACTIVE", "address": "Kakrola", "nominee": "Ravi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202612", "name": "Geeta Devi Wo Narender 012025", "mobile": "7042511156", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Narender", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202613", "name": "Hari Ram Ji Vikas Vihar 032022", "mobile": "9650013268", "status": "ACTIVE", "address": "Kakrola", "nominee": "Hari Ram", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16400, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202614", "name": "Hirender Kumar - 2 - Neetu 012023", "mobile": "9599356910", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Neetu", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 15360, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 5050, "opInt": 0, "opPen": 0}, {"id": "MEM0101202615", "name": "Hirender Kumar -1- 022022", "mobile": "9599356910", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Hirender", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 17802, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 3030, "opInt": 0, "opPen": 0}, {"id": "MEM0101202616", "name": "Jagdish Mehto X2  022022", "mobile": "7042511481", "status": "ACTIVE", "address": "Jj Colony Bharat Vihar", "nominee": "Jagdish", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 18400, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202617", "name": "Jagriti Sharma W/O Jugal Kishor 012023", "mobile": "9953111505", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Jugal Kishor", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 14400, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 15000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202618", "name": "JAHANVI SHARMA DO JAGRITI JI 012025", "mobile": "9953111505", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Jagriti Sharma", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202619", "name": "Jot Singh Ref Ravi 012025", "mobile": "8178738999", "status": "ACTIVE", "address": "Kakrola", "nominee": "Ravi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202620", "name": "Jugal Kishor Ji X2 072022", "mobile": "9310732656", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Jagriti Sharma", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202621", "name": "JYOTI JOSHI JI REF JAGRITI JI 012025", "mobile": "9716124006", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Jagriti Ji", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202622", "name": "Kazim So Mumina Khatoon Ref Pappu 012025", "mobile": "8287493771", "status": "ACTIVE", "address": "Kakrola", "nominee": "Mumina Khatoon", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202623", "name": "KEERTHI R S DO SOMYA MADAM 202501", "mobile": "7827596703", "status": "ACTIVE", "address": "Kakrola", "nominee": "Somya Madam", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202624", "name": "KIRAN DEVI WO SUSHIL KUMAR 202501", "mobile": "7042480937", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Sushil Kumar", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202625", "name": "Kuwar Pal -1 X2 082022", "mobile": "9871130935", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Kuwar Pal", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16400, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202626", "name": "Kuwar Pal-2 X2 082022", "mobile": "9871130935", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Kuwar Pal", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16400, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202627", "name": "Mukesh Sharma Ji X2 022022", "mobile": "8285405743", "status": "ACTIVE", "address": "Vikas Vihar", "nominee": "Mukesh", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 18799.59, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 5623, "opInt": 0, "opPen": 0}, {"id": "MEM0101202628", "name": "NANDINI JI 202501", "mobile": "8383071508", "status": "ACTIVE", "address": "SULAHKUL VIHAR", "nominee": "Nandini", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202629", "name": "Narayan Yadav X2 032022", "mobile": "9599959948", "status": "ACTIVE", "address": "Vikas Vihar", "nominee": "Narayan", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 18399.68, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202630", "name": "Narender Babblu Bo Ravi 012025", "mobile": "9354214597", "status": "ACTIVE", "address": "Kakrola", "nominee": "Ravi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202631", "name": "Narender Kumar S/O Shila Devi 012023", "mobile": "7042511156", "status": "ACTIVE", "address": "S/O Shila Devi Vikas Vihar Kakrola", "nominee": "Shila Devi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 14399.88, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 2000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202632", "name": "Neeraj Renew So Raghuveer Ji 012025", "mobile": "9891811697", "status": "ACTIVE", "address": "Kakrola", "nominee": "Raghuveer Ji", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202633", "name": "Omwati Aunti M/O Anil Kumar 022022", "mobile": "9971157481", "status": "ACTIVE", "address": "C-143 Vikas Vihar Kakrola", "nominee": "Anil Kumar", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 17800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202634", "name": "Pappu Carpainter - 1 - 022022", "mobile": "9911563986", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Pappu", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16600, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 13000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202635", "name": "Pappu Carpainter - 2 - Nargis 102022", "mobile": "9911563986", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Nargis", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 15600, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 21000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202636", "name": "Pawan Kumar X2 072022", "mobile": "8368934198", "status": "ACTIVE", "address": "S/O Rakesh Kumar Vikas Vihar", "nominee": "Rakesh Kumar", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16799.76, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 19230, "opInt": 0, "opPen": 0}, {"id": "MEM0101202637", "name": "Peter Masih 042022", "mobile": "99990023275", "status": "ACTIVE", "address": "Mohan Garden", "nominee": "Peter", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202638", "name": "Raj Kumar (Colony) Kakrola 062022", "mobile": "8750830986", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Raj Kumar", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 15800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 22136, "opInt": 0, "opPen": 0}, {"id": "MEM0101202639", "name": "Raja Ram Ji Ref Deepak 062022", "mobile": "9810812331", "status": "ACTIVE", "address": "Narela", "nominee": "Deepak", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202640", "name": "Ram Bharose Ji Goyla Dairy 022022", "mobile": "9717961768", "status": "ACTIVE", "address": "Goyla Dairy 9717961768 , 0838392003", "nominee": "Ram Bharose", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16200, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202641", "name": "Ravi Garwali 022022", "mobile": "7042085508", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Ravi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16600, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 17000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202642", "name": "Sanjay Kumar -1- Ref DeeplaI 022022", "mobile": "9650862110", "status": "ACTIVE", "address": "Bharat Vihar Kakrola", "nominee": "Deep Lal", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 18800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202643", "name": "Sanjay Kumar -2-  Sandeep Kr Ref DeeplaI 022023", "mobile": "9650862110", "status": "ACTIVE", "address": "Bharat Vihar Kakrola", "nominee": "Sandeep Kumar", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 14400, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202645", "name": "Sanjay Yadav -1 X2 022022", "mobile": "7827004101", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Sanjay Yadav", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 18800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 23000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202646", "name": "Sanjay Yadav -2- Shubhankar 072023", "mobile": "7827004101", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Shubhankar", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 5000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202647", "name": "Santosh Mehto X2 022022", "mobile": "9968062512", "status": "ACTIVE", "address": "Bharat Vihar Kakrola", "nominee": "Santosh", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 18800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 17000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202648", "name": "Santosh Mistri Ref DeeplaI 012025", "mobile": "9891703298", "status": "ACTIVE", "address": "Kakrola", "nominee": "Deep Lal", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202649", "name": "Sarika 022022", "mobile": "9718174244", "status": "ACTIVE", "address": "Kakrola", "nominee": "Sarika", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 15583.59, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 12000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202650", "name": "Sarita Aswal Wo Ashish 012025", "mobile": "9899801307", "status": "ACTIVE", "address": "Kakrola", "nominee": "Ashish Aswal", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 25000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202651", "name": "Shila Devi Ref Omwati Aunti X2 092022", "mobile": "9643588165", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Omwati Aunti", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 16000, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 11000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202652", "name": "Somya Madam Ref Jagriti Sharma 012023", "mobile": "7827596703", "status": "ACTIVE", "address": "Kakrola", "nominee": "Jagriti Sharma", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 14400, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 16000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202653", "name": "Sushil Ji So Sheela Devi 012025", "mobile": "7042480937", "status": "ACTIVE", "address": "Vikas Vihar", "nominee": "Sheela Devi", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202654", "name": "URUZ KHATMA DO MUMINA REF PAPPU 012025", "mobile": "8287493771", "status": "ACTIVE", "address": "Kakrola", "nominee": "Mumina Khatoon", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 4800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202655", "name": "Viney Electrician Ref Deep Lal 052023", "mobile": "7065708037", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Deep Lal", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 12800, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 18000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202656", "name": "Vishnu Aggarwal -1 102022", "mobile": "9773557036", "status": "ACTIVE", "address": "Kakrola", "nominee": "Vishnu", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 15600, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 10000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202657", "name": "Vishnu Aggarwal -2 102022", "mobile": "9773557036", "status": "ACTIVE", "address": "Kakrola", "nominee": "Vishnu", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 15600, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 10000, "opInt": 0, "opPen": 0}, {"id": "MEM0101202658", "name": "Parvesh Ansari Ref DeeplaI 010126", "mobile": "9315426875", "status": "ACTIVE", "address": "Kakrola", "nominee": "Deep Lal", "rd": 400, "dateJoined": "2026-01-12", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202659", "name": "Hazrat Ref Parvesh Ansari 010126", "mobile": "9718172262", "status": "ACTIVE", "address": "Dda Flat Janak Puri", "nominee": "Parvesh Ansari", "rd": 400, "dateJoined": "2026-01-12", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202660", "name": "Mintu Devi Ref Chanda Devi 012026", "mobile": "7033953938", "status": "ACTIVE", "address": "Vikas Vihar", "nominee": "Chanda Devi", "rd": 400, "dateJoined": "2026-01-15", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202661", "name": "Mariam R/O Rupam & Shila Devi", "mobile": "8826567542", "status": "ACTIVE", "address": "Bharat Vihar Kakrola", "nominee": "Shila Devi", "rd": 400, "dateJoined": "2026-01-19", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202662", "name": "Rupam Ref Shila Devi 012026", "mobile": "8130546714", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Shila Devi", "rd": 400, "dateJoined": "2026-01-19", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202663", "name": "Surender Rawat 012026", "mobile": "9266782629", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Sumitra Rawat", "rd": 400, "dateJoined": "2026-01-19", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202664", "name": "Sumitra Rawat Wo Surender 012026", "mobile": "9266782629", "status": "ACTIVE", "address": "Vikas Vihar Kakrola", "nominee": "Surender Rawat", "rd": 400, "dateJoined": "2026-01-19", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202665", "name": "Priya Sood Ref Raj Kumar 012026", "mobile": "8750830986", "status": "ACTIVE", "address": "House Number B-115 Surya Vihar Binda", "nominee": "Raj Kumar", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202666", "name": "Raj Kumari Ref Raj Kumar 012026", "mobile": "8750830986", "status": "ACTIVE", "address": "B-75 Bharat Vihar Kakrola 9810424981", "nominee": "Raj Kumar", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202667", "name": "Arvind Kumar Rekha Kumari 012026", "mobile": "9350743408", "status": "ACTIVE", "address": "Gazhiabad", "nominee": "Arvind Kumar", "rd": 400, "dateJoined": "2026-01-31", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}, {"id": "MEM0101202668", "name": "Rakhi Madam Ref Shila Ji 012026", "mobile": "9311633238", "status": "ACTIVE", "address": "Delhi", "nominee": "Shila Ji", "rd": 400, "dateJoined": "2026-01-01", "rdPaid": 0, "dueDay": "15th of every month", "customLimit": 0, "opLoan": 0, "opInt": 0, "opPen": 0}];
   var DEF_P=[];
   var DEF_L=[];
 
-  var members=JSON.parse(JSON.stringify(DEF_M)), payments=JSON.parse(JSON.stringify(DEF_P)), loans=JSON.parse(JSON.stringify(DEF_L)), exitSettlements=[], bonusSettlements=[];
+  var members = [];
+  var payments = [];
+  var loans = [];
+  var exitSettlements = [];
+  var bonusSettlements = [];
   var fundTransactions = [];
-  try {
-    var savedFund = localStorage.getItem("gullak_v21_fund");
-    if(savedFund) fundTransactions = JSON.parse(savedFund);
-  } catch(e) {}
+
+  var initLoaded = false;
+  if (typeof window !== "undefined" && window.initialSocietyData && window.initialSocietyData.members && window.initialSocietyData.members.length > 0) {
+    members = window.initialSocietyData.members;
+    payments = window.initialSocietyData.payments || [];
+    loans = window.initialSocietyData.loans || [];
+    exitSettlements = window.initialSocietyData.exitSettlements || [];
+    bonusSettlements = window.initialSocietyData.bonusSettlements || [];
+    fundTransactions = window.initialSocietyData.fundTransactions || [];
+    initLoaded = true;
+  }
+
+    // Auto-upgrade stale dummy member lists if fewer than 10 members or containing dummy names
+  if (members && Array.isArray(members) && (members.length < 10 || (members[0] && members[0].name === "Rahul Kumar"))) {
+    console.log("Upgrading stale members array to full 67 real members...");
+    members = DEF_M;
+    try {
+      localStorage.setItem("gullak_v21_m", JSON.stringify(members));
+    } catch(e) {}
+  }
+  if (!initLoaded) {
+    try {
+      var sM = localStorage.getItem("gullak_v21_m");
+      if (sM) members = JSON.parse(sM);
+      var sP = localStorage.getItem("gullak_v21_p");
+      if (sP) payments = JSON.parse(sP);
+      var sL = localStorage.getItem("gullak_v21_l");
+      if (sL) loans = JSON.parse(sL);
+      var sEx = localStorage.getItem("gullak_v21_ex");
+      if (sEx) exitSettlements = JSON.parse(sEx);
+      var sB = localStorage.getItem("gullak_v21_b");
+      if (sB) bonusSettlements = JSON.parse(sB);
+      var sF = localStorage.getItem("gullak_v21_fund");
+      if (sF) fundTransactions = JSON.parse(sF);
+    } catch(e) {}
+  }
+
+  if (!members || members.length === 0) {
+    members = JSON.parse(JSON.stringify(DEF_M));
+  }
+  (members || []).forEach(function(m){
+    var rawSt = String(m.status || "ACTIVE").trim().toUpperCase();
+    m.status = (rawSt === "INACTIVE" || rawSt === "IN-ACTIVE" || rawSt === "DEACTIVE" || rawSt === "DEACTIVATED") ? "INACTIVE" : "ACTIVE";
+  });
+  if (!payments) payments = [];
+  if (!loans) loans = [];
+  if (!exitSettlements) exitSettlements = [];
+  if (!bonusSettlements) bonusSettlements = [];
+  if (!fundTransactions) fundTransactions = [];
+
   window.fundTransactions = fundTransactions;
+  window.members = members;
+  window.payments = payments;
+  window.loans = loans;
+  window.exitSettlements = exitSettlements;
+  window.bonusSettlements = bonusSettlements;
   var globalDefaultRate = 1.0;
   var globalDefaultDue = "15th of every month";
   var pendingBulkData = null;
   var currentActiveLedgerMember = null;
+
+  window.globalSettings = { penaltyStartDate: "2026-10-01", skipPenalty: true };
+  try {
+    var savedStg = localStorage.getItem("gullak_v21_settings");
+    if(savedStg) window.globalSettings = JSON.parse(savedStg);
+  } catch(e) {}
 
   function parseDateParts(d){
     if (!d) return { yr: 2026, mo: 1, day: 1 };
@@ -225,6 +316,14 @@ window.handleForgotCredentials = function(e) {
     if (mDmy) {
       return { yr: parseInt(mDmy[3], 10), mo: parseInt(mDmy[2], 10), day: parseInt(mDmy[1], 10) };
     }
+    // Handle month names like 01-Aug-2026 or 1 Aug 2026
+    var mAlpha = s.match(/^(\d{1,2})[-\/\s]([A-Za-z]{3,9})[-\/\s](\d{4})$/);
+    if (mAlpha) {
+      var monthMap = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+      var mShort = mAlpha[2].substring(0, 3).toLowerCase();
+      var moNum = monthMap[mShort] || 1;
+      return { yr: parseInt(mAlpha[3], 10), mo: moNum, day: parseInt(mAlpha[1], 10) };
+    }
     var dt = new Date(s);
     if (!isNaN(dt.getTime()) && dt.getFullYear() >= 2020 && dt.getFullYear() <= 2100) {
       return { yr: dt.getFullYear(), mo: dt.getMonth() + 1, day: dt.getDate() };
@@ -232,6 +331,27 @@ window.handleForgotCredentials = function(e) {
     return { yr: 2026, mo: 1, day: 1 };
   }
   window.parseDateParts = parseDateParts;
+
+  function toIsoDateStr(d){
+    if(!d) return "2026-01-01";
+    var dp = parseDateParts(d);
+    if(!dp || !dp.yr || !dp.mo || !dp.day) return "2026-01-01";
+    var y = dp.yr < 2020 || dp.yr > 2100 ? 2026 : dp.yr;
+    var m = String(dp.mo).padStart(2, "0");
+    var day = String(dp.day).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+  window.toIsoDateStr = toIsoDateStr;
+
+  function getYearMonthKey(d){
+    if(!d) return "2026-01";
+    var dp = parseDateParts(d);
+    if(!dp || !dp.yr || !dp.mo) return "2026-01";
+    var y = dp.yr < 2020 || dp.yr > 2100 ? 2026 : dp.yr;
+    var m = String(dp.mo).padStart(2, "0");
+    return y + "-" + m;
+  }
+  window.getYearMonthKey = getYearMonthKey;
 
   function cleanNum(val, def){ 
     if(val === null || val === undefined) return (def || 0);
@@ -252,12 +372,16 @@ window.handleForgotCredentials = function(e) {
     return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); 
   }
 
-  function toDisplayDate(ymd){
-    if(!ymd) return "01-01-2026";
-    var p = String(ymd).split("T")[0].split(" ")[0].split("-");
-    if(p.length === 3) return p[2] + "-" + p[1] + "-" + p[0];
-    return ymd;
+  function toDisplayDate(d){
+    if(!d) return "01/01/2026";
+    var dp = parseDateParts(d);
+    if(!dp || !dp.yr || !dp.mo || !dp.day) return "01/01/2026";
+    var day = String(dp.day).padStart(2, "0");
+    var m = String(dp.mo).padStart(2, "0");
+    var y = dp.yr < 2020 || dp.yr > 2100 ? 2026 : dp.yr;
+    return day + "/" + m + "/" + y;
   }
+  window.toDisplayDate = toDisplayDate;
 
   // Exact ID Suffixes
   function getDDMMYYFromYMD(ymd){
@@ -272,19 +396,24 @@ window.handleForgotCredentials = function(e) {
     return "01012026";
   }
 
-  function saveStore(){ 
-    try{ 
-      localStorage.setItem("gullak_v21_m", JSON.stringify(members)); 
-      localStorage.setItem("gullak_v21_p", JSON.stringify(payments)); 
-      localStorage.setItem("gullak_v21_l", JSON.stringify(loans)); 
-      localStorage.setItem("gullak_v21_ex", JSON.stringify(exitSettlements)); 
-      localStorage.setItem("gullak_v21_b", JSON.stringify(bonusSettlements)); 
+  function saveStore(){
+    try {
+      window.members = members;
+      window.payments = payments;
+      window.loans = loans;
+      window.exitSettlements = exitSettlements;
+      window.bonusSettlements = bonusSettlements;
+      window.fundTransactions = fundTransactions;
+      localStorage.setItem("gullak_v21_m", JSON.stringify(members));
+      localStorage.setItem("gullak_v21_p", JSON.stringify(payments));
+      localStorage.setItem("gullak_v21_l", JSON.stringify(loans));
+      localStorage.setItem("gullak_v21_ex", JSON.stringify(exitSettlements));
+      localStorage.setItem("gullak_v21_b", JSON.stringify(bonusSettlements));
       localStorage.setItem("gullak_v21_fund", JSON.stringify(fundTransactions));
-    }catch(e){} 
-    refreshAll(); 
+      localStorage.setItem("gullak_v21_settings", JSON.stringify(window.globalSettings || { penaltyStartDate: "2026-10-01", skipPenalty: true }));
+    } catch(e) {}
   }
-
-  function getMemberTotalRd(m){ 
+function getMemberTotalRd(m){ 
     var mid = String(m.id).trim().toUpperCase(); 
     var mName = String(m.name).trim().toLowerCase();
     var pSum = 0; 
@@ -373,22 +502,29 @@ window.handleForgotCredentials = function(e) {
 
   // EXACT PENALTY CALCULATION (SANISH, AMIT VERMA & ALL MEMBERS: ₹10/DAY OVERDUE FROM 15TH)
   function calculateMemberLivePenaltyDue(m){
-    // GLOBAL PENALTY SKIP & START DATE CONTROL (V36)
-    var isSkipChecked = document.getElementById("chkSkipPenalty") ? document.getElementById("chkSkipPenalty").checked : true;
+    var isSkipChecked = true;
     if(window.globalSettings && typeof window.globalSettings.skipPenalty === "boolean"){
       isSkipChecked = window.globalSettings.skipPenalty;
+    } else {
+      var chkEl = document.getElementById("chkSkipPenalty");
+      if(chkEl) isSkipChecked = chkEl.checked;
     }
     if(isSkipChecked) return 0;
 
-    var penStartStr = document.getElementById("inpPenaltyStartDate") ? document.getElementById("inpPenaltyStartDate").value : "2026-10-01";
+    var penStartStr = "2026-10-01";
     if(window.globalSettings && window.globalSettings.penaltyStartDate){
       penStartStr = window.globalSettings.penaltyStartDate;
+    } else {
+      var psEl = document.getElementById("inpPenaltyStartDate");
+      if(psEl && psEl.value) penStartStr = psEl.value;
     }
-    var todayYMD = getTodayYMD();
-    if(todayYMD < penStartStr) return 0;
 
-    var mid = String(m.id).trim().toUpperCase();
-    var mName = String(m.name).trim().toLowerCase();
+    var isoPenStart = toIsoDateStr(penStartStr);
+    var todayYMD = getTodayYMD();
+    if(todayYMD < isoPenStart) return 0;
+
+    var mid = String(m.id || "").trim().toUpperCase();
+    var mName = String(m.name || "").trim().toLowerCase();
     var today = new Date();
     var curYr = today.getFullYear();
     var curMo = today.getMonth() + 1;
@@ -404,15 +540,17 @@ window.handleForgotCredentials = function(e) {
     var jdp = parseDateParts(m.dateJoined || "2026-01-01");
     var jYr = jdp.yr;
     var jMo = jdp.mo;
-    if(jYr < 2024 || jYr > 2100) jYr = 2026;
+    if(jYr < 2024 || jYr > 2035) jYr = 2026;
     if(jMo < 1 || jMo > 12) jMo = 1;
 
-    // Total RD paid includes opening RD balance (rdPaid) plus all subsequent payments
     var totalRdPaid = cleanNum(m.rdPaid, 0);
     var totalPenPaid = 0;
     var totalWaiver = 0;
+
     payments.forEach(function(p){
-      if(String(p.id).trim().toUpperCase() === mid || String(p.name).trim().toLowerCase() === mName){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase();
+      var pMName = String(p.name || "").trim().toLowerCase();
+      if((pMid && pMid === mid) || (pMName && pMName === mName)){
         totalRdPaid += cleanNum(p.rd, 0);
         totalPenPaid += cleanNum(p.penalty, 0);
         totalWaiver += cleanNum(p.waiver, 0);
@@ -421,29 +559,36 @@ window.handleForgotCredentials = function(e) {
 
     var monthlyRd = cleanRd(m.rd);
     var monthsCovered = Math.floor(totalRdPaid / monthlyRd);
-
     var totalAccruedPen = cleanNum(m.opPen, 0);
+
+    var pStartParts = parseDateParts(penStartStr);
+    var pStartYr = pStartParts.yr || 2026;
+    var pStartMo = pStartParts.mo || 10;
+    var penaltyStartSerial = pStartYr * 12 + pStartMo;
 
     var startSerial = jYr * 12 + jMo;
     var currentSerial = curYr * 12 + curMo;
     var monthIdx = 0;
 
     for(var s = startSerial; s <= currentSerial; s++){
-      var yr = Math.floor((s - 1) / 12);
-      var mo = ((s - 1) % 12) + 1;
-      var isCurMonth = (yr === curYr && mo === curMo);
-
-      if(monthIdx >= monthsCovered){
-        if(isCurMonth){
-          if(curDay > dueDayNum){
-            totalAccruedPen += ((curDay - dueDayNum) * 10);
-          }
-        } else {
-          var dueDt = new Date(yr, mo - 1, dueDayNum);
-          var diffMs = today.getTime() - dueDt.getTime();
-          var daysLate = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          if(daysLate > 0){
-            totalAccruedPen += (daysLate * 10);
+      if(s >= penaltyStartSerial){
+        var yr = Math.floor((s - 1) / 12);
+        var mo = ((s - 1) % 12) + 1;
+        var isCurMonth = (yr === curYr && mo === curMo);
+        if(monthIdx >= monthsCovered){
+          if(isCurMonth){
+            if(curDay > dueDayNum){
+              totalAccruedPen += ((curDay - dueDayNum) * 10);
+            }
+          } else {
+            var dueDt = new Date(yr, mo - 1, dueDayNum);
+            var refDt = new Date(pStartYr, pStartMo - 1, 1);
+            var calcFromDt = dueDt > refDt ? dueDt : refDt;
+            var diffMs = today.getTime() - calcFromDt.getTime();
+            var daysLate = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            if(daysLate > 0){
+              totalAccruedPen += (daysLate * 10);
+            }
           }
         }
       }
@@ -454,7 +599,6 @@ window.handleForgotCredentials = function(e) {
     return Math.max(0, netPenDue);
   }
 
-  // EXACT BONUS CALCULATION: 1% P.M. UP TO LAST COMPLETED MONTH
   function calculate1PercentPmBonus(m, filterFromYmd, filterToYmd){
     var mid = String(m.id).trim().toUpperCase();
     var mName = String(m.name).trim().toLowerCase();
@@ -478,7 +622,7 @@ window.handleForgotCredentials = function(e) {
     // 2. Map monthly deposits for selYrNum
     var monthlyDepositMap = [0,0,0,0,0,0,0,0,0,0,0,0];
     payments.forEach(function(p){
-      if((String(p.id).trim().toUpperCase() === mid || String(p.name).trim().toLowerCase() === mName) && cleanNum(p.rd, 0) > 0){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase(); var pMName = String(p.name || "").trim().toLowerCase(); if(((pMid && pMid === mid) || (pMName && pMName === mName)) && cleanNum(p.rd, 0) > 0){
         var dp = parseDateParts(p.date);
         if(dp.yr < selYrNum){
           priorYearsRd += cleanNum(p.rd, 0);
@@ -629,32 +773,66 @@ window.handleForgotCredentials = function(e) {
     }
   }
 
-  function updateKPIs(){
-    var activeMems = members.filter(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
-    document.getElementById("dispTotalMem").innerText = activeMems.length + " / " + members.length;
-    var totalRdRecv = 0; members.forEach(function(m){ totalRdRecv += getMemberTotalRd(m); });
-    document.getElementById("dispTotalRd").innerText = "₹" + totalRdRecv.toLocaleString("en-IN");
-    var totalLoan = 0; loans.forEach(function(l){ if(String(l.status).toUpperCase() === "ACTIVE") totalLoan += cleanNum(l.outstanding, 0); });
-    document.getElementById("dispTotalLoan").innerText = "₹" + totalLoan.toLocaleString("en-IN");
-    var estB = 0; members.forEach(function(m){ estB += getMemberBonus(m); });
-    document.getElementById("dispTotalBonus").innerText = "₹" + estB.toLocaleString("en-IN");
-    
-    // Calculate liquid fund factoring in Invest Inflows & Borrow Outflows
-    var fundInflow = 0;
-    var fundOutflow = 0;
-    fundTransactions.forEach(function(f){
-      var amt = cleanNum(f.amount, 0);
-      if(String(f.type).toUpperCase() === "INVEST") fundInflow += amt;
-      else if(String(f.type).toUpperCase() === "BORROW") fundOutflow += amt;
+  function calculateSocietyLiquidBalances(){
+    var cIn = 0, cOut = 0, bIn = 0, bOut = 0;
+    // 1. Opening RD from members (considered cash balance unless specified)
+    members.forEach(function(m){
+      cIn += cleanNum(m.rdPaid || m.opRd, 0);
     });
-    var fund = totalRdRecv - totalLoan + 45000 + fundInflow - fundOutflow;
-    var elFund = document.getElementById("dispTotalFund");
-    elFund.innerText = (fund >= 0 ? "+₹" : "-₹") + Math.abs(fund).toLocaleString("en-IN");
-    elFund.className = fund >= 0 ? "kpi-val val-green" : "kpi-val val-red";
-    var totalNpa = 0; exitSettlements.forEach(function(e){ totalNpa += cleanNum(e.npaLoss, 0); });
-    document.getElementById("dispTotalNpa").innerText = "₹" + totalNpa.toLocaleString("en-IN");
+    // 2. Receipts / Collections
+    payments.forEach(function(p){
+      var safeMode = String(p.mode||'CASH').toUpperCase().indexOf('ONLINE') >= 0 ? 'BANK' : 'CASH';
+      var amt = cleanNum(p.total, 0);
+      if(safeMode === 'BANK') bIn += amt; else cIn += amt;
+    });
+    // 3. Fund Register (Invest/Borrow)
+    fundTransactions.forEach(function(f){
+      var acc = String(f.account || 'BANK').toUpperCase() === 'CASH' ? 'CASH' : 'BANK';
+      var type = String(f.type || 'INVEST').toUpperCase();
+      var amt = cleanNum(f.amount, 0);
+      if(type === 'INVEST' || type === 'INFLOW'){
+        if(acc === 'CASH') cIn += amt; else bIn += amt;
+      } else {
+        if(acc === 'CASH') cOut += amt; else bOut += amt;
+      }
+    });
+    // 4. Loans Disbursed (Outflow)
+    loans.forEach(function(l){
+      var safeMode = String(l.mode || 'CASH').toUpperCase().indexOf('ONLINE') >= 0 ? 'BANK' : 'CASH';
+      var amt = cleanNum(l.principal, 0);
+      if(safeMode === 'BANK') bOut += amt; else cOut += amt;
+    });
+    // 5. Member Exit Payouts (Outflow)
+    exitSettlements.forEach(function(x){
+      var amt = cleanNum(x.payout, 0);
+      cOut += amt;
+    });
+    var netCash = cIn - cOut;
+    var netBank = bIn - bOut;
+    var netTotal = netCash + netBank;
+    return { cash: netCash, bank: netBank, total: netTotal, cIn: cIn, cOut: cOut, bIn: bIn, bOut: bOut };
   }
+  window.calculateSocietyLiquidBalances = calculateSocietyLiquidBalances;
 
+  function updateKPIs(){
+    var activeMems = members.filter(function(m){ return String(m.status).toUpperCase() === 'ACTIVE'; });
+    document.getElementById('dispTotalMem').innerText = activeMems.length + ' / ' + members.length;
+    var totalRdRecv = 0; members.forEach(function(m){ totalRdRecv += getMemberTotalRd(m); });
+    document.getElementById('dispTotalRd').innerText = '₹' + totalRdRecv.toLocaleString('en-IN');
+    var totalLoan = 0; loans.forEach(function(l){ if(String(l.status).toUpperCase() === 'ACTIVE') totalLoan += cleanNum(l.outstanding, 0); });
+    document.getElementById('dispTotalLoan').innerText = '₹' + totalLoan.toLocaleString('en-IN');
+    var estB = 0; members.forEach(function(m){ estB += getMemberBonus(m); });
+    document.getElementById('dispTotalBonus').innerText = '₹' + estB.toLocaleString('en-IN');
+    
+    // Unified Liquid Cash & Bank Register KPI
+    var liquid = calculateSocietyLiquidBalances();
+    var elFund = document.getElementById('dispTotalFund');
+    elFund.innerText = (liquid.total >= 0 ? '+₹' : '-₹') + Math.abs(liquid.total).toLocaleString('en-IN');
+    elFund.className = liquid.total >= 0 ? 'kpi-val val-green' : 'kpi-val val-red';
+    
+    var totalNpa = 0; exitSettlements.forEach(function(e){ totalNpa += cleanNum(e.npaLoss, 0); });
+    document.getElementById('dispTotalNpa').innerText = '₹' + totalNpa.toLocaleString('en-IN');
+  }
   // MASTER LEDGER (TAB 1) WITH LOAN LIMIT SUM & DYNAMIC SUBTOTALS
   function renderMembers(){
     var st = document.getElementById("selFilterStatus").value;

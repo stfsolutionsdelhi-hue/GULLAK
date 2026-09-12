@@ -1,13 +1,30 @@
 /**
- * 🏦 GULLAK CO-OPERATIVE SOCIETY - BACKEND CONTROLLER (V22 PRO MASTER)
+ * 🏦 GULLAK CO-OPERATIVE SOCIETY - BACKEND CONTROLLER (V41 PRO MASTER)
  * Standardized Sheets + Auto-Cleanup + Strict ID Formats + Sheet Protection ('Password') + Users Auth
  */
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu("🏦 Gullak Co-operative")
     .addItem("⚡ 1. Initialize & Organize Sheet Database", "installAndRunDatabase")
-    .addItem("🌐 2. Get Live Web App URL", "showWebPortalUrl")
+    .addItem("🔑 2. Update / Reset Users & Passwords to 12345", "resetUsersCredentialsToDefault")
+    .addItem("🌐 3. Get Live Web App URL", "showWebPortalUrl")
+    .addItem("✉️ 4. Authorize Email Sending Permission", "testEmailPermission")
     .addToUi();
+
+  // Auto-upgrade legacy credentials in Users sheet on open
+  try {
+    upgradeUsersSheetCredentials();
+  } catch(e) {}
+}
+
+function testEmailPermission() {
+  try {
+    var email = Session.getActiveUser().getEmail() || "stfsolutionsdelhi@gmail.com";
+    MailApp.sendEmail(email, "Gullak Society - Email Permission Test", "Email dispatch permissions verified successfully.");
+    SpreadsheetApp.getUi().alert("✅ Email Sending Permission Verified!\n\nEmail dispatch is successfully authorized for your Google Account.");
+  } catch(e) {
+    SpreadsheetApp.getUi().alert("Notice: " + e.toString());
+  }
 }
 
 function showWebPortalUrl() {
@@ -23,11 +40,165 @@ function showWebPortalUrl() {
   }
 }
 
+function getSpreadsheetUrl() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    return ss ? ss.getUrl() : "";
+  } catch(e) {
+    return "";
+  }
+}
+
+function upgradeUsersSheetCredentials() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return;
+    var userSheet = ss.getSheetByName("Users");
+    if (!userSheet) return;
+    if (userSheet.getLastRow() <= 1) {
+      userSheet.appendRow(["SANISH", "12345", "Super Admin", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
+      userSheet.appendRow(["ADMIN", "12345", "Manager", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
+      SpreadsheetApp.flush();
+      return;
+    }
+    var numRows = userSheet.getLastRow() - 1;
+    var data = userSheet.getRange(2, 1, numRows, Math.min(6, userSheet.getLastColumn())).getValues();
+    var changed = false;
+    for (var i = 0; i < data.length; i++) {
+      var u = String(data[i][0] || "").trim().toUpperCase();
+      var p = String(data[i][1] || "").trim();
+      var em = String(data[i][3] || "").trim();
+      var rowNum = i + 2;
+      if (p === "Password" || p === "Admin@123" || p === "") {
+        userSheet.getRange(rowNum, 2).setValue("12345");
+        changed = true;
+      }
+      if ((u === "SANISH" || u === "ADMIN") && (p === "Password" || p === "Admin@123")) {
+        userSheet.getRange(rowNum, 2).setValue("12345");
+        changed = true;
+      }
+      if (!em || em.indexOf("@") === -1) {
+        userSheet.getRange(rowNum, 4).setValue("stfsolutionsdelhi@gmail.com");
+        changed = true;
+      }
+    }
+    if (changed) SpreadsheetApp.flush();
+  } catch(e) {}
+}
+
+function resetUsersCredentialsToDefault() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return;
+    var userSheet = ss.getSheetByName("Users");
+    if (!userSheet) {
+      installAndRunDatabase();
+      return;
+    }
+    userSheet.clearContents();
+    var userH = ["Username", "Password", "Role", "Email", "Status", "CreatedAt"];
+    userSheet.getRange(1, 1, 1, userH.length).setValues([userH]);
+    userSheet.appendRow(["SANISH", "12345", "Super Admin", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
+    userSheet.appendRow(["ADMIN", "12345", "Manager", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
+    SpreadsheetApp.flush();
+    SpreadsheetApp.getUi().alert("✅ Users Tab Updated Successfully!\n\n• Username: SANISH, Password: 12345\n• Username: ADMIN, Password: 12345\n• Registered Email: stfsolutionsdelhi@gmail.com\n\nAap is tab me Column B me password aur Column D me email kabhi bhi change kar sakte hain.");
+  } catch(e) {
+    try { SpreadsheetApp.getUi().alert("Error: " + e.toString()); } catch(err) {}
+  }
+}
+
+function sendCredentialsEmailBackend(targetUsername) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var uSheet = ss ? ss.getSheetByName("Users") : null;
+    var foundUser = null;
+    var defaultEmail = "stfsolutionsdelhi@gmail.com";
+
+    if (uSheet && uSheet.getLastRow() > 1) {
+      var uData = uSheet.getRange(2, 1, uSheet.getLastRow() - 1, Math.min(6, uSheet.getLastColumn())).getValues();
+      var cleanTarget = String(targetUsername || "").trim().toUpperCase();
+      if (cleanTarget) {
+        for (var i = 0; i < uData.length; i++) {
+          if (String(uData[i][0]).trim().toUpperCase() === cleanTarget) {
+            foundUser = {
+              username: String(uData[i][0]).trim(),
+              password: String(uData[i][1]).trim() || "12345",
+              role: String(uData[i][2] || "Manager").trim(),
+              email: String(uData[i][3] || defaultEmail).trim()
+            };
+            break;
+          }
+        }
+      }
+      if (!foundUser && uData.length > 0) {
+        foundUser = {
+          username: String(uData[0][0]).trim(),
+          password: String(uData[0][1]).trim() || "12345",
+          role: String(uData[0][2] || "Super Admin").trim(),
+          email: String(uData[0][3] || defaultEmail).trim()
+        };
+      }
+    }
+
+    if (!foundUser) {
+      foundUser = {
+        username: (String(targetUsername || "").toUpperCase() === "ADMIN" ? "ADMIN" : "SANISH"),
+        password: "12345",
+        role: "Super Admin",
+        email: defaultEmail
+      };
+    }
+
+    var recipientEmail = defaultEmail;
+    if (foundUser.email && foundUser.email.indexOf("@") > 0) {
+      recipientEmail = foundUser.email;
+    }
+
+    var subject = "🔐 Gullak Co-operative Portal - Login Credentials Recovery";
+    var body = "Namaste " + foundUser.username + ",\n\n" +
+      "Aapke anurodh par Gullak Co-operative Society Accounting Portal ke login credentials bheje ja rahe hain:\n\n" +
+      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+      "👤 USERNAME : " + foundUser.username + "\n" +
+      "🔑 PASSWORD : " + foundUser.password + "\n" +
+      "🛡️ ROLE     : " + foundUser.role + "\n" +
+      "📧 EMAIL    : " + recipientEmail + "\n" +
+      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+      "💡 Password ya Email badalne ke liye:\n" +
+      "Apne connected Google Sheet ke 'Users' tab me jaakar Column B (Password) aur Column D (Email) ko update karein.\n\n" +
+      "Date & Time: " + new Date().toLocaleString() + "\n" +
+      "Gullak Co-operative Society Automated Management System";
+
+    try {
+      MailApp.sendEmail(recipientEmail, subject, body);
+    } catch(mailErr) {
+      try {
+        GmailApp.sendEmail(recipientEmail, subject, body);
+      } catch(gmailErr) {
+        return {
+          success: false,
+          error: "Permission Required: Google Apps Script me Mail permission grant karni hogi. Ek baar Google Sheet me '🏦 Gullak Co-operative' menu me jaakar '✉️ 4. Authorize Email Sending Permission' par click karke Google Authorization allow karein. Tab tak aap 'Users' tab se apna password dekh/update kar sakte hain."
+        };
+      }
+    }
+
+    var parts = recipientEmail.split("@");
+    var masked = parts[0].substring(0, Math.min(3, parts[0].length)) + "***@" + parts[1];
+    return {
+      success: true,
+      email: masked,
+      username: foundUser.username,
+      message: "Credentials safaltapoorvak aapke registered email (" + masked + ") par bhej diye gaye hain!"
+    };
+  } catch(err) {
+    return { success: false, error: err.toString() };
+  }
+}
+
 function installAndRunDatabase() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) return;
 
-  // Clean unusable sheets
+  // 1. Clean unusable sheets (Sheet1, Dashboard, Fin)
   var unwanted = ["Sheet1", "Dashboard", "Fin"];
   unwanted.forEach(function(sName) {
     var s = ss.getSheetByName(sName);
@@ -43,7 +214,6 @@ function installAndRunDatabase() {
     userSheet.appendRow(["SANISH", "12345", "Super Admin", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
     userSheet.appendRow(["ADMIN", "12345", "Manager", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
   } else {
-    // If existing rows have legacy passwords like "Password", upgrade them to 12345
     try {
       var existVals = userSheet.getRange(2, 1, userSheet.getLastRow() - 1, 2).getValues();
       for (var uR = 0; uR < existVals.length; uR++) {
@@ -55,11 +225,11 @@ function installAndRunDatabase() {
     } catch(err) {}
   }
 
-  // Exactly 14 Columns Header (Fixed Order)
+  // Exactly 14 Columns Standard Header for Members
   var memH = ["Member ID", "Full Name", "Mobile Number", "Address", "Nominee / Ref", "RD / Month (₹)", "Status", "Date Joined", "Opening RD (₹)", "Due Day", "Custom Loan Limit (₹)", "Opening Loan (₹)", "Opening Int (₹)", "Opening Pen (₹)"];
   var memSheet = getOrCreateSheet(ss, "Members", memH, "#1E293B");
 
-  // Exactly 14 Columns Header
+  // Standard 14 Columns Header for Payments
   var payH = ["Receipt No", "Date", "Member ID", "Name", "RD Amount (₹)", "Interest (₹)", "Penalty (₹)", "Loan Repayment (₹)", "Waiver (₹)", "Total (₹)", "Mode", "Recorded By", "Type", "Narration"];
   var paySheet = getOrCreateSheet(ss, "Payments", payH, "#0F766E");
 
@@ -72,10 +242,27 @@ function installAndRunDatabase() {
   var bonusH = ["Settlement ID", "Date", "Member ID", "Name", "Total Bonus (₹)", "Adj Loan (₹)", "Adj Interest (₹)", "Adj RD (₹)", "Adj Penalty (₹)", "Net Paid (₹)", "Mode"];
   getOrCreateSheet(ss, "BonusSettlements", bonusH, "#D97706");
 
-  // Format and align all sheets (Numbers center, text left)
+  var fundH = ["Txn ID", "Date", "Type", "Account", "Entity", "Amount (₹)", "Narration", "CreatedAt"];
+  var fundSheet = getOrCreateSheet(ss, "FundRegister", fundH, "#4338CA");
+  alignAndFormatSheet(fundSheet, [0, 1, 2, 3, 5]);
+  if (fundSheet.getLastRow() <= 1) {
+    fundSheet.appendRow(["FND-260101-001", "2026-01-01", "INVEST", "BANK", "Initial Society Capital", 45000, "Opening Reserve Fund", new Date()]);
+  }
+
+  // Financials Sheet (Auto-populated Metrics)
+  var finH = ["Metric / Category", "Value (₹)", "Description", "Last Updated"];
+  getOrCreateSheet(ss, "Financials", finH, "#0284C7");
+
+  // Format and align sheets
   alignAndFormatSheet(memSheet, [0, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
   alignAndFormatSheet(paySheet, [0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   alignAndFormatSheet(loanSheet, [0, 1, 2, 5, 6, 7, 8, 9]);
+
+  // Re-check and delete Sheet1 if present
+  var sheet1 = ss.getSheetByName("Sheet1");
+  if (sheet1 && ss.getSheets().length > 1) {
+    try { ss.deleteSheet(sheet1); } catch (e) {}
+  }
 
   try {
     ss.getSheets().forEach(function(s) {
@@ -96,195 +283,379 @@ function installAndRunDatabase() {
     ];
     memSheet.getRange(2, 1, sampleM.length, 14).setValues(sampleM);
   }
+
+  // Refresh Financials Summary
+  syncFinancialsSheetBackend();
   SpreadsheetApp.flush();
 }
 
-function alignAndFormatSheet(sheet, centerCols) {
-  if (!sheet || sheet.getLastRow() === 0) return;
-  var lr = Math.max(sheet.getLastRow(), 2);
-  var lc = sheet.getLastColumn();
-  sheet.getRange(1, 1, lr, lc).setFontFamily("Segoe UI").setFontSize(10).setVerticalAlignment("middle");
-  sheet.getRange(1, 1, lr, lc).setHorizontalAlignment("left");
-  centerCols.forEach(function(cIdx) {
-    if (cIdx + 1 <= lc) {
-      sheet.getRange(2, cIdx + 1, lr - 1, 1).setHorizontalAlignment("center");
-    }
-  });
+function formatPureDate(val, fallback) {
+  if (!val) return fallback || "2026-01-01";
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return fallback || "2026-01-01";
+    var y = val.getFullYear();
+    var m = ("0" + (val.getMonth() + 1)).slice(-2);
+    var d = ("0" + val.getDate()).slice(-2);
+    return y + "-" + m + "-" + d;
+  }
+  var s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var dObj = new Date(s);
+  if (!isNaN(dObj.getTime())) {
+    var y = dObj.getFullYear();
+    var m = ("0" + (dObj.getMonth() + 1)).slice(-2);
+    var d = ("0" + dObj.getDate()).slice(-2);
+    return y + "-" + m + "-" + d;
+  }
+  return fallback || "2026-01-01";
 }
 
-function getOrCreateSheet(ss, name, headers, color) {
-  var s = ss.getSheetByName(name);
-  if (!s) s = ss.insertSheet(name);
-  if (headers) {
-    s.getRange(1, 1, 1, headers.length).setValues([headers]);
-    s.getRange(1, 1, 1, headers.length).setBackground(color).setFontColor("#FFF").setFontWeight("bold").setHorizontalAlignment("center");
-    s.setFrozenRows(1);
+function getOrCreateSheet(ss, sheetName, headers, colorHex) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    if (colorHex) {
+      try { sheet.setTabColor(colorHex); } catch(e) {}
+    }
   }
-  return s;
+  if (headers && headers.length > 0 && sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    var hRange = sheet.getRange(1, 1, 1, headers.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#1E293B");
+    hRange.setFontColor("#FFFFFF");
+    try { sheet.setFrozenRows(1); } catch(e) {}
+  }
+  return sheet;
 }
 
-function formatPureDate(d) {
-  if (!d) return "2026-01-01";
-  if (typeof d === "string") {
-    if (d.indexOf("T") > 0) return d.split("T")[0];
-    if (d.indexOf("GMT") > 0 || d.indexOf(":") > 0) {
-      var p = new Date(d);
-      if (!isNaN(p.getTime())) return p.getFullYear() + "-" + String(p.getMonth() + 1).padStart(2, "0") + "-" + String(p.getDate()).padStart(2, "0");
-    }
-    return d.split(" ")[0];
+function alignAndFormatSheet(sheet, numCols) {
+  if (!sheet || sheet.getLastRow() <= 1) return;
+  try {
+    sheet.autoResizeColumns(1, sheet.getLastColumn());
+  } catch(e) {}
+}
+
+function buildHeaderMap(sheet) {
+  var map = {};
+  if (!sheet || sheet.getLastRow() < 1) return map;
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  for (var i = 0; i < headers.length; i++) {
+    var h = String(headers[i] || "").toLowerCase().trim();
+    if (h) map[h] = i;
   }
-  if (d instanceof Date) return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-  return String(d);
+  return map;
+}
+
+function getValByHeader(row, map, possibleKeys, fallbackIdx, defaultVal) {
+  if (map) {
+    for (var k = 0; k < possibleKeys.length; k++) {
+      var key = possibleKeys[k].toLowerCase();
+      if (map.hasOwnProperty(key)) {
+        var idx = map[key];
+        if (idx < row.length && row[idx] !== "" && row[idx] !== null && row[idx] !== undefined) {
+          return row[idx];
+        }
+      }
+    }
+  }
+  if (fallbackIdx >= 0 && fallbackIdx < row.length && row[fallbackIdx] !== "" && row[fallbackIdx] !== null && row[fallbackIdx] !== undefined) {
+    return row[fallbackIdx];
+  }
+  return defaultVal;
+}
+
+function syncFinancialsSheetBackend() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return;
+    var finH = ["Metric / Category", "Value (₹)", "Description", "Last Updated"];
+    var finSheet = getOrCreateSheet(ss, "Financials", finH, "#0284C7");
+    
+    var data = getSocietyFullDataWithoutFinSync();
+    var members = data.members || [];
+    var payments = data.payments || [];
+    var loans = data.loans || [];
+    var fundTxns = data.fundTransactions || [];
+
+    var activeMemCount = 0;
+    var totalRdTarget = 0;
+    members.forEach(function(m){
+      if (m.status === "ACTIVE") {
+        activeMemCount++;
+        totalRdTarget += Math.round(Number(m.rd)) || 400;
+      }
+    });
+
+    var totalRdCollected = 0;
+    var totalIntCollected = 0;
+    var totalPenCollected = 0;
+    var totalLoanRepaid = 0;
+    payments.forEach(function(p){
+      totalRdCollected += Math.round(Number(p.rd)) || 0;
+      totalIntCollected += Math.round(Number(p.interest)) || 0;
+      totalPenCollected += Math.round(Number(p.penalty)) || 0;
+      totalLoanRepaid += Math.round(Number(p.loanRepay)) || 0;
+    });
+
+    var totalLoanDisbursed = 0;
+    var totalLoanOutstanding = 0;
+    loans.forEach(function(l){
+      totalLoanDisbursed += Math.round(Number(l.principal)) || 0;
+      if (l.status === "ACTIVE") {
+        totalLoanOutstanding += Math.round(Number(l.outstanding)) || 0;
+      }
+    });
+
+    var cashBal = 0;
+    var bankBal = 45000;
+    fundTxns.forEach(function(f){
+      var amt = Math.round(Number(f.amount)) || 0;
+      var isBank = String(f.account).toUpperCase().indexOf("BANK") >= 0;
+      var isIn = String(f.type).toUpperCase() === "INVEST" || String(f.type).toUpperCase() === "INFLOW";
+      if (isIn) {
+        if (isBank) bankBal += amt; else cashBal += amt;
+      } else {
+        if (isBank) bankBal -= amt; else cashBal -= amt;
+      }
+    });
+
+    payments.forEach(function(p){
+      var tot = Math.round(Number(p.total)) || 0;
+      if (p.mode === "ONLINE") bankBal += tot; else cashBal += tot;
+    });
+
+    loans.forEach(function(l){
+      var pr = Math.round(Number(l.principal)) || 0;
+      cashBal -= pr;
+    });
+
+    var totalLiquid = cashBal + bankBal;
+    var nowStr = new Date().toLocaleString("en-IN");
+
+    var metrics = [
+      ["Total Active Members", activeMemCount, "Count of currently active society members", nowStr],
+      ["Monthly RD Commitment (₹)", totalRdTarget, "Total monthly RD target across active members", nowStr],
+      ["Total RD Collection (₹)", totalRdCollected, "Cumulative RD deposits collected from members", nowStr],
+      ["Total Loans Disbursed (₹)", totalLoanDisbursed, "Cumulative principal amount issued as loans", nowStr],
+      ["Total Loans Outstanding (₹)", totalLoanOutstanding, "Remaining principal dues on active loans", nowStr],
+      ["Total Loan Interest Earned (₹)", totalIntCollected, "Cumulative interest collected from loan repayments", nowStr],
+      ["Total Overdue Penalty Earned (₹)", totalPenCollected, "Cumulative penalty charges collected", nowStr],
+      ["Cash in Hand Balance (₹)", cashBal, "Net liquid cash balance in physical safe", nowStr],
+      ["Bank / Online Balance (₹)", bankBal, "Net liquid balance in society bank account", nowStr],
+      ["Net Liquid Funds Available (₹)", totalLiquid, "Total Cash + Bank liquid reserves", nowStr],
+      ["Society Net Asset Surplus (₹)", totalRdCollected + totalIntCollected + totalPenCollected - totalLoanOutstanding, "Total RD & income less outstanding loans", nowStr]
+    ];
+
+    finSheet.getRange(2, 1, finSheet.getLastRow() > 1 ? finSheet.getLastRow() - 1 : 1, 4).clearContents();
+    finSheet.getRange(2, 1, metrics.length, 4).setValues(metrics);
+    alignAndFormatSheet(finSheet, [1, 3]);
+    SpreadsheetApp.flush();
+  } catch(err) {}
+}
+
+function getSocietyFullDataWithoutFinSync() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) return getDefaultDataFallback();
+
+  var memSheet = ss.getSheetByName("Members");
+  var members = [];
+  if (memSheet && memSheet.getLastRow() > 1) {
+    var mMap = buildHeaderMap(memSheet);
+    var mData = memSheet.getRange(2, 1, memSheet.getLastRow() - 1, memSheet.getLastColumn()).getValues();
+    mData.forEach(function(r) {
+      var idVal = String(getValByHeader(r, mMap, ["member id", "id"], 0, ""));
+      var nameVal = String(getValByHeader(r, mMap, ["full name", "name"], 1, ""));
+      if (idVal || nameVal) {
+        var safeRd = Math.round(Number(getValByHeader(r, mMap, ["rd / month (₹)", "rd / month", "rd amount", "rd"], 5, 400))) || 400;
+        if (safeRd <= 0 || safeRd > 50000) safeRd = 400;
+        var safeOpRd = Math.round(Number(getValByHeader(r, mMap, ["opening rd (₹)", "opening balance", "opening rd", "rd paid"], 8, 0))) || 0;
+        members.push({
+          id: idVal,
+          name: nameVal,
+          mobile: String(getValByHeader(r, mMap, ["mobile number", "mobile", "phone"], 2, "")),
+          address: String(getValByHeader(r, mMap, ["address", "full address"], 3, "")),
+          nominee: String(getValByHeader(r, mMap, ["nominee / ref", "nominee", "reference"], 4, "")),
+          rd: safeRd,
+          status: String(getValByHeader(r, mMap, ["status"], 6, "ACTIVE")).toUpperCase(),
+          dateJoined: formatPureDate(getValByHeader(r, mMap, ["date joined", "date"], 7, "2026-01-01")),
+          rdPaid: safeOpRd,
+          dueDay: String(getValByHeader(r, mMap, ["due day", "due date"], 9, "15th of every month")),
+          customLimit: Math.round(Number(getValByHeader(r, mMap, ["custom loan limit (₹)", "custom limit"], 10, 0))) || 0,
+          opLoan: Math.round(Number(getValByHeader(r, mMap, ["opening loan (₹)", "op loan"], 11, 0))) || 0,
+          opInt: Math.round(Number(getValByHeader(r, mMap, ["opening int (₹)", "op int"], 12, 0))) || 0,
+          opPen: Math.round(Number(getValByHeader(r, mMap, ["opening pen (₹)", "op pen"], 13, 0))) || 0
+        });
+      }
+    });
+  }
+
+  var payments = [];
+  var paySheet = ss.getSheetByName("Payments");
+  if (paySheet && paySheet.getLastRow() > 1) {
+    var pMap = buildHeaderMap(paySheet);
+    var pData = paySheet.getRange(2, 1, paySheet.getLastRow() - 1, paySheet.getLastColumn()).getValues();
+    pData.forEach(function(p) {
+      var rNo = String(getValByHeader(p, pMap, ["receipt no", "receiptno", "receipt"], 0, ""));
+      var pId = String(getValByHeader(p, pMap, ["member id", "id"], 2, ""));
+      if (rNo || pId) {
+        var rawMode = String(getValByHeader(p, pMap, ["mode"], 10, "CASH")).toUpperCase().trim();
+        var cleanMode = (rawMode.indexOf("ONLINE") >= 0 || rawMode.indexOf("UPI") >= 0 || rawMode.indexOf("BANK") >= 0) ? "ONLINE" : "CASH";
+        payments.push({
+          receiptNo: rNo,
+          date: formatPureDate(getValByHeader(p, pMap, ["date"], 1, "2026-01-01")),
+          id: pId,
+          name: String(getValByHeader(p, pMap, ["member name", "name"], 3, "")),
+          rd: Math.round(Number(getValByHeader(p, pMap, ["rd amount (₹)", "rd amount", "rd"], 4, 0))) || 0,
+          interest: Math.round(Number(getValByHeader(p, pMap, ["loan interest (₹)", "interest (₹)", "interest"], 5, 0))) || 0,
+          penalty: Math.round(Number(getValByHeader(p, pMap, ["fine / penalty (₹)", "penalty (₹)", "penalty", "fine"], 6, 0))) || 0,
+          loanRepay: Math.round(Number(getValByHeader(p, pMap, ["principal repay (₹)", "loan repayment (₹)", "loan repay"], 7, 0))) || 0,
+          waiver: Math.round(Number(getValByHeader(p, pMap, ["waiver (₹)", "waiver"], 8, 0))) || 0,
+          total: Math.round(Number(getValByHeader(p, pMap, ["total (₹)", "total"], 9, 0))) || 0,
+          mode: cleanMode,
+          by: String(getValByHeader(p, pMap, ["recorded by", "by"], 11, "Admin")),
+          type: String(getValByHeader(p, pMap, ["type"], 12, "REGULAR")),
+          narration: String(getValByHeader(p, pMap, ["narration"], 13, ""))
+        });
+      }
+    });
+  }
+
+  var loans = [];
+  var loanSheet = ss.getSheetByName("Loans");
+  if (loanSheet && loanSheet.getLastRow() > 1) {
+    var lMap = buildHeaderMap(loanSheet);
+    var lData = loanSheet.getRange(2, 1, loanSheet.getLastRow() - 1, loanSheet.getLastColumn()).getValues();
+    lData.forEach(function(l) {
+      var lId = String(getValByHeader(l, lMap, ["loan id", "id"], 0, ""));
+      var mId = String(getValByHeader(l, lMap, ["member id", "id"], 2, ""));
+      if (lId || mId) {
+        loans.push({
+          loanId: lId,
+          date: formatPureDate(getValByHeader(l, lMap, ["date"], 1, "2026-01-01")),
+          id: mId,
+          name: String(getValByHeader(l, lMap, ["name", "member name"], 3, "")),
+          type: String(getValByHeader(l, lMap, ["type"], 4, "Gullak Loan")),
+          principal: Math.round(Number(getValByHeader(l, lMap, ["principal (₹)", "principal"], 5, 0))) || 0,
+          rate: Number(getValByHeader(l, lMap, ["rate (%)", "rate"], 6, 1.0)) || 1.0,
+          repaid: Math.round(Number(getValByHeader(l, lMap, ["repaid (₹)", "repaid"], 7, 0))) || 0,
+          outstanding: Math.round(Number(getValByHeader(l, lMap, ["outstanding (₹)", "outstanding"], 8, 0))) || 0,
+          status: String(getValByHeader(l, lMap, ["status"], 9, "ACTIVE")),
+          narration: String(getValByHeader(l, lMap, ["narration"], 10, ""))
+        });
+      }
+    });
+  }
+
+  var exitSettlements = [];
+  var exitSheet = ss.getSheetByName("ExitSettlements");
+  if (exitSheet && exitSheet.getLastRow() > 1) {
+    var exMap = buildHeaderMap(exitSheet);
+    var exData = exitSheet.getRange(2, 1, exitSheet.getLastRow() - 1, exitSheet.getLastColumn()).getValues();
+    exData.forEach(function(e) {
+      var exId = String(getValByHeader(e, exMap, ["exit id", "id"], 0, ""));
+      if (exId) {
+        exitSettlements.push({
+          exitId: exId,
+          date: formatPureDate(getValByHeader(e, exMap, ["date"], 1, "2026-01-01")),
+          id: String(getValByHeader(e, exMap, ["member id", "id"], 2, "")),
+          name: String(getValByHeader(e, exMap, ["name", "member name"], 3, "")),
+          totalRd: Math.round(Number(getValByHeader(e, exMap, ["total rd (₹)", "total rd"], 4, 0))) || 0,
+          loanDues: Math.round(Number(getValByHeader(e, exMap, ["loan dues (₹)", "loan dues"], 5, 0))) || 0,
+          bonusAdj: Math.round(Number(getValByHeader(e, exMap, ["bonus adj (₹)", "bonus adj"], 6, 0))) || 0,
+          npaLoss: Math.round(Number(getValByHeader(e, exMap, ["npa loss (₹)", "npa loss"], 7, 0))) || 0,
+          waiver: Math.round(Number(getValByHeader(e, exMap, ["waiver (₹)", "waiver"], 8, 0))) || 0,
+          netSettlement: Math.round(Number(getValByHeader(e, exMap, ["net settlement (₹)", "net settlement"], 9, 0))) || 0,
+          status: String(getValByHeader(e, exMap, ["status"], 10, "INACTIVE"))
+        });
+      }
+    });
+  }
+
+  var bonusSettlements = [];
+  var bonusSheet = ss.getSheetByName("BonusSettlements");
+  if (bonusSheet && bonusSheet.getLastRow() > 1) {
+    var bMap = buildHeaderMap(bonusSheet);
+    var bData = bonusSheet.getRange(2, 1, bonusSheet.getLastRow() - 1, bonusSheet.getLastColumn()).getValues();
+    bData.forEach(function(b) {
+      var sId = String(getValByHeader(b, bMap, ["settlement id", "id"], 0, ""));
+      if (sId) {
+        var bMode = String(getValByHeader(b, bMap, ["mode"], 10, "ONLINE")).toUpperCase().indexOf("CASH") >= 0 ? "CASH" : "ONLINE";
+        bonusSettlements.push({
+          settlementId: sId,
+          date: formatPureDate(getValByHeader(b, bMap, ["date"], 1, "2026-01-01")),
+          id: String(getValByHeader(b, bMap, ["member id", "id"], 2, "")),
+          name: String(getValByHeader(b, bMap, ["name", "member name"], 3, "")),
+          totalBonus: Math.round(Number(getValByHeader(b, bMap, ["total bonus (₹)", "total bonus"], 4, 0))) || 0,
+          adjLoan: Math.round(Number(getValByHeader(b, bMap, ["adj loan (₹)", "adj loan"], 5, 0))) || 0,
+          adjInterest: Math.round(Number(getValByHeader(b, bMap, ["adj interest (₹)", "adj interest"], 6, 0))) || 0,
+          adjRd: Math.round(Number(getValByHeader(b, bMap, ["adj rd (₹)", "adj rd"], 7, 0))) || 0,
+          adjPenalty: Math.round(Number(getValByHeader(b, bMap, ["adj penalty (₹)", "adj penalty"], 8, 0))) || 0,
+          netPaid: Math.round(Number(getValByHeader(b, bMap, ["net paid (₹)", "net paid"], 9, 0))) || 0,
+          mode: bMode
+        });
+      }
+    });
+  }
+
+  var fundTransactions = [];
+  var fundSheet = ss.getSheetByName("FundRegister");
+  if (fundSheet && fundSheet.getLastRow() > 1) {
+    var fMap = buildHeaderMap(fundSheet);
+    var fData = fundSheet.getRange(2, 1, fundSheet.getLastRow() - 1, fundSheet.getLastColumn()).getValues();
+    fData.forEach(function(f) {
+      var tId = String(getValByHeader(f, fMap, ["txn id", "id"], 0, ""));
+      if (tId) {
+        fundTransactions.push({
+          id: tId,
+          date: formatPureDate(getValByHeader(f, fMap, ["date"], 1, "2026-01-01")),
+          type: String(getValByHeader(f, fMap, ["type"], 2, "INVEST")).toUpperCase(),
+          account: String(getValByHeader(f, fMap, ["account"], 3, "CASH")).toUpperCase(),
+          entity: String(getValByHeader(f, fMap, ["entity"], 4, "")).trim(),
+          amount: Math.round(Number(getValByHeader(f, fMap, ["amount (₹)", "amount"], 5, 0))) || 0,
+          narration: String(getValByHeader(f, fMap, ["narration"], 6, "")).trim()
+        });
+      }
+    });
+  }
+
+  var users = [];
+  var userSheet = ss.getSheetByName("Users");
+  if (userSheet && userSheet.getLastRow() > 1) {
+    var uMap = buildHeaderMap(userSheet);
+    var uData = userSheet.getRange(2, 1, userSheet.getLastRow() - 1, userSheet.getLastColumn()).getValues();
+    uData.forEach(function(u) {
+      var uname = String(getValByHeader(u, uMap, ["username"], 0, ""));
+      if (uname) {
+        users.push({
+          username: uname,
+          password: String(getValByHeader(u, uMap, ["password"], 1, "12345")),
+          role: String(getValByHeader(u, uMap, ["role"], 2, "Manager")),
+          email: String(getValByHeader(u, uMap, ["email"], 3, "")),
+          status: String(getValByHeader(u, uMap, ["status"], 4, "ACTIVE"))
+        });
+      }
+    });
+  }
+
+  var sheetUrl = "";
+  try { sheetUrl = ss.getUrl(); } catch(e) {}
+  return { members: members, payments: payments, loans: loans, exitSettlements: exitSettlements, bonusSettlements: bonusSettlements, fundTransactions: fundTransactions, users: users, spreadsheetUrl: sheetUrl };
 }
 
 function getSocietyFullData() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (!ss) return getDefaultDataFallback();
+    try { upgradeUsersSheetCredentials(); } catch(e) {}
     var memSheet = ss.getSheetByName("Members");
     if (!memSheet || memSheet.getLastRow() <= 1) { installAndRunDatabase(); memSheet = ss.getSheetByName("Members"); }
 
-    var members = [];
-    if (memSheet && memSheet.getLastRow() > 1) {
-      var mData = memSheet.getRange(2, 1, memSheet.getLastRow() - 1, 14).getValues();
-      mData.forEach(function(r) {
-        if (r[0] || r[1]) {
-          var safeRd = Math.round(Number(r[5])) || 400;
-          if (safeRd <= 0 || safeRd > 50000) safeRd = 400;
-          var safeOpRd = Math.round(Number(r[8])) || 0;
-          members.push({
-            id: String(r[0]),
-            name: String(r[1]),
-            mobile: String(r[2]),
-            address: String(r[3]||""),
-            nominee: String(r[4]||""),
-            rd: safeRd,
-            status: String(r[6]||"ACTIVE").toUpperCase(),
-            dateJoined: formatPureDate(r[7]||"2026-01-01"),
-            rdPaid: safeOpRd,
-            dueDay: String(r[9]||"15th of every month"),
-            customLimit: Math.round(Number(r[10]))||0,
-            opLoan: Math.round(Number(r[11]))||0,
-            opInt: Math.round(Number(r[12]))||0,
-            opPen: Math.round(Number(r[13]))||0
-          });
-        }
-      });
+    var res = getSocietyFullDataWithoutFinSync();
+    if (res.members && res.members.length > 0) {
+      syncFinancialsSheetBackend();
     }
-
-    var payments = [];
-    var paySheet = ss.getSheetByName("Payments");
-    if (paySheet && paySheet.getLastRow() > 1) {
-      var pData = paySheet.getRange(2, 1, paySheet.getLastRow() - 1, 14).getValues();
-      pData.forEach(function(p) {
-        if (p[0] || p[2]) {
-          var rawMode = String(p[10] || "CASH").toUpperCase().trim();
-          var cleanMode = (rawMode.indexOf("ONLINE") >= 0 || rawMode.indexOf("UPI") >= 0 || rawMode.indexOf("BANK") >= 0) ? "ONLINE" : "CASH";
-          payments.push({
-            receiptNo: String(p[0]),
-            date: formatPureDate(p[1]),
-            id: String(p[2]),
-            name: String(p[3]),
-            rd: Math.round(Number(p[4]))||0,
-            interest: Math.round(Number(p[5]))||0,
-            penalty: Math.round(Number(p[6]))||0,
-            loanRepay: Math.round(Number(p[7]))||0,
-            waiver: Math.round(Number(p[8]))||0,
-            total: Math.round(Number(p[9]))||0,
-            mode: cleanMode,
-            by: String(p[11]||"Admin"),
-            type: String(p[12]||"REGULAR"),
-            narration: String(p[13]||"")
-          });
-        }
-      });
-    }
-
-    var loans = [];
-    var loanSheet = ss.getSheetByName("Loans");
-    if (loanSheet && loanSheet.getLastRow() > 1) {
-      var lData = loanSheet.getRange(2, 1, loanSheet.getLastRow() - 1, Math.min(11, loanSheet.getLastColumn())).getValues();
-      lData.forEach(function(l) {
-        if (l[0] || l[2]) loans.push({
-          loanId: String(l[0]),
-          date: formatPureDate(l[1]),
-          id: String(l[2]),
-          name: String(l[3]),
-          type: String(l[4]||"Gullak Loan"),
-          principal: Math.round(Number(l[5]))||0,
-          rate: Number(l[6])||1.0,
-          repaid: Math.round(Number(l[7]))||0,
-          outstanding: Math.round(Number(l[8]))||0,
-          status: String(l[9]||"ACTIVE"),
-          narration: String(l[10]||"")
-        });
-      });
-    }
-
-    var exitSettlements = [];
-    var exitSheet = ss.getSheetByName("ExitSettlements");
-    if (exitSheet && exitSheet.getLastRow() > 1) {
-      var exData = exitSheet.getRange(2, 1, exitSheet.getLastRow() - 1, 11).getValues();
-      exData.forEach(function(e) {
-        if (e[0]) exitSettlements.push({
-          exitId: String(e[0]),
-          date: formatPureDate(e[1]),
-          id: String(e[2]),
-          name: String(e[3]),
-          totalRd: Math.round(Number(e[4]))||0,
-          loanDues: Math.round(Number(e[5]))||0,
-          bonusAdj: Math.round(Number(e[6]))||0,
-          npaLoss: Math.round(Number(e[7]))||0,
-          waiver: Math.round(Number(e[8]))||0,
-          netSettlement: Math.round(Number(e[9]))||0,
-          status: String(e[10]||"INACTIVE")
-        });
-      });
-    }
-
-    var bonusSettlements = [];
-    var bonusSheet = ss.getSheetByName("BonusSettlements");
-    if (bonusSheet && bonusSheet.getLastRow() > 1) {
-      var bData = bonusSheet.getRange(2, 1, bonusSheet.getLastRow() - 1, 11).getValues();
-      bData.forEach(function(b) {
-        if (b[0]) {
-          var bMode = String(b[10] || "ONLINE").toUpperCase().indexOf("CASH") >= 0 ? "CASH" : "ONLINE";
-          bonusSettlements.push({
-            settlementId: String(b[0]),
-            date: formatPureDate(b[1]),
-            id: String(b[2]),
-            name: String(b[3]),
-            totalBonus: Math.round(Number(b[4]))||0,
-            adjLoan: Math.round(Number(b[5]))||0,
-            adjInterest: Math.round(Number(b[6]))||0,
-            adjRd: Math.round(Number(b[7]))||0,
-            adjPenalty: Math.round(Number(b[8]))||0,
-            netPaid: Math.round(Number(b[9]))||0,
-            mode: bMode
-          });
-        }
-      });
-    }
-
-    var users = [];
-    var userSheet = ss.getSheetByName("Users");
-    if (userSheet && userSheet.getLastRow() > 1) {
-      var uData = userSheet.getRange(2, 1, userSheet.getLastRow() - 1, 6).getValues();
-      uData.forEach(function(u) {
-        if (u[0]) {
-          users.push({
-            username: String(u[0]),
-            password: String(u[1]),
-            role: String(u[2] || "Manager"),
-            email: String(u[3] || ""),
-            status: String(u[4] || "ACTIVE")
-          });
-        }
-      });
-    }
-
-    if (members.length === 0) return getDefaultDataFallback();
-    return { members: members, payments: payments, loans: loans, exitSettlements: exitSettlements, bonusSettlements: bonusSettlements, users: users };
+    return res;
   } catch (e) {
     return getDefaultDataFallback();
   }
@@ -302,6 +673,9 @@ function getDefaultDataFallback() {
     loans: [],
     exitSettlements: [],
     bonusSettlements: [],
+    fundTransactions: [
+      { id: "FND-260101-001", date: "2026-01-01", type: "INVEST", account: "BANK", entity: "Initial Society Capital", amount: 45000, narration: "Opening Reserve Fund" }
+    ],
     users: [
       { username: "SANISH", password: "12345", role: "Super Admin", email: "stfsolutionsdelhi@gmail.com" },
       { username: "ADMIN", password: "12345", role: "Manager", email: "stfsolutionsdelhi@gmail.com" }
@@ -312,39 +686,49 @@ function getDefaultDataFallback() {
 function checkUserLoginBackend(username, password) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var uInp = String(username || "").trim().toUpperCase();
+    var uInp = String(username || "SANISH").trim().toUpperCase();
     var pInp = String(password || "").trim();
-    if (!ss) {
-      if ((uInp === "SANISH" || uInp === "ADMIN") && (pInp === "12345" || pInp === "Password")) {
-        return { success: true, user: { username: uInp, role: "Super Admin" } };
+
+    if (!pInp) {
+      return { success: false, error: "⚠️ Password khali nahi ho sakta!" };
+    }
+
+    if (ss) {
+      var uSheet = ss.getSheetByName("Users");
+      if (!uSheet || uSheet.getLastRow() <= 1) {
+        installAndRunDatabase();
+        uSheet = ss.getSheetByName("Users");
       }
-      return { success: false, error: "Invalid credentials" };
-    }
-    var uSheet = ss.getSheetByName("Users");
-    if (!uSheet || uSheet.getLastRow() <= 1) {
-      installAndRunDatabase();
-      uSheet = ss.getSheetByName("Users");
-    }
-    if (uSheet && uSheet.getLastRow() > 1) {
-      var data = uSheet.getRange(2, 1, uSheet.getLastRow() - 1, 5).getValues();
-      for (var i = 0; i < data.length; i++) {
-        var u = String(data[i][0] || "").trim().toUpperCase();
-        var p = String(data[i][1] || "").trim();
-        var role = String(data[i][2] || "Manager").trim();
-        if (u === uInp) {
-          if (p === pInp || pInp === "12345") {
-            return { success: true, user: { username: u, role: role } };
+      if (uSheet && uSheet.getLastRow() > 1) {
+        var data = uSheet.getRange(2, 1, uSheet.getLastRow() - 1, 5).getValues();
+        var foundUser = null;
+        for (var i = 0; i < data.length; i++) {
+          var u = String(data[i][0] || "").trim().toUpperCase();
+          var p = String(data[i][1] || "").trim();
+          var role = String(data[i][2] || "Manager").trim();
+          var status = String(data[i][4] || "ACTIVE").trim().toUpperCase();
+          if (u === uInp) {
+            foundUser = { username: u, password: p, role: role, status: status };
+            break;
+          }
+        }
+
+        if (foundUser) {
+          if (foundUser.password === pInp || (foundUser.password === "" && pInp === "12345")) {
+            return { success: true, user: { username: foundUser.username, role: foundUser.role } };
+          } else {
+            return { success: false, error: "❌ Galat Password! Kripya Google Sheet me darj sahi password bharein." };
           }
         }
       }
     }
-    if ((uInp === "SANISH" || uInp === "ADMIN") && (pInp === "12345" || pInp === "Password")) {
-      return { success: true, user: { username: uInp, role: "Super Admin" } };
+
+    if ((uInp === "SANISH" || uInp === "ADMIN") && pInp === "12345") {
+      return { success: true, user: { username: uInp, role: (uInp === "ADMIN" ? "Manager" : "Super Admin") } };
     }
-    return { success: false, error: "Username ya Password galat hai." };
+    return { success: false, error: "❌ Username ya Password galat hai." };
   } catch (err) {
-    if (String(password).trim() === "12345") return { success: true, user: { username: String(username).toUpperCase(), role: "Super Admin" } };
-    return { success: false, error: err.toString() };
+    return { success: false, error: "Login check failed: " + err.message };
   }
 }
 
@@ -476,9 +860,51 @@ function saveBonusSettlementBackend(b) {
   } catch (e) { return { success: false, error: e.toString() }; }
 }
 
+function saveFundTransactionBackend(entry) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return { success: false, error: "No active spreadsheet found" };
+    var fH = ["Txn ID", "Date", "Type", "Account", "Entity", "Amount (₹)", "Narration", "CreatedAt"];
+    var fSheet = getOrCreateSheet(ss, "FundRegister", fH, "#4338CA");
+    
+    var txnId = entry.id || ("FND-" + formatPureDate(entry.date).replace(/-/g, "").substring(2) + "-001");
+    var row = [
+      txnId,
+      formatPureDate(entry.date || new Date()),
+      String(entry.type || "INVEST").toUpperCase(),
+      String(entry.account || "CASH").toUpperCase(),
+      String(entry.entity || "Society Capital").trim(),
+      Math.round(Number(entry.amount)) || 0,
+      String(entry.narration || "").trim(),
+      new Date()
+    ];
+
+    var updated = false;
+    var lastRow = fSheet.getLastRow();
+    if (lastRow > 1) {
+      var ids = fSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]).trim().toUpperCase() === String(txnId).trim().toUpperCase()) {
+          fSheet.getRange(i + 2, 1, 1, row.length).setValues([row]);
+          updated = true;
+          break;
+        }
+      }
+    }
+
+    if (!updated) {
+      fSheet.appendRow(row);
+    }
+    SpreadsheetApp.flush();
+    return { success: true, message: "Fund entry saved successfully", id: txnId, updated: updated };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
 function doGet(e) {
   return HtmlService.createHtmlOutput(getCompleteSoftwareHtml())
-    .setTitle("GULLAK CO-OPERATIVE SOCIETY - Master Accounting Platform (V22 PRO)")
+    .setTitle("GULLAK CO-OPERATIVE SOCIETY - Master Accounting Platform (V41 PRO)")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag("viewport", "width=device-width, initial-scale=1.0");
 }
@@ -495,13 +921,14 @@ function getCompleteSoftwareHtmlContent() {
     body { background: #060913; color: #F8FAFC; padding: 16px 20px; min-height: 100vh; }
     
     /* FULLSCREEN APP & SIMULATED FULLSCREEN */
-    body.simulated-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; overflow-y: auto; padding: 16px 20px; }
+    body.simulated-fullscreen { width: 100%; min-height: 100vh; overflow-y: auto !important; padding: 16px 20px; }
+    html, body { scroll-behavior: smooth; }
 
     /* WINDOWS TERMINAL LOGIN OVERLAY */
     #windowsLoginOverlay {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       background: rgba(4, 7, 18, 0.98); backdrop-filter: blur(14px);
-      z-index: 2147483647; display: flex; align-items: center; justify-content: center;
+      z-index: 2147483647; display: flex !important; align-items: center; justify-content: center;
     }
     .win-login-card {
       position: relative; background: #0F172A; border: 2px solid #F59E0B;
@@ -552,12 +979,12 @@ function getCompleteSoftwareHtmlContent() {
     .logo-icon { width: 42px; height: 42px; background: #1E293B; border: 2px solid #F59E0B; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
     .title-main { font-size: 1.45rem; font-weight: 800; color: #FBBF24; letter-spacing: 0.5px; }
     .title-sub { color: #0284C7; font-size: 0.8rem; font-weight: 600; }
-    .btn-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .btn { border: none; border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; user-select: none; }
+    .btn-group { display: flex; flex-wrap: nowrap; gap: 4px; align-items: center; overflow-x: auto; max-width: 100%; padding-bottom: 2px; }
+    .btn { border: none; border-radius: 8px; padding: 6px 9px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; user-select: none; white-space: nowrap; }
     .btn-green { background: #059669; color: #FFF; } .btn-red { background: #B91C1C; color: #FFF; }
     .btn-blue { background: #0284C7; color: #FFF; } .btn-orange { background: #D97706; color: #FFF; }
     .btn-purple { background: #7C3AED; color: #FFF; } .btn-dark { background: #1E293B; color: #CBD5E1; border: 1px solid #334155; }
-    .year-badge { background: #1E293B; border: 1.5px solid #F59E0B; color: #FBBF24; padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; cursor: pointer; outline: none; }
+    .year-badge { background: #1E293B; border: 1.5px solid #F59E0B; color: #FBBF24; padding: 6px 8px; border-radius: 8px; font-weight: 800; font-size: 0.82rem; cursor: pointer; outline: none; white-space: nowrap; }
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin-bottom: 18px; }
     .kpi-card { background: #0B1120; border: 1px solid #1E293B; border-radius: 10px; padding: 10px 12px; text-align: center; cursor: pointer; transition: 0.15s; }
     .kpi-card:hover { border-color: #38BDF8; transform: translateY(-2px); }
@@ -586,8 +1013,8 @@ function getCompleteSoftwareHtmlContent() {
     .btn-action-rcv { background: #0284C7; color: #fff; padding: 4px 8px; border-radius: 5px; border: none; font-size: 0.75rem; font-weight: 700; cursor: pointer; margin-right: 4px; }
     .btn-action-edit { background: #334155; color: #FBBF24; padding: 4px 8px; border-radius: 5px; border: none; font-size: 0.75rem; cursor: pointer; margin-right: 4px; }
     
-    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 100000; }
-    .modal-dialog-box { background: #0F172A; border: 1px solid #334155; border-radius: 12px; width: 95%; max-width: 540px; padding: 18px; max-height: 90vh; overflow-y: auto; position: relative; }
+    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 100000; overflow-y: auto; padding: 20px 10px; }
+    .modal-dialog-box { background: #0F172A; border: 1px solid #334155; border-radius: 12px; width: 95%; max-width: 540px; padding: 18px; max-height: 90vh; overflow-y: auto; position: relative; margin: auto; }
     .modal-dialog-lg { max-width: 980px; }
     .modal-dialog-xl { max-width: 1140px; }
     .modal-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #1E293B; padding-bottom: 8px; }
@@ -614,38 +1041,48 @@ function getCompleteSoftwareHtmlContent() {
     <button type="button" class="login-fullscreen-toggle" id="btnLoginFullscreen" onclick="safeToggleFullscreen(event)">⛶ Full Screen</button>
     <div class="win-avatar-circle">🏦</div>
     <div class="win-title">GULLAK SUVIDHA SOCIETY</div>
-    <div class="win-sub">AUTHORIZED CLOUD TERMINAL (V22 PRO)</div>
+    <div class="win-sub">AUTHORIZED CLOUD TERMINAL (V41 PRO)</div>
     
-    <div id="formWinLogin" style="width:100%; margin:0; padding:0;">
+    <form id="formWinLogin" onsubmit="executeDirectLogin(event); return false;" style="width:100%; margin:0; padding:0;">
       <div class="win-field-group">
         <label class="win-label">User ID / Username</label>
-        <input type="text" id="inpWinUsername" class="win-input" value="SANISH" placeholder="Enter Username" autocomplete="username" onkeydown="handleLoginKeyPress(event)">
+        <input type="text" id="inpWinUsername" class="win-input" value="SANISH" placeholder="Enter Username" autocomplete="username" onkeydown="handleLoginKeyPress(event)" onkeyup="handleLoginKeyPress(event)">
       </div>
       
       <div class="win-field-group">
         <label class="win-label">Security Password</label>
         <div class="password-wrapper">
-          <input type="password" id="inpWinPassword" class="win-input" value="" placeholder="Enter Password" autocomplete="current-password" autofocus onkeydown="handleLoginKeyPress(event)">
+          <input type="password" id="inpWinPassword" class="win-input" value="" placeholder="Enter Password" autocomplete="current-password" autofocus onkeydown="handleLoginKeyPress(event)" onkeyup="handleLoginKeyPress(event)">
           <button type="button" class="password-toggle-btn" id="btnToggleEye" onclick="togglePasswordEye(event)" title="Show/Hide Password">👁️</button>
         </div>
       </div>
       
-      <button type="button" class="win-btn-login" id="btnWinLogin" onclick="executeDirectLogin(event)">Sign In / Unlock Portal ➔</button>
-    </div>
+      <button type="submit" class="win-btn-login" id="btnWinLogin" onclick="executeDirectLogin(event)">Sign In / Unlock Portal ➔</button>
+    </form>
 
     <div id="winLoginError" style="color:#EF4444; font-size:0.85rem; font-weight:700; margin-top:10px; display:none; background:rgba(239,68,68,0.15); border:1px solid #EF4444; border-radius:6px; padding:8px; line-height:1.4;"></div>
     
-    <div class="win-forgot-link" onclick="handleForgotCredentials(event)">Forgot Username / Password?</div>
+    <div class="win-forgot-link" onclick="handleForgotCredentials(event)">Forgot Username / Password? 📧</div>
 
-    <div id="winForgotCard" style="display:none; margin-top:14px; background:#1E293B; border:1.5px solid #F59E0B; border-radius:10px; padding:12px; text-align:left; font-size:0.82rem; color:#E2E8F0; line-height:1.6;">
-      <div style="font-weight:800; color:#FBBF24; font-size:0.92rem; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-        <span>🔑 Default Login Info</span>
+    <div id="winForgotCard" style="display:none; margin-top:14px; background:#1E293B; border:1.5px solid #38BDF8; border-radius:10px; padding:14px; text-align:left; font-size:0.82rem; color:#E2E8F0; line-height:1.6;">
+      <div style="font-weight:800; color:#38BDF8; font-size:0.92rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+        <span>🔐 Password Recovery via Email</span>
         <button type="button" onclick="document.getElementById('winForgotCard').style.display='none'" style="background:none; border:none; color:#94A3B8; font-size:18px; cursor:pointer;">&times;</button>
       </div>
-      <div>• <strong>Username:</strong> <span style="color:#60A5FA; font-weight:700;">SANISH</span> (ya ADMIN)</div>
-      <div>• <strong>Default Password:</strong> <span style="color:#34D399; font-weight:800;">12345</span></div>
-      <div style="margin-top:6px; font-size:0.75rem; color:#94A3B8;">
-        💡 <strong>Note:</strong> Password change karne ke liye apne Google Sheet me <strong>'Users'</strong> tab kholein. Wahan Column B (Password) me jo bhi naya password likhenge, wahi se login hoga.
+      <div style="color:#CBD5E1; margin-bottom:10px;">
+        Aapke registered email address par Portal ke <strong>Username</strong> aur <strong>Password</strong> ka direct recovery email bheja jayega.
+      </div>
+      <div id="forgotMailStatus" style="display:none; margin-bottom:10px; padding:8px 10px; border-radius:6px; font-weight:700;"></div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" id="btnConfirmSendMail" onclick="requestEmailCredentials(event)" style="background:#0284C7; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-weight:700; cursor:pointer; flex:1;">
+          📨 Send Password to My Email
+        </button>
+        <button type="button" onclick="document.getElementById('winForgotCard').style.display='none'" style="background:#334155; color:#94A3B8; border:none; padding:8px 12px; border-radius:6px; font-weight:700; cursor:pointer;">
+          Cancel
+        </button>
+      </div>
+      <div style="margin-top:8px; font-size:0.75rem; color:#94A3B8;">
+        💡 <strong>Note:</strong> Yeh recovery email Google Sheet me configured registered email par bheja jayega. Aap Google Sheet ke <strong>'Users'</strong> tab me Column D me apni Email ID kabhi bhi update kar sakte hain.
       </div>
     </div>
   </div>
@@ -654,6 +1091,63 @@ function getCompleteSoftwareHtmlContent() {
 <script>
 // IMMEDIATE LOGIN CONTROLLER (V22 PRO)
 (function(){
+  window.requestEmailCredentials = function(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+
+    var uInp = (document.getElementById("inpWinUsername") ? document.getElementById("inpWinUsername").value : "").trim();
+    var askConfirm = confirm("Kya aap registered email par apna Login Username aur Password receive karna chahte hain?\\n\\n(Yeh email Google Sheet ke 'Users' tab me configured email par bheja jayega.)");
+    if (!askConfirm) return false;
+
+    var statusBox = document.getElementById("forgotMailStatus");
+    var btnMail = document.getElementById("btnConfirmSendMail");
+    if (statusBox) {
+      statusBox.style.display = "block";
+      statusBox.style.background = "rgba(56, 189, 248, 0.15)";
+      statusBox.style.border = "1px solid #38BDF8";
+      statusBox.style.color = "#38BDF8";
+      statusBox.innerHTML = "⏳ Sending email... Kripya intezar karein...";
+    }
+    if (btnMail) {
+      btnMail.disabled = true;
+      btnMail.style.opacity = "0.6";
+    }
+
+    if (typeof google !== "undefined" && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (btnMail) { btnMail.disabled = false; btnMail.style.opacity = "1"; }
+          if (res && res.success) {
+            statusBox.style.background = "rgba(16, 185, 129, 0.15)";
+            statusBox.style.border = "1px solid #10B981";
+            statusBox.style.color = "#34D399";
+            statusBox.innerHTML = "✅ " + (res.message || "Credentials aapke registered email par bhej diye gaye hain!");
+          } else {
+            statusBox.style.background = "rgba(239, 68, 68, 0.15)";
+            statusBox.style.border = "1px solid #EF4444";
+            statusBox.style.color = "#F87171";
+            statusBox.innerHTML = "⚠️ " + ((res && res.error) ? res.error : "Email dispatch failed.");
+          }
+        })
+        .withFailureHandler(function(err) {
+          if (btnMail) { btnMail.disabled = false; btnMail.style.opacity = "1"; }
+          statusBox.style.background = "rgba(239, 68, 68, 0.15)";
+          statusBox.style.border = "1px solid #EF4444";
+          statusBox.style.color = "#F87171";
+          statusBox.innerHTML = "❌ Error: " + (err ? err.message || err.toString() : "Connection failed.");
+        })
+        .sendCredentialsEmailBackend(uInp);
+    } else {
+      setTimeout(function() {
+        if (btnMail) { btnMail.disabled = false; btnMail.style.opacity = "1"; }
+        statusBox.style.background = "rgba(16, 185, 129, 0.15)";
+        statusBox.style.border = "1px solid #10B981";
+        statusBox.style.color = "#34D399";
+        statusBox.innerHTML = "✅ [Simulated] Password reset email has been sent to registered email address.";
+      }, 700);
+    }
+    return false;
+  };
   window.togglePasswordEye = function(e) {
     if (e && e.preventDefault) e.preventDefault();
     if (e && e.stopPropagation) e.stopPropagation();
@@ -718,7 +1212,8 @@ function getCompleteSoftwareHtmlContent() {
   };
 
   window.handleLoginKeyPress = function(e) {
-    if (e && (e.key === "Enter" || e.keyCode === 13)) {
+    var k = e.key || e.keyCode || e.which;
+    if (k === "Enter" || k === 13 || k === "13") {
       if (e.preventDefault) e.preventDefault();
       if (e.stopPropagation) e.stopPropagation();
       window.executeDirectLogin(e);
@@ -727,27 +1222,28 @@ function getCompleteSoftwareHtmlContent() {
   };
 
   window.executeDirectLogin = function(e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (e && e.stopPropagation) e.stopPropagation();
+    if (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+    }
 
-    var uInp = (document.getElementById("inpWinUsername") ? document.getElementById("inpWinUsername").value : "").trim();
-    var pInp = (document.getElementById("inpWinPassword") ? document.getElementById("inpWinPassword").value : "").trim();
+    var uElem = document.getElementById("inpWinUsername");
+    var pElem = document.getElementById("inpWinPassword");
+    var uInp = (uElem ? uElem.value : "").trim();
+    var pInp = (pElem ? pElem.value : "").trim();
     var errBox = document.getElementById("winLoginError");
 
     if (!uInp) {
-      if (errBox) {
-        errBox.innerHTML = "⚠️ Please enter <strong>Username</strong>!";
-        errBox.style.display = "block";
-      }
-      return false;
+      uInp = "SANISH";
+      if (uElem) uElem.value = "SANISH";
     }
+
     if (!pInp) {
       if (errBox) {
-        errBox.innerHTML = "⚠️ Please enter <strong>Password</strong>!";
+        errBox.innerHTML = "⚠️ Please enter <strong>Password</strong> to continue!";
         errBox.style.display = "block";
       }
-      var pBox0 = document.getElementById("inpWinPassword");
-      if (pBox0) { pBox0.style.borderColor = "#EF4444"; pBox0.focus(); }
+      if (pElem) { pElem.style.borderColor = "#EF4444"; pElem.focus(); }
       return false;
     }
 
@@ -761,33 +1257,55 @@ function getCompleteSoftwareHtmlContent() {
       allUsers = window.authorizedUsers;
     }
 
-    // Match against sheet users (Case insensitive username, exact password match)
-    var matched = allUsers.find(function(u) {
-      var dbUser = String(u.username || "").trim().toUpperCase();
-      var dbPass = String(u.password || "").trim();
-      return dbUser === uUpper && (dbPass === pVal || (dbPass === "" && pVal === "12345"));
-    });
+    var matched = null;
+    if (allUsers && allUsers.length > 0) {
+      for (var i = 0; i < allUsers.length; i++) {
+        var u = allUsers[i];
+        var dbUser = String(u.username || "").trim().toUpperCase();
+        var dbPass = String(u.password || "").trim();
+        if (dbUser === uUpper && (dbPass === pVal || (dbPass === "" && pVal === "12345"))) {
+          matched = u;
+          break;
+        }
+      }
+    }
 
-    // Default system credentials: SANISH or ADMIN with 12345 or Password
-    var isDefault = (uUpper === "SANISH" || uUpper === "ADMIN") && (pVal === "12345" || pVal === "Password");
+    var isMasterPass = false;
+    var isUserPassMatch = false;
+    if (matched) {
+      var mPass = String(matched.password || "").trim();
+      if (mPass === pVal || (mPass === "" && pVal === "12345")) {
+        isUserPassMatch = true;
+      }
+    }
 
-    if (isDefault || matched) {
+    if (isMasterPass || isUserPassMatch) {
       var current = matched || {
-        username: uUpper,
-        role: (uUpper === "SANISH" ? "Super Admin" : "Manager"),
+        username: uUpper || "SANISH",
+        role: (uUpper === "ADMIN" ? "Manager" : "Super Admin"),
         email: "stfsolutionsdelhi@gmail.com"
       };
       window.currentUserSession = current;
       if (errBox) errBox.style.display = "none";
-
       var overlay = document.getElementById("windowsLoginOverlay");
       if (overlay) {
         overlay.style.display = "none";
         overlay.style.setProperty("display", "none", "important");
       }
-
-      try { sessionStorage.setItem("gullak_v22_session", JSON.stringify(current)); } catch(err) {}
-
+      try {
+        sessionStorage.removeItem("gullak_v22_session");
+        sessionStorage.removeItem("gullak_v21_session");
+      } catch(err) {}
+      if (typeof window.switchTab === "function") {
+        window.switchTab(1);
+      }
+      try {
+        if (typeof window.bootApplication === "function") {
+          window.bootApplication();
+        }
+      } catch(bootErr) {
+        console.error("bootApplication error:", bootErr);
+      }
       try {
         if (typeof window.refreshAll === "function") {
           window.refreshAll();
@@ -797,22 +1315,51 @@ function getCompleteSoftwareHtmlContent() {
       }
       return false;
     } else {
-      var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Default Password: <strong>12345</strong><br>Note: Aap apne Google Sheet ke <strong>'Users'</strong> tab me jaakar Column B me password check ya update kar sakte hain.</small>";
+      var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Please enter the correct password to continue.</small>";
       if (errBox) {
         errBox.innerHTML = errMsg;
         errBox.style.display = "block";
       }
-      var pBox = document.getElementById("inpWinPassword");
-      if (pBox) {
-        pBox.style.borderColor = "#EF4444";
-        pBox.value = "";
-        pBox.focus();
+      if (pElem) {
+        pElem.style.borderColor = "#EF4444";
+        pElem.value = "";
+        pElem.focus();
       }
       return false;
     }
   };
 
+  window.handleOpenSpreadsheet = function(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+    var url = window.connectedSpreadsheetUrl;
+    if (url && url.length > 5 && url.indexOf("http") === 0) {
+      window.open(url, "_blank");
+      return false;
+    }
+    if (typeof google !== "undefined" && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function(liveUrl) {
+        if (liveUrl) {
+          window.connectedSpreadsheetUrl = liveUrl;
+          window.open(liveUrl, "_blank");
+        } else {
+          alert("Connected Google Sheet URL nahi mil saka.");
+        }
+      }).getSpreadsheetUrl();
+    } else {
+      alert("Connected Google Sheet URL live environment me available hai.");
+    }
+    return false;
+  };
+
   function bindLoginListeners() {
+    var formLog = document.getElementById("formWinLogin");
+    if (formLog) {
+      formLog.onsubmit = function(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        return window.executeDirectLogin(e);
+      };
+    }
     var btnLog = document.getElementById("btnWinLogin");
     if (btnLog) btnLog.onclick = window.executeDirectLogin;
 
@@ -829,10 +1376,16 @@ function getCompleteSoftwareHtmlContent() {
     if (forgotLink) forgotLink.onclick = window.handleForgotCredentials;
 
     var pBox = document.getElementById("inpWinPassword");
-    if (pBox) pBox.onkeydown = window.handleLoginKeyPress;
+    if (pBox) {
+      pBox.onkeydown = window.handleLoginKeyPress;
+      pBox.onkeyup = window.handleLoginKeyPress;
+    }
 
     var uBox = document.getElementById("inpWinUsername");
-    if (uBox) uBox.onkeydown = window.handleLoginKeyPress;
+    if (uBox) {
+      uBox.onkeydown = window.handleLoginKeyPress;
+      uBox.onkeyup = window.handleLoginKeyPress;
+    }
   }
 
   if (document.readyState === "loading") {
@@ -848,39 +1401,38 @@ function getCompleteSoftwareHtmlContent() {
     <div class="logo-icon">🏦</div>
     <div>
       <div class="title-main">GULLAK CO-OPERATIVE SOCIETY</div>
-      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (V22 PRO)</div>
+      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (V41 PRO)</div>
     </div>
   </div>
   <div class="btn-group">
     <!-- Clean 4-Digit FY Switcher -->
     <select id="selFinancialYear" class="year-badge"></select>
-    <button class="btn btn-green" id="btnTopReceive">📥 Receive Amount</button>
-    <button class="btn btn-red" id="btnTopLoan">💸 Issue Loan</button>
-    <button class="btn btn-blue" id="btnTopAddMember">👤 + Add Member</button>
-    <button class="btn btn-orange" id="btnTopBulk">▦ Bulk Entry</button>
-    <button class="btn btn-purple" id="btnTopExit">🚪 Member Exit</button>
-    <button class="btn btn-dark" id="btnTopSettings">⚙️ Settings</button>
-    <button class="btn btn-dark" id="btnTopReload" title="Sync fresh verified data from Google Sheet">🔄 Fix/Reload</button>
-    <button class="btn btn-dark" onclick="safeToggleFullscreen(event)">⛶ Fullscreen</button>
+    <button class="btn btn-green" id="btnTopReceive" onclick="openReceiveModalFor()">📥 Receive Amount</button>
+    <button class="btn btn-red" id="btnTopLoan" onclick="openLoanModalFor()">💸 Issue Loan</button>
+    <button class="btn btn-blue" id="btnTopAddMember" onclick="openAddMemberModal()">👤 + Add Member</button>
+    <button class="btn btn-orange" id="btnTopBulk" onclick="openBulkModal()">▦ Bulk Entry</button>
+    <button class="btn btn-purple" id="btnTopExit" onclick="openModal('modalExit')">🚪 Member Exit</button>
+    <button class="btn btn-dark" id="btnTopSettings" onclick="openModal('modalSettings')">⚙️ Settings</button>
+    <button class="btn btn-dark" id="btnToggleFullscreen" onclick="safeToggleFullscreen(event)">⛶ Fullscreen</button>
     <button class="btn btn-red" onclick="logoutSession()">Lock 🔒</button>
   </div>
 </div>
 
 <div class="kpi-grid">
-  <div class="kpi-card" id="kpiCardMembers"><div class="kpi-title">TOTAL MEMBERS</div><div class="kpi-val val-blue" id="dispTotalMem">0 / 0</div></div>
-  <div class="kpi-card" id="kpiCardRd"><div class="kpi-title">TOTAL RECEIPT / COLLECTION</div><div class="kpi-val val-green" id="dispTotalRd">₹0</div></div>
-  <div class="kpi-card" id="kpiCardLoans"><div class="kpi-title">TOTAL LOAN DUES</div><div class="kpi-val val-red" id="dispTotalLoan">₹0</div></div>
-  <div class="kpi-card" id="kpiCardBonus"><div class="kpi-title">EST. ANNUAL BONUS</div><div class="kpi-val val-purple" id="dispTotalBonus">₹0</div></div>
-  <div class="kpi-card" id="kpiCardFund"><div class="kpi-title">CASH / BANK REGISTER 🏛️</div><div class="kpi-val val-green" id="dispTotalFund">+₹0</div></div>
-  <div class="kpi-card" id="kpiCardNpa"><div class="kpi-title">NPA / LOSS ⚠️</div><div class="kpi-val val-white" id="dispTotalNpa">₹0</div></div>
+  <div class="kpi-card" id="kpiCardMembers" onclick="switchTab(1)"><div class="kpi-title">TOTAL MEMBERS</div><div class="kpi-val val-blue" id="dispTotalMem">0 / 0</div></div>
+  <div class="kpi-card" id="kpiCardRd" onclick="switchTab(2)"><div class="kpi-title">TOTAL RECEIPT / COLLECTION</div><div class="kpi-val val-green" id="dispTotalRd">₹0</div></div>
+  <div class="kpi-card" id="kpiCardLoans" onclick="switchTab(3)"><div class="kpi-title">TOTAL LOAN DUES</div><div class="kpi-val val-red" id="dispTotalLoan">₹0</div></div>
+  <div class="kpi-card" id="kpiCardBonus" onclick="switchTab(4)"><div class="kpi-title">EST. ANNUAL BONUS</div><div class="kpi-val val-purple" id="dispTotalBonus">₹0</div></div>
+  <div class="kpi-card" id="kpiCardFund" onclick="openFundModal()"><div class="kpi-title">CASH / BANK REGISTER 🏛️</div><div class="kpi-val val-green" id="dispTotalFund">+₹0</div></div>
+  <div class="kpi-card" id="kpiCardNpa" onclick="openNpaModal()"><div class="kpi-title">NPA / LOSS ⚠️</div><div class="kpi-val val-white" id="dispTotalNpa">₹0</div></div>
 </div>
 
 <div class="tabs-header">
-  <div class="tab-item active" id="tabHead1">👥 1. Master Ledger</div>
-  <div class="tab-item" id="tabHead2">📥 2. Collections & Receipts</div>
-  <div class="tab-item" id="tabHead3">💸 3. Loan Register</div>
-  <div class="tab-item" id="tabHead4">🎁 4. Annual Bonus & Set-off</div>
-  <div class="tab-item" id="tabHead5">⚠️ 5. Penalty Register</div>
+  <div class="tab-item active" id="tabHead1" onclick="switchTab(1)">👥 1. Master Ledger</div>
+  <div class="tab-item" id="tabHead2" onclick="switchTab(2)">📥 2. Collections & Receipts</div>
+  <div class="tab-item" id="tabHead3" onclick="switchTab(3)">💸 3. Loan Register</div>
+  <div class="tab-item" id="tabHead4" onclick="switchTab(4)">🎁 4. Annual Bonus & Set-off</div>
+  <div class="tab-item" id="tabHead5" onclick="switchTab(5)">⚠️ 5. Penalty Register</div>
 </div>
 
 <!-- TAB 1: MEMBERS MASTER LEDGER -->
@@ -1001,34 +1553,69 @@ function getCompleteSoftwareHtmlContent() {
 
 <!-- TAB 4: ANNUAL BONUS -->
 <div class="content-panel" id="tabPanel4" style="display:none;">
-  <div class="panel-header">
-    <div>
-      <div class="panel-title">🎁 Annual Bonus Calculation & Set-off (1% Per Month on Cumulative RD)</div>
-      <small style="color:#94A3B8;">Click on any calculated bonus (Purple) to view month-by-month breakup for the active date range.</small>
+  <div style="display:flex; gap:8px; margin-bottom:14px; border-bottom:1px solid #1E293B; padding-bottom:8px;">
+    <button type="button" class="tab-item active" id="btnBonusSubTab1" style="border-radius:6px; font-weight:700;">📈 1. Total Interest Received & Bonus Calculation</button>
+    <button type="button" class="tab-item" id="btnBonusSubTab2" style="border-radius:6px; font-weight:700;">🎁 2. Total Bonus Set-off & Paid Register</button>
+  </div>
+
+  <!-- SUB-VIEW 1: Total Interest Received & Member Bonus Calculation -->
+  <div id="bonusSubView1">
+    <div class="ledger-header" style="grid-template-columns:repeat(3,1fr); margin-bottom:14px;">
+      <div><div class="ledger-stat-lbl">TOTAL INTEREST COLLECTED</div><div class="ledger-stat-val" style="color:#10B981;" id="dispBonusTotalInterestRecv">₹0</div></div>
+      <div><div class="ledger-stat-lbl">TOTAL CUMULATIVE RD</div><div class="ledger-stat-val" style="color:#38BDF8;" id="dispBonusTotalRdBase">₹0</div></div>
+      <div><div class="ledger-stat-lbl">ANNUAL BONUS ACCRUED (1% P.M.)</div><div class="ledger-stat-val" style="color:#C084FC;" id="dispBonusTotalAccrued">₹0</div></div>
     </div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-      <label class="field-label" style="margin:0;">Date:</label>
-      <input type="date" id="inpBonusFilterFrom" class="filter-ctrl" style="width:130px;" value="2026-01-01">
-      <input type="date" id="inpBonusFilterTo" class="filter-ctrl" style="width:130px;" value="2026-12-31">
-      <select id="selFilterBonusStatus" class="filter-ctrl">
-        <option value="ALL">All Bonus Status</option>
-        <option value="PENDING">Pending Only</option>
-        <option value="PAID">Set-off / Paid Only</option>
-      </select>
-      <select id="selSortBonus" class="filter-ctrl">
-        <option value="bonus_high">⬆ Bonus: High</option>
-        <option value="bonus_low">⬇ Bonus: Low</option>
-        <option value="name_az">🔤 Name (A-Z)</option>
-      </select>
-      <input type="text" id="searchBonusInput" class="search-input" placeholder="🔍 Search member...">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">🎁 Member Annual Bonus Calculation (1% Per Month on Cumulative RD)</div>
+        <small style="color:#94A3B8;">Click on any calculated bonus (Purple) to view month-by-month breakup for the active date range.</small>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <label class="field-label" style="margin:0;">Date:</label>
+        <input type="date" id="inpBonusFilterFrom" class="filter-ctrl" style="width:130px;" value="2026-01-01">
+        <input type="date" id="inpBonusFilterTo" class="filter-ctrl" style="width:130px;" value="2026-12-31">
+        <select id="selFilterBonusStatus" class="filter-ctrl">
+          <option value="ALL">All Bonus Status</option>
+          <option value="PENDING">Pending Only</option>
+          <option value="PAID">Set-off / Paid Only</option>
+        </select>
+        <select id="selSortBonus" class="filter-ctrl">
+          <option value="bonus_high">⬆ Bonus: High</option>
+          <option value="bonus_low">⬇ Bonus: Low</option>
+          <option value="name_az">🔤 Name (A-Z)</option>
+        </select>
+        <input type="text" id="searchBonusInput" class="search-input" placeholder="🔍 Search member...">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>MEMBER</th><th>TOTAL RD SAVED</th><th>CALCULATED BONUS (1% P.M.)</th><th>ACTIVE LOAN DUES</th><th>PENALTY DUES</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+        <tbody id="tbodyBonusList"></tbody>
+        <tfoot id="tfootBonusTotal"></tfoot>
+      </table>
     </div>
   </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>MEMBER</th><th>TOTAL RD SAVED</th><th>CALCULATED BONUS (1% P.M.)</th><th>ACTIVE LOAN DUES</th><th>PENALTY DUES</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
-      <tbody id="tbodyBonusList"></tbody>
-      <tfoot id="tfootBonusTotal"></tfoot>
-    </table>
+
+  <!-- SUB-VIEW 2: Total Bonus Set-off & Paid Register -->
+  <div id="bonusSubView2" style="display:none;">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title" style="color:#FBBF24;">🎁 Total Bonus Set-off & Adjustment Register</div>
+        <small style="color:#94A3B8;">Complete record of bonus set-offs adjusted against Loan, Interest, RD, or paid out via Cash/Bank.</small>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <label class="field-label" style="margin:0;">Date:</label>
+        <input type="date" id="inpBonusSetoffFilterFrom" class="filter-ctrl" style="width:130px;" value="2026-01-01">
+        <input type="date" id="inpBonusSetoffFilterTo" class="filter-ctrl" style="width:130px;" value="2026-12-31">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>SETTLEMENT ID</th><th>DATE</th><th>MEMBER NAME / ID</th><th>TOTAL BONUS (₹)</th><th>ADJ LOAN (₹)</th><th>ADJ INT (₹)</th><th>ADJ RD (₹)</th><th>ADJ PENALTY (₹)</th><th>NET PAID (₹)</th><th>MODE</th></tr></thead>
+        <tbody id="tbodyBonusSetoffRegister"></tbody>
+        <tfoot id="tfootBonusSetoffRegister"></tfoot>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -1201,15 +1788,9 @@ function getCompleteSoftwareHtmlContent() {
       <div><label class="field-label">Monthly RD (₹) *</label><input type="number" step="1" id="inpNewMemRd" class="field-ctrl" value="400"></div>
     </div>
     <div class="field-box">
-      <label class="field-label">Due Date (Every Month) *</label>
-      <select id="inpNewMemDueDay" class="field-ctrl">
-        <option value="5th of every month">5th of every month</option>
-        <option value="10th of every month">10th of every month</option>
-        <option value="15th of every month" selected>15th of every month (Default)</option>
-        <option value="20th of every month">20th of every month</option>
-        <option value="25th of every month">25th of every month</option>
-        <option value="Last day of every month">Last day of every month</option>
-      </select>
+      <label class="field-label">Due Date (Every Month - Calendar Based) *</label>
+      <input type="date" id="inpNewMemDueDay" class="field-ctrl">
+      <small id="dispDueDayFormatted" style="color:#38BDF8; font-weight:600; margin-top:2px; display:block;"></small>
     </div>
     <div class="field-box">
       <label class="field-label">Address *</label>
@@ -1287,10 +1868,10 @@ function getCompleteSoftwareHtmlContent() {
       </div>
     </div>
     <div class="ledger-header" id="ledgerHeaderStats"></div>
-    <div style="font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:6px;">Transaction History (Debit - Disbursal / Credit - Payment)</div>
-    <div style="max-height:260px; overflow-y:auto;">
+    <div style="font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:6px;">Transaction History (RD Savings & Loan Accounts Segregated)</div>
+    <div style="max-height:280px; overflow-y:auto;">
       <table>
-        <thead><tr><th>DATE</th><th>REF ID</th><th>TRANSACTION PARTICULARS</th><th>DEBIT (-)</th><th>CREDIT (+)</th><th>BALANCE</th><th>MODE</th></tr></thead>
+        <thead><tr><th>DATE</th><th>REF ID</th><th>TRANSACTION PARTICULARS</th><th>RD DEPOSIT (₹)</th><th>RD BALANCE (₹)</th><th>LOAN ISSUED (₹)</th><th>LOAN REPAID (₹)</th><th>LOAN BALANCE (₹)</th><th>MODE</th></tr></thead>
         <tbody id="tbodyLedgerTxns"></tbody>
       </table>
     </div>
@@ -1432,14 +2013,238 @@ function getCompleteSoftwareHtmlContent() {
   </div>
 </div>
 
-<!-- MODAL: GLOBAL SETTINGS -->
+<!-- MODAL: GLOBAL SETTINGS & FUND REGISTER -->
 <div class="modal-backdrop" id="modalSettings">
-  <div class="modal-dialog-box">
-    <div class="modal-header-row"><div style="color:#FBBF24; font-weight:800;">⚙️ Society Global Settings</div><button class="close-x action-close-modal">&times;</button></div>
-    <div class="field-box"><label class="field-label">Global Default Due Date</label><input type="text" id="inpGlobalDueDay" class="field-ctrl" value="15th of every month"></div>
-    <div class="field-box"><label class="field-label">Global Default Interest Rate (% p.m. for NEW loans)</label><input type="number" id="inpGlobalRate" class="field-ctrl" value="1.0" step="0.1"></div>
-    <small style="color:#94A3B8; display:block; margin-bottom:12px;">Note: Changes apply to default forms and members without custom settings. Issued historical loans remain safe.</small>
-    <button class="btn btn-blue" id="btnApplyGlobalSettings" style="width:100%; justify-content:center; padding:11px;">Apply Global Settings</button>
+  <div class="modal-dialog-box modal-dialog-lg">
+    <div class="modal-header-row"><div style="color:#FBBF24; font-weight:800; font-size:1.1rem;">⚙️ Society Settings & Fund Register</div><button class="close-x action-close-modal">&times;</button></div>
+    
+    <div style="display:flex; gap:6px; margin-bottom:14px; border-bottom:1px solid #1E293B; padding-bottom:8px;">
+      <button type="button" class="tab-item active" id="btnSettingsSubTab1" style="border-radius:6px; font-weight:700;">⚙️ 1. General Settings</button>
+      <button type="button" class="tab-item" id="btnSettingsSubTab2" style="border-radius:6px; font-weight:700;">🏦 2. Fund Register (Invest/Borrow Audit)</button>
+      <button type="button" class="tab-item" id="btnSettingsSubTab3" style="border-radius:6px; font-weight:700;">➕ 3. Borrow / Invest Entry Form</button>
+      <button type="button" class="tab-item" id="btnSettingsSubTab4" style="border-radius:6px; font-weight:700;">📈 4. Profit & Loss Register</button>
+    </div>
+
+    <!-- SUB-TAB 1: GENERAL SETTINGS -->
+    <div id="settingsSubView1">
+      <div style="margin-bottom:16px; padding:12px; background:#1E293B; border:1.5px solid #10B981; border-radius:8px; text-align:center;">
+        <div style="font-weight:700; color:#34D399; margin-bottom:4px; font-size:0.9rem;">📊 Connected Google Sheet Database Control</div>
+        <div style="font-size:0.75rem; color:#94A3B8; margin-bottom:10px;">Members, Payments, Loans, FundRegister aur Users ka live data sync ya Google Sheet open karne ke liye:</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" id="btnOpenGoogleSheet" onclick="handleOpenSpreadsheet(event)" class="btn btn-green" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:800; padding:11px; font-size:0.88rem; box-sizing:border-box; cursor:pointer;">
+            <span>📊 Open Google Sheet ➔</span>
+          </button>
+          <button type="button" id="btnSyncSheetData" onclick="handleTopReload()" class="btn btn-blue" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:800; padding:11px; font-size:0.88rem; box-sizing:border-box; cursor:pointer;">
+            <span>🔄 Sync Live Sheet Data</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="field-box"><label class="field-label">Global Default Due Date</label><input type="text" id="inpGlobalDueDay" class="field-ctrl" value="15th of every month"></div>
+      <div class="field-box"><label class="field-label">Global Default Interest Rate (% p.m. for NEW loans)</label><input type="number" id="inpGlobalRate" class="field-ctrl" value="1.0" step="0.1"></div>
+      
+      <!-- NEW PENALTY CONTROL FIELDS (V36) -->
+      <div class="field-box">
+        <label class="field-label">Society Penalty Start Date (Is date ke baad hi ₹10/day penalty start hogi)</label>
+        <input type="date" id="inpPenaltyStartDate" class="field-ctrl" value="2026-10-01">
+      </div>
+      <div class="field-box" style="display:flex; align-items:center; gap:10px; background:#0F172A; padding:10px; border-radius:6px; border:1px solid #F59E0B; margin-top:8px;">
+        <input type="checkbox" id="chkSkipPenalty" style="width:20px; height:20px; cursor:pointer;" checked>
+        <label for="chkSkipPenalty" style="color:#FBBF24; font-weight:700; cursor:pointer; font-size:0.88rem;">
+          ⏸️ Skip / Hold All Overdue Penalty (Society Meeting Pending)
+        </label>
+      </div>
+
+      <small style="color:#94A3B8; display:block; margin-top:10px; margin-bottom:12px;">Note: Changes apply to default forms and members without custom settings. Issued historical loans remain safe.</small>
+      <button class="btn btn-blue" id="btnApplyGlobalSettings" style="width:100%; justify-content:center; padding:11px;">Apply Global Settings</button>
+    </div>
+
+    <!-- SUB-TAB 2: FUND REGISTER -->
+    <div id="settingsSubView2" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:0.9rem; font-weight:700; color:#38BDF8;">Audit of Invested / Borrowed Funds (Cash & Bank)</div>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <input type="date" id="inpFundFilterFrom" class="filter-ctrl" style="width:125px;" value="2026-01-01">
+          <input type="date" id="inpFundFilterTo" class="filter-ctrl" style="width:125px;" value="2026-12-31">
+          <select id="selFundFilterAccount" class="filter-ctrl">
+            <option value="ALL">All Accounts</option>
+            <option value="CASH">Cash in Hand</option>
+            <option value="BANK">Cash at Bank</option>
+          </select>
+          <select id="selFundFilterType" class="filter-ctrl">
+            <option value="ALL">All Types</option>
+            <option value="INVEST">Investments (Inflow)</option>
+            <option value="BORROW">Borrowings (Outflow)</option>
+          </select>
+        </div>
+      </div>
+      <div style="max-height:260px; overflow-y:auto; margin-bottom:10px;">
+        <table>
+          <thead><tr><th>DATE</th><th>TXN ID</th><th>TYPE</th><th>ACCOUNT</th><th>SOURCE / ENTITY</th><th>AMOUNT (₹)</th><th>NARRATION</th><th style="text-align:center;">ACTION</th></tr></thead>
+          <tbody id="tbodyFundRegisterList"></tbody>
+          <tfoot id="tfootFundRegisterList"></tfoot>
+        </table>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn btn-purple" id="btnSwitchToFundForm">➕ Record New Invest / Borrow Entry</button>
+      </div>
+    </div>
+
+    <!-- SUB-TAB 3: BORROW / INVEST FORM -->
+    <div id="settingsSubView3" style="display:none;">
+      <div style="font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:12px;">Record Borrowing or Investment (Cash Register / Bank)</div>
+      <div class="two-cols field-box">
+        <div>
+          <label class="field-label">Transaction Type</label>
+          <select id="inpFundEntryType" class="field-ctrl">
+            <option value="INVEST">INVESTMENT / CAPITAL INFLOW (+)</option>
+            <option value="BORROW">BORROWING / CAPITAL OUTFLOW (-)</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Account</label>
+          <select id="inpFundEntryAccount" class="field-ctrl">
+            <option value="BANK">CASH AT BANK / ONLINE</option>
+            <option value="CASH">CASH IN HAND</option>
+          </select>
+        </div>
+      </div>
+      <div class="two-cols field-box">
+        <div><label class="field-label">Transaction Date</label><input type="date" id="inpFundEntryDate" class="field-ctrl"><span id="dispFundEntryDateFmt" style="font-size:0.75rem; color:#FBBF24;"></span></div>
+        <div><label class="field-label">Amount (₹)</label><input type="text" id="inpFundEntryAmount" class="field-ctrl" placeholder="e.g. 50000"></div>
+      </div>
+      <div class="field-box">
+        <label class="field-label">Investor / Lender / Entity</label>
+        <input type="text" id="inpFundEntryEntity" class="field-ctrl" placeholder="e.g. Director Investment, Bank Loan, Reserve Fund">
+      </div>
+      <div class="field-box">
+        <label class="field-label">Narration / Remarks</label>
+        <input type="text" id="inpFundEntryNarration" class="field-ctrl" placeholder="Enter purpose or details of this transaction">
+      </div>
+      <button type="button" class="btn btn-green" id="btnSubmitFundEntry" style="width:100%; justify-content:center; padding:11px; font-weight:800; font-size:0.95rem;">
+        💾 Post Transaction & Update Dashboard Fund
+      </button>
+    </div>
+
+    <!-- SUB-TAB 4: PROFIT & LOSS REGISTER -->
+    <div id="settingsSubView4" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:0.92rem; font-weight:800; color:#10B981;">📈 Society Net Profit & Loss Summary Register</div>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <label class="field-label" style="margin:0;">From:</label>
+          <input type="date" id="inpPlFilterFrom" class="filter-ctrl" style="width:125px;" value="2026-01-01">
+          <label class="field-label" style="margin:0;">To:</label>
+          <input type="date" id="inpPlFilterTo" class="filter-ctrl" style="width:125px;" value="2026-12-31">
+          <select id="selPlFinancialYear" class="filter-ctrl"></select>
+          <button type="button" class="btn btn-dark" id="btnApplyPlFilter" style="padding:5px 9px;">Filter</button>
+        </div>
+      </div>
+
+      <!-- P&L SUMMARY HIGHLIGHT CARDS -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
+        <div style="background:#1E293B; border-radius:6px; padding:8px; text-align:center; border-left:3px solid #10B981;">
+          <div style="font-size:0.68rem; color:#94A3B8; font-weight:700;">TOTAL INTEREST (+)</div>
+          <div style="font-size:1.1rem; font-weight:800; color:#10B981;" id="lblPlIntEarned">₹0</div>
+        </div>
+        <div style="background:#1E293B; border-radius:6px; padding:8px; text-align:center; border-left:3px solid #10B981;">
+          <div style="font-size:0.68rem; color:#94A3B8; font-weight:700;">PENALTY RECV (+)</div>
+          <div style="font-size:1.1rem; font-weight:800; color:#10B981;" id="lblPlPenReceived">₹0</div>
+        </div>
+        <div style="background:#1E293B; border-radius:6px; padding:8px; text-align:center; border-left:3px solid #EF4444;">
+          <div style="font-size:0.68rem; color:#94A3B8; font-weight:700;">WAIVER GIVEN (-)</div>
+          <div style="font-size:1.1rem; font-weight:800; color:#EF4444;" id="lblPlWaiver">₹0</div>
+        </div>
+        <div style="background:#1E293B; border-radius:6px; padding:8px; text-align:center; border-left:3px solid #EF4444;">
+          <div style="font-size:0.68rem; color:#94A3B8; font-weight:700;">BONUS PAID (-)</div>
+          <div style="font-size:1.1rem; font-weight:800; color:#EF4444;" id="lblPlBonusPaid">₹0</div>
+        </div>
+        <div style="background:#1E293B; border-radius:6px; padding:8px; text-align:center; border-left:3px solid #F59E0B;">
+          <div style="font-size:0.68rem; color:#94A3B8; font-weight:700;">BONUS PAYABLE (-)</div>
+          <div style="font-size:1.1rem; font-weight:800; color:#F59E0B;" id="lblPlBonusPayable">₹0</div>
+        </div>
+        <div style="background:#1E293B; border-radius:6px; padding:8px; text-align:center; border:1.5px solid #38BDF8;">
+          <div style="font-size:0.68rem; color:#38BDF8; font-weight:800;">NET PROFIT / LOSS</div>
+          <div style="font-size:1.2rem; font-weight:800;" id="lblPlNetProfit">₹0</div>
+        </div>
+      </div>
+
+      <!-- DETAILED BREAKUP TABLE -->
+      <div style="max-height:220px; overflow-y:auto; margin-bottom:10px;">
+        <table>
+          <thead>
+            <tr>
+              <th>DATE (DD-MM-YYYY)</th>
+              <th>CATEGORY</th>
+              <th>MEMBER / SOURCE</th>
+              <th>INCOME (+)</th>
+              <th>EXPENSE (-)</th>
+              <th>REMARKS</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPlBreakup"></tbody>
+          <tfoot id="tfootPlBreakup"></tfoot>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL: EDIT FUND ENTRY (BORROW / INVEST) -->
+<div class="modal-backdrop" id="modalEditFund" style="display:none;">
+  <div class="modal-dialog-box modal-dialog-sm">
+    <div class="modal-header-row">
+      <div style="color:#38BDF8; font-weight:800; font-size:1.05rem;">✏️ Edit Borrow / Invest Transaction</div>
+      <button type="button" class="close-x" onclick="closeModal('modalEditFund')">&times;</button>
+    </div>
+    
+    <div class="field-box">
+      <label class="field-label">Transaction ID</label>
+      <input type="text" id="inpEditFundId" class="field-ctrl" readonly style="background:#1E293B; color:#94A3B8; cursor:not-allowed;">
+    </div>
+
+    <div class="field-row-2">
+      <div class="field-box">
+        <label class="field-label">Entry Type</label>
+        <select id="inpEditFundType" class="field-ctrl">
+          <option value="INVEST">INVESTMENT (Capital Inflow / Deposit)</option>
+          <option value="BORROW">BORROWING (Fund Borrowed / Debt)</option>
+        </select>
+      </div>
+      <div class="field-box">
+        <label class="field-label">Target Account</label>
+        <select id="inpEditFundAccount" class="field-ctrl">
+          <option value="BANK">CASH AT BANK (Bank Ledger)</option>
+          <option value="CASH">CASH IN HAND (Cash Vault)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row-2">
+      <div class="field-box">
+        <label class="field-label">Transaction Date</label>
+        <input type="date" id="inpEditFundDate" class="field-ctrl">
+      </div>
+      <div class="field-box">
+        <label class="field-label">Amount (₹)</label>
+        <input type="number" id="inpEditFundAmount" class="field-ctrl" placeholder="e.g. 50000" min="1" step="1">
+      </div>
+    </div>
+
+    <div class="field-box">
+      <label class="field-label">Source / Lender / Investor Entity Name</label>
+      <input type="text" id="inpEditFundEntity" class="field-ctrl" placeholder="e.g. Society Capital, Apex Bank, President">
+    </div>
+
+    <div class="field-box">
+      <label class="field-label">Narration / Remarks</label>
+      <input type="text" id="inpEditFundNarration" class="field-ctrl" placeholder="e.g. Working Capital Borrowing">
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:14px;">
+      <button type="button" class="btn btn-dark" onclick="closeModal('modalEditFund')" style="flex:1; justify-content:center; padding:10px;">Cancel</button>
+      <button type="button" class="btn btn-blue" id="btnUpdateFundEntry" onclick="handleSaveEditFund()" style="flex:2; justify-content:center; padding:10px; font-weight:800;">💾 Save Changes</button>
+    </div>
   </div>
 </div>
 `;
@@ -1447,15 +2252,17 @@ function getCompleteSoftwareHtmlContent() {
 
 function getCompleteSoftwareHtml() {
   var initialUsersJson = "[]";
+  var sheetUrl = "";
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (ss) {
+      sheetUrl = ss.getUrl() || "";
       var uSheet = ss.getSheetByName("Users");
       if (uSheet && uSheet.getLastRow() > 1) {
-        var uData = uSheet.getRange(2, 1, uSheet.getLastRow() - 1, 3).getValues();
+        var uData = uSheet.getRange(2, 1, uSheet.getLastRow() - 1, 4).getValues();
         var uList = [];
         uData.forEach(function(r) {
-          if (r[0]) uList.push({ username: String(r[0]).trim(), password: String(r[1]).trim(), role: String(r[2] || "Manager").trim() });
+          if (r[0]) uList.push({ username: String(r[0]).trim(), password: String(r[1]).trim(), role: String(r[2] || "Manager").trim(), email: String(r[3] || "").trim() });
         });
         if (uList.length > 0) initialUsersJson = JSON.stringify(uList);
       }
@@ -1463,8 +2270,9 @@ function getCompleteSoftwareHtml() {
   } catch(e) {}
 
   return getCompleteSoftwareHtmlContent() + 
-    "\n<script>\nwindow.initialSheetUsers = " + initialUsersJson + ";\n</script>\n" +
-    getCompleteSoftwareClientScript();
+    "\n<script>\nwindow.initialSheetUsers = " + initialUsersJson + ";\nwindow.connectedSpreadsheetUrl = " + JSON.stringify(sheetUrl) + ";\n</script>\n" +
+    getCompleteSoftwareClientScript() +
+    "\n</body>\n</html>";
 }
 
 
@@ -1472,6 +2280,21 @@ function getClientScriptPartA() {
   return `
 <script>
 // INITIAL AUTHENTICATION & LOGIN LOGIC
+
+window.switchTab = function(tIdx) {
+  for (var i = 1; i <= 5; i++) {
+    var head = document.getElementById("tabHead" + i);
+    var panel = document.getElementById("tabPanel" + i);
+    if (head) head.className = (i === tIdx) ? "tab-item active" : "tab-item";
+    if (panel) panel.style.display = (i === tIdx) ? "block" : "none";
+  }
+  if (tIdx === 1 && typeof window.renderMembers === "function") window.renderMembers();
+  else if (tIdx === 2 && typeof window.renderPayments === "function") window.renderPayments();
+  else if (tIdx === 3 && typeof window.renderLoans === "function") window.renderLoans();
+  else if (tIdx === 4 && typeof window.renderBonusTab === "function") window.renderBonusTab();
+  else if (tIdx === 5 && typeof window.renderPenaltyTab === "function") window.renderPenaltyTab();
+};
+
 window.authorizedUsers = [
   { username: "SANISH", password: "12345", role: "Super Admin", email: "stfsolutionsdelhi@gmail.com" },
   { username: "ADMIN", password: "12345", role: "Manager", email: "stfsolutionsdelhi@gmail.com" }
@@ -1516,9 +2339,11 @@ window.safeToggleFullscreen = function(e) {
       } catch(err) {}
     }
     if (document.body) document.body.classList.add("simulated-fullscreen");
+    window.isAppInFullscreenMode = true;
     if (btn1) btn1.innerText = "✖ Exit Full Screen";
     if (btn2) btn2.innerText = "✖ Exit Full Screen";
   } else {
+    window.isAppInFullscreenMode = false;
     try {
       if (document.exitFullscreen) {
         var p = document.exitFullscreen();
@@ -1535,87 +2360,115 @@ window.safeToggleFullscreen = function(e) {
 };
 
 window.executeDirectLogin = function(e) {
-  if (e) {
-    if (e.preventDefault) e.preventDefault();
-    if (e.stopPropagation) e.stopPropagation();
-  }
-  var uInp = (document.getElementById("inpWinUsername").value || "").trim();
-  var pInp = (document.getElementById("inpWinPassword").value || "").trim();
-  var errBox = document.getElementById("winLoginError");
-
-  if (!uInp) {
-    if (errBox) {
-      errBox.innerHTML = "⚠️ Please enter <strong>Username</strong>!";
-      errBox.style.display = "block";
+    if (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
     }
-    return false;
-  }
 
-  var uUpper = uInp.toUpperCase();
-  var pVal = pInp;
+    var uElem = document.getElementById("inpWinUsername");
+    var pElem = document.getElementById("inpWinPassword");
+    var uInp = (uElem ? uElem.value : "").trim();
+    var pInp = (pElem ? pElem.value : "").trim();
+    var errBox = document.getElementById("winLoginError");
 
-  // 1. Gather all authorized users (From live Google Sheet first, then fallback)
-  var allUsers = [];
-  if (window.initialSheetUsers && Array.isArray(window.initialSheetUsers) && window.initialSheetUsers.length > 0) {
-    allUsers = window.initialSheetUsers;
-  } else if (window.authorizedUsers && Array.isArray(window.authorizedUsers) && window.authorizedUsers.length > 0) {
-    allUsers = window.authorizedUsers;
-  }
-
-  // 2. Check matched user from sheet
-  var matched = allUsers.find(function(u) {
-    return String(u.username || "").trim().toUpperCase() === uUpper && 
-           (String(u.password || "").trim() === pVal || pVal === "12345");
-  });
-
-  // 3. Default credentials check (SANISH or ADMIN with 12345 or Password)
-  var isDefault = (uUpper === "SANISH" || uUpper === "ADMIN") && (pVal === "12345" || pVal === "Password" || pVal === "Admin@123");
-
-  if (isDefault || matched) {
-    var current = matched || {
-      username: uUpper,
-      role: (uUpper === "SANISH" ? "Super Admin" : "Manager"),
-      email: "stfsolutionsdelhi@gmail.com"
-    };
-    window.currentUserSession = current;
-    if (errBox) errBox.style.display = "none";
-    
-    // Hide overlay
-    var overlay = document.getElementById("windowsLoginOverlay");
-    if (overlay) {
-      overlay.style.display = "none";
-      overlay.style.setProperty("display", "none", "important");
+    if (!uInp) {
+      uInp = "SANISH";
+      if (uElem) uElem.value = "SANISH";
     }
-    
-    try { sessionStorage.setItem("gullak_v22_session", JSON.stringify(current)); } catch(err) {}
-    
-    // Render and refresh all views immediately
-    try {
-      if (typeof window.refreshAll === "function") {
-        window.refreshAll();
+
+    if (!pInp) {
+      if (errBox) {
+        errBox.innerHTML = "⚠️ Please enter <strong>Password</strong> to continue!";
+        errBox.style.display = "block";
       }
-    } catch(err) {
-      console.error("refreshAll error:", err);
+      if (pElem) { pElem.style.borderColor = "#EF4444"; pElem.focus(); }
+      return false;
     }
-    return false;
-  } else {
-    var errMsg = "❌ <strong>Invalid Password!</strong><br>Default Password: <strong>12345</strong><br><small style='color:#CBD5E1;'>Note: Aap apne Google Sheet ke <strong>'Users'</strong> tab me jaakar Column B me password check ya change kar sakte hain.</small>";
-    if (errBox) {
-      errBox.innerHTML = errMsg;
-      errBox.style.display = "block";
-    }
-    var pBox = document.getElementById("inpWinPassword");
-    if (pBox) {
-      pBox.style.borderColor = "#EF4444";
-      pBox.value = "";
-      pBox.focus();
-    }
-    return false;
-  }
-};
 
-window.handleLoginKeyPress = function(e) {
-  if (e && (e.key === "Enter" || e.keyCode === 13)) {
+    var uUpper = uInp.toUpperCase();
+    var pVal = pInp;
+
+    var allUsers = [];
+    if (window.initialSheetUsers && Array.isArray(window.initialSheetUsers) && window.initialSheetUsers.length > 0) {
+      allUsers = window.initialSheetUsers;
+    } else if (window.authorizedUsers && Array.isArray(window.authorizedUsers) && window.authorizedUsers.length > 0) {
+      allUsers = window.authorizedUsers;
+    }
+
+    var matched = null;
+    if (allUsers && allUsers.length > 0) {
+      for (var i = 0; i < allUsers.length; i++) {
+        var u = allUsers[i];
+        var dbUser = String(u.username || "").trim().toUpperCase();
+        var dbPass = String(u.password || "").trim();
+        if (dbUser === uUpper && (dbPass === pVal || (dbPass === "" && pVal === "12345"))) {
+          matched = u;
+          break;
+        }
+      }
+    }
+
+    var isMasterPass = false;
+    var isUserPassMatch = false;
+    if (matched) {
+      var mPass = String(matched.password || "").trim();
+      if (mPass === pVal || (mPass === "" && pVal === "12345")) {
+        isUserPassMatch = true;
+      }
+    }
+    if (isMasterPass || isUserPassMatch) {
+      var current = matched || {
+        username: uUpper || "SANISH",
+        role: (uUpper === "ADMIN" ? "Manager" : "Super Admin"),
+        email: "stfsolutionsdelhi@gmail.com"
+      };
+      window.currentUserSession = current;
+      if (errBox) errBox.style.display = "none";
+      var overlay = document.getElementById("windowsLoginOverlay");
+      if (overlay) {
+        overlay.style.display = "none";
+        overlay.style.setProperty("display", "none", "important");
+      }
+      try {
+        sessionStorage.removeItem("gullak_v22_session");
+        sessionStorage.removeItem("gullak_v21_session");
+      } catch(err) {}
+      if (typeof window.switchTab === "function") {
+        window.switchTab(1);
+      }
+      try {
+        if (typeof window.bootApplication === "function") {
+          window.bootApplication();
+        }
+      } catch(bootErr) {
+        console.error("bootApplication error:", bootErr);
+      }
+      try {
+        if (typeof window.refreshAll === "function") {
+          window.refreshAll();
+        }
+      } catch(err) {
+        console.error("refreshAll error:", err);
+      }
+      return false;
+    } else {
+      var errMsg = "❌ <strong>Invalid Password!</strong><br><small style='color:#CBD5E1;'>Please enter the correct password to continue.</small>";
+      if (errBox) {
+        errBox.innerHTML = errMsg;
+        errBox.style.display = "block";
+      }
+      if (pElem) {
+        pElem.style.borderColor = "#EF4444";
+        pElem.value = "";
+        pElem.focus();
+      }
+      return false;
+    }
+  };
+
+  window.handleLoginKeyPress = function(e) {
+  var k = e.key || e.keyCode || e.which;
+  if (k === "Enter" || k === 13 || k === "13") {
     if (e.preventDefault) e.preventDefault();
     if (e.stopPropagation) e.stopPropagation();
     window.executeDirectLogin(e);
@@ -1624,14 +2477,15 @@ window.handleLoginKeyPress = function(e) {
 };
 
 window.logoutSession = function() {
+  window.currentUserSession = null;
   try {
     sessionStorage.removeItem("gullak_v22_session");
     sessionStorage.removeItem("gullak_v21_session");
+    sessionStorage.removeItem("gullak_v21_active_user");
   } catch(e) {}
   var overlay = document.getElementById("windowsLoginOverlay");
   if (overlay) {
     overlay.style.display = "flex";
-    overlay.style.removeProperty("display");
   }
   var pInput = document.getElementById("inpWinPassword");
   if (pInput) { pInput.value = ""; pInput.focus(); }
@@ -1658,18 +2512,83 @@ window.handleForgotCredentials = function(e) {
   var DEF_L=[];
 
   var members=JSON.parse(JSON.stringify(DEF_M)), payments=JSON.parse(JSON.stringify(DEF_P)), loans=JSON.parse(JSON.stringify(DEF_L)), exitSettlements=[], bonusSettlements=[];
+  var fundTransactions = [];
+  try {
+    var savedFund = localStorage.getItem("gullak_v21_fund");
+    if(savedFund) fundTransactions = JSON.parse(savedFund);
+  } catch(e) {}
+  window.fundTransactions = fundTransactions;
+  window.members = members;
+  window.payments = payments;
+  window.loans = loans;
+  window.exitSettlements = exitSettlements;
+  window.bonusSettlements = bonusSettlements;
   var globalDefaultRate = 1.0;
   var globalDefaultDue = "15th of every month";
   var pendingBulkData = null;
   var currentActiveLedgerMember = null;
 
+  window.globalSettings = { penaltyStartDate: "2026-10-01", skipPenalty: true };
+  try {
+    var savedStg = localStorage.getItem("gullak_v21_settings");
+    if(savedStg) window.globalSettings = JSON.parse(savedStg);
+  } catch(e) {}
+
+  function parseDateParts(d){
+    if (!d) return { yr: 2026, mo: 1, day: 1 };
+    if (d instanceof Date) {
+      if (isNaN(d.getTime())) return { yr: 2026, mo: 1, day: 1 };
+      return { yr: d.getFullYear(), mo: d.getMonth() + 1, day: d.getDate() };
+    }
+    var s = String(d).trim().split("T")[0].split(" ")[0];
+    var mYmd = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+    if (mYmd) {
+      return { yr: parseInt(mYmd[1], 10), mo: parseInt(mYmd[2], 10), day: parseInt(mYmd[3], 10) };
+    }
+    var mDmy = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+    if (mDmy) {
+      return { yr: parseInt(mDmy[3], 10), mo: parseInt(mDmy[2], 10), day: parseInt(mDmy[1], 10) };
+    }
+    var dt = new Date(s);
+    if (!isNaN(dt.getTime()) && dt.getFullYear() >= 2020 && dt.getFullYear() <= 2100) {
+      return { yr: dt.getFullYear(), mo: dt.getMonth() + 1, day: dt.getDate() };
+    }
+    return { yr: 2026, mo: 1, day: 1 };
+  }
+  window.parseDateParts = parseDateParts;
+
+  function toIsoDateStr(d){
+    if(!d) return "2026-01-01";
+    var dp = parseDateParts(d);
+    if(!dp || !dp.yr || !dp.mo || !dp.day) return "2026-01-01";
+    var y = dp.yr < 2020 || dp.yr > 2100 ? 2026 : dp.yr;
+    var m = String(dp.mo).padStart(2, "0");
+    var day = String(dp.day).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+  window.toIsoDateStr = toIsoDateStr;
+
+  function getYearMonthKey(d){
+    if(!d) return "2026-01";
+    var dp = parseDateParts(d);
+    if(!dp || !dp.yr || !dp.mo) return "2026-01";
+    var y = dp.yr < 2020 || dp.yr > 2100 ? 2026 : dp.yr;
+    var m = String(dp.mo).padStart(2, "0");
+    return y + "-" + m;
+  }
+  window.getYearMonthKey = getYearMonthKey;
+
   function cleanNum(val, def){ 
-    var n = Number(val); 
-    if(isNaN(n) || n > 10000000 || n < 0) return (def || 0); 
+    if(val === null || val === undefined) return (def || 0);
+    var str = String(val).replace(/,/g, "").trim();
+    var n = Number(str); 
+    if(isNaN(n) || n > 100000000 || n < 0) return (def || 0); 
     return Math.round(n); 
   }
   function cleanRd(val){ 
-    var n = Number(val); 
+    if(val === null || val === undefined) return 400;
+    var str = String(val).replace(/,/g, "").trim();
+    var n = Number(str); 
     if(isNaN(n) || n <= 0 || n > 50000) return 400; 
     return Math.round(n); 
   }
@@ -1678,12 +2597,16 @@ window.handleForgotCredentials = function(e) {
     return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); 
   }
 
-  function toDisplayDate(ymd){
-    if(!ymd) return "01/01/2026";
-    var p = String(ymd).split("T")[0].split(" ")[0].split("-");
-    if(p.length === 3) return p[2] + "/" + p[1] + "/" + p[0];
-    return ymd;
+  function toDisplayDate(d){
+    if(!d) return "01/01/2026";
+    var dp = parseDateParts(d);
+    if(!dp || !dp.yr || !dp.mo || !dp.day) return "01/01/2026";
+    var day = String(dp.day).padStart(2, "0");
+    var m = String(dp.mo).padStart(2, "0");
+    var y = dp.yr < 2020 || dp.yr > 2100 ? 2026 : dp.yr;
+    return day + "/" + m + "/" + y;
   }
+  window.toDisplayDate = toDisplayDate;
 
   // Exact ID Suffixes
   function getDDMMYYFromYMD(ymd){
@@ -1705,6 +2628,8 @@ window.handleForgotCredentials = function(e) {
       localStorage.setItem("gullak_v21_l", JSON.stringify(loans)); 
       localStorage.setItem("gullak_v21_ex", JSON.stringify(exitSettlements)); 
       localStorage.setItem("gullak_v21_b", JSON.stringify(bonusSettlements)); 
+      localStorage.setItem("gullak_v21_fund", JSON.stringify(fundTransactions));
+      localStorage.setItem("gullak_v21_settings", JSON.stringify(window.globalSettings || { penaltyStartDate: "2026-10-01", skipPenalty: true }));
     }catch(e){} 
     refreshAll(); 
   }
@@ -1796,10 +2721,30 @@ window.handleForgotCredentials = function(e) {
     return Math.max(0, netIntDue);
   }
 
-  // EXACT PENALTY CALCULATION (SANISH & ALL MEMBERS: ₹10/DAY OVERDUE FROM 15TH)
+  // EXACT PENALTY CALCULATION (SANISH, AMIT VERMA & ALL MEMBERS: ₹10/DAY OVERDUE FROM 15TH)
   function calculateMemberLivePenaltyDue(m){
-    var mid = String(m.id).trim().toUpperCase();
-    var mName = String(m.name).trim().toLowerCase();
+    var isSkipChecked = true;
+    if(window.globalSettings && typeof window.globalSettings.skipPenalty === "boolean"){
+      isSkipChecked = window.globalSettings.skipPenalty;
+    } else {
+      var chkEl = document.getElementById("chkSkipPenalty");
+      if(chkEl) isSkipChecked = chkEl.checked;
+    }
+    if(isSkipChecked) return 0;
+
+    var penStartStr = "2026-10-01";
+    if(window.globalSettings && window.globalSettings.penaltyStartDate){
+      penStartStr = window.globalSettings.penaltyStartDate;
+    } else {
+      var psEl = document.getElementById("inpPenaltyStartDate");
+      if(psEl && psEl.value) penStartStr = psEl.value;
+    }
+
+    var todayYMD = getTodayYMD();
+    if(todayYMD < penStartStr) return 0;
+
+    var mid = String(m.id || "").trim().toUpperCase();
+    var mName = String(m.name || "").trim().toLowerCase();
     var today = new Date();
     var curYr = today.getFullYear();
     var curMo = today.getMonth() + 1;
@@ -1812,16 +2757,20 @@ window.handleForgotCredentials = function(e) {
     }
     if(isNaN(dueDayNum) || dueDayNum < 1 || dueDayNum > 28) dueDayNum = 15;
 
-    var jDate = m.dateJoined || "2026-01-01";
-    var jp = jDate.split("-");
-    var jYr = parseInt(jp[0], 10) || 2026;
-    var jMo = parseInt(jp[1], 10) || 1;
+    var jdp = parseDateParts(m.dateJoined || "2026-01-01");
+    var jYr = jdp.yr;
+    var jMo = jdp.mo;
+    if(jYr < 2024 || jYr > 2035) jYr = 2026;
+    if(jMo < 1 || jMo > 12) jMo = 1;
 
-    var totalRdPaid = 0;
+    var totalRdPaid = cleanNum(m.rdPaid, 0);
     var totalPenPaid = 0;
     var totalWaiver = 0;
+
     payments.forEach(function(p){
-      if(String(p.id).trim().toUpperCase() === mid || String(p.name).trim().toLowerCase() === mName){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase();
+      var pMName = String(p.name || "").trim().toLowerCase();
+      if((pMid && pMid === mid) || (pMName && pMName === mName)){
         totalRdPaid += cleanNum(p.rd, 0);
         totalPenPaid += cleanNum(p.penalty, 0);
         totalWaiver += cleanNum(p.waiver, 0);
@@ -1830,29 +2779,36 @@ window.handleForgotCredentials = function(e) {
 
     var monthlyRd = cleanRd(m.rd);
     var monthsCovered = Math.floor(totalRdPaid / monthlyRd);
-
     var totalAccruedPen = cleanNum(m.opPen, 0);
+
+    var pStartParts = parseDateParts(penStartStr);
+    var pStartYr = pStartParts.yr || 2026;
+    var pStartMo = pStartParts.mo || 10;
+    var penaltyStartSerial = pStartYr * 12 + pStartMo;
 
     var startSerial = jYr * 12 + jMo;
     var currentSerial = curYr * 12 + curMo;
     var monthIdx = 0;
 
     for(var s = startSerial; s <= currentSerial; s++){
-      var yr = Math.floor((s - 1) / 12);
-      var mo = ((s - 1) % 12) + 1;
-      var isCurMonth = (yr === curYr && mo === curMo);
-
-      if(monthIdx >= monthsCovered){
-        if(isCurMonth){
-          if(curDay > dueDayNum){
-            totalAccruedPen += ((curDay - dueDayNum) * 10);
-          }
-        } else {
-          var dueDt = new Date(yr, mo - 1, dueDayNum);
-          var diffMs = today.getTime() - dueDt.getTime();
-          var daysLate = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          if(daysLate > 0){
-            totalAccruedPen += (daysLate * 10);
+      if(s >= penaltyStartSerial){
+        var yr = Math.floor((s - 1) / 12);
+        var mo = ((s - 1) % 12) + 1;
+        var isCurMonth = (yr === curYr && mo === curMo);
+        if(monthIdx >= monthsCovered){
+          if(isCurMonth){
+            if(curDay > dueDayNum){
+              totalAccruedPen += ((curDay - dueDayNum) * 10);
+            }
+          } else {
+            var dueDt = new Date(yr, mo - 1, dueDayNum);
+            var refDt = new Date(pStartYr, pStartMo - 1, 1);
+            var calcFromDt = dueDt > refDt ? dueDt : refDt;
+            var diffMs = today.getTime() - calcFromDt.getTime();
+            var daysLate = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            if(daysLate > 0){
+              totalAccruedPen += (daysLate * 10);
+            }
           }
         }
       }
@@ -1863,8 +2819,6 @@ window.handleForgotCredentials = function(e) {
     return Math.max(0, netPenDue);
   }
 
-  // EXACT BONUS CALCULATION: 1% P.M. UP TO LAST COMPLETED MONTH
-  // September is current month so September's bonus will accrue next month (in October)!
   function calculate1PercentPmBonus(m, filterFromYmd, filterToYmd){
     var mid = String(m.id).trim().toUpperCase();
     var mName = String(m.name).trim().toLowerCase();
@@ -1872,18 +2826,28 @@ window.handleForgotCredentials = function(e) {
     var schedule = [];
     var totalBonus = 0;
     
-    var selYear = document.getElementById("selFinancialYear") ? document.getElementById("selFinancialYear").value : "2026";
+    var selVal = document.getElementById("selFinancialYear") ? document.getElementById("selFinancialYear").value : "2026";
+    var selYrNum = 2026;
+    if(selVal){
+      var matched = String(selVal).match(/\d{4}/);
+      if(matched) selYrNum = parseInt(matched[0], 10);
+    }
+    if(isNaN(selYrNum) || selYrNum < 2020 || selYrNum > 2100) selYrNum = 2026;
+    var selYear = String(selYrNum);
+
     var monthsNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+    // 1. Calculate RD deposits made in years prior to selYrNum
+    var priorYearsRd = 0;
+    // 2. Map monthly deposits for selYrNum
     var monthlyDepositMap = [0,0,0,0,0,0,0,0,0,0,0,0];
     payments.forEach(function(p){
-      if((String(p.id).trim().toUpperCase() === mid || String(p.name).trim().toLowerCase() === mName) && cleanNum(p.rd, 0) > 0){
-        var dt = String(p.date || "");
-        if(dt.indexOf(selYear + "-") === 0){
-          var mNum = parseInt(dt.split("-")[1], 10);
-          if(!isNaN(mNum) && mNum >= 1 && mNum <= 12){
-            monthlyDepositMap[mNum - 1] += cleanNum(p.rd, 0);
-          }
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase(); var pMName = String(p.name || "").trim().toLowerCase(); if(((pMid && pMid === mid) || (pMName && pMName === mName)) && cleanNum(p.rd, 0) > 0){
+        var dp = parseDateParts(p.date);
+        if(dp.yr < selYrNum){
+          priorYearsRd += cleanNum(p.rd, 0);
+        } else if(dp.yr === selYrNum && dp.mo >= 1 && dp.mo <= 12){
+          monthlyDepositMap[dp.mo - 1] += cleanNum(p.rd, 0);
         }
       }
     });
@@ -1891,17 +2855,20 @@ window.handleForgotCredentials = function(e) {
     var today = new Date();
     var curYr = today.getFullYear();
     var curMoIdx = today.getMonth(); // 0-based: 8 for Sep
-    var selYrNum = parseInt(selYear, 10);
 
-    var runningBase = openingRd;
+    var baseOpening = openingRd + priorYearsRd;
+    var runningBase = baseOpening;
+
     for (var i = 0; i < 12; i++) {
       var monthStartBase = runningBase;
       var depositThisMonth = monthlyDepositMap[i];
       var monthEndBase = monthStartBase + depositThisMonth;
 
-      // Month i only earns bonus if completed strictly before current month in current year:
-      var isCompletedMonth = (selYrNum < curYr) ? true : ((selYrNum === curYr) ? (i < curMoIdx) : false);
-      var mBonus = isCompletedMonth ? Math.round(monthStartBase * 0.01) : 0;
+      // Month i earns bonus if completed strictly before current month in current year, or all months of a prior year:
+      var isCompletedMonth = (selYrNum < curYr) ? true : ((selYrNum === curYr) ? (i <= curMoIdx) : false);
+      // 1% bonus is calculated on the closing balance of RD for that month (Opening + Prior Deposits + Deposits made in month i)
+      var calcBase = monthEndBase;
+      var mBonus = isCompletedMonth && calcBase > 0 ? Math.round(calcBase * 0.01) : 0;
       
       if(isCompletedMonth) {
         totalBonus += mBonus;
@@ -1936,39 +2903,94 @@ window.handleForgotCredentials = function(e) {
     return { limit: std, text: "₹" + std.toLocaleString("en-IN"), isBlocked: false }; 
   }
 
-  // STRICT 4-DIGIT FINANCIAL YEAR SWITCHER GENERATOR
+  // AI-POWERED COLLISION-FREE AUTO-ID GENERATOR
+  function generateAutoId(type, dateStr){
+    var dp = parseDateParts(dateStr || getTodayYMD());
+    var yrShort = String(dp.yr).substring(2);
+    var moShort = String(dp.mo).padStart(2, "0");
+    var dayShort = String(dp.day).padStart(2, "0");
+    var datePrefix = yrShort + moShort + dayShort;
+    
+    var pfx = "REC";
+    var existingList = [];
+    var t = String(type || "REC").toUpperCase();
+    if(t === "REC" || t === "RECEIPT" || t === "PAYMENT"){
+      pfx = "REC";
+      existingList = payments.map(function(x){ return String(x.receiptNo || ""); });
+    } else if(t === "LOAN" || t === "LN"){
+      pfx = "LN";
+      existingList = loans.map(function(x){ return String(x.loanId || ""); });
+    } else if(t === "MEM" || t === "MEMBER"){
+      pfx = "MEM";
+      existingList = members.map(function(x){ return String(x.id || ""); });
+    } else if(t === "EXIT" || t === "EX"){
+      pfx = "EXT";
+      existingList = exitSettlements.map(function(x){ return String(x.exitId || ""); });
+    } else if(t === "SET" || t === "SETTLEMENT" || t === "BONUS"){
+      pfx = "SET";
+      existingList = bonusSettlements.map(function(x){ return String(x.settlementId || ""); });
+    } else if(t === "FUND" || t === "FND"){
+      pfx = "FND";
+      existingList = fundTransactions.map(function(x){ return String(x.id || ""); });
+    }
+
+    var seq = 1;
+    var candidate = "";
+    while(true){
+      var seqStr = String(seq).padStart(3, "0");
+      candidate = pfx + "-" + datePrefix + "-" + seqStr;
+      if(existingList.indexOf(candidate) === -1){
+        break;
+      }
+      seq++;
+    }
+    return candidate;
+  }
+  window.generateAutoId = generateAutoId;
+
+  // FINANCIAL YEAR (CALENDAR YEAR: JAN - DEC) SWITCHER GENERATOR
   function setupFinancialYearDropdown(){
     var sel = document.getElementById("selFinancialYear");
     if(!sel) return;
     var curVal = sel.value || "2026";
+    if(curVal.indexOf(" ") >= 0){
+      var m = curVal.match(/\d{4}/);
+      if(m) curVal = m[0];
+    }
     
-    var yearsSet = {};
-    function checkAndAddYear(dtStr){
+    var currentYear = (new Date()).getFullYear().toString();
+    if(!/^\d{4}$/.test(currentYear)) currentYear = "2026";
+
+    var fyMap = {};
+    fyMap["2026"] = true;
+    fyMap[currentYear] = true;
+
+    function recordYearFromDate(dtStr){
       if(!dtStr) return;
-      var cleanStr = String(dtStr).split("T")[0].split(" ")[0];
-      var p = cleanStr.split("-");
-      if(p.length === 3 && p[0].length === 4 && /^\d{4}$/.test(p[0])){
-        yearsSet[p[0]] = true;
+      var dp = parseDateParts(dtStr);
+      if(dp && dp.yr && dp.yr >= 2020 && dp.yr <= 2100){
+        fyMap[String(dp.yr)] = true;
       }
     }
 
-    members.forEach(function(m){ checkAndAddYear(m.dateJoined); });
-    payments.forEach(function(p){ checkAndAddYear(p.date); });
-    loans.forEach(function(l){ checkAndAddYear(l.date); });
-    exitSettlements.forEach(function(e){ checkAndAddYear(e.date); });
-    bonusSettlements.forEach(function(b){ checkAndAddYear(b.date); });
+    payments.forEach(function(p){ recordYearFromDate(p.date); });
+    loans.forEach(function(l){ recordYearFromDate(l.date); });
+    exitSettlements.forEach(function(e){ recordYearFromDate(e.date); });
+    bonusSettlements.forEach(function(b){ recordYearFromDate(b.date); });
+    fundTransactions.forEach(function(f){ recordYearFromDate(f.date); });
 
-    if(Object.keys(yearsSet).length === 0){
-      yearsSet["2026"] = true;
-    }
-
-    var sortedYears = Object.keys(yearsSet).filter(function(y){ return /^\d{4}$/.test(y); }).sort();
+    var sortedYrs = Object.keys(fyMap).sort();
     var h = "";
-    sortedYears.forEach(function(yr){
+    sortedYrs.forEach(function(yr){
       var isSel = (yr === curVal) ? "selected" : "";
       h += "<option value='" + yr + "' " + isSel + ">FY " + yr + "</option>";
     });
     sel.innerHTML = h;
+    if(sortedYrs.indexOf(curVal) === -1){
+      sel.value = currentYear;
+    } else {
+      sel.value = curVal;
+    }
   }
 
   function updateKPIs(){
@@ -1980,7 +3002,16 @@ window.handleForgotCredentials = function(e) {
     document.getElementById("dispTotalLoan").innerText = "₹" + totalLoan.toLocaleString("en-IN");
     var estB = 0; members.forEach(function(m){ estB += getMemberBonus(m); });
     document.getElementById("dispTotalBonus").innerText = "₹" + estB.toLocaleString("en-IN");
-    var fund = totalRdRecv - totalLoan + 45000;
+    
+    // Calculate liquid fund factoring in Invest Inflows & Borrow Outflows
+    var fundInflow = 0;
+    var fundOutflow = 0;
+    fundTransactions.forEach(function(f){
+      var amt = cleanNum(f.amount, 0);
+      if(String(f.type).toUpperCase() === "INVEST") fundInflow += amt;
+      else if(String(f.type).toUpperCase() === "BORROW") fundOutflow += amt;
+    });
+    var fund = totalRdRecv - totalLoan + 45000 + fundInflow - fundOutflow;
     var elFund = document.getElementById("dispTotalFund");
     elFund.innerText = (fund >= 0 ? "+₹" : "-₹") + Math.abs(fund).toLocaleString("en-IN");
     elFund.className = fund >= 0 ? "kpi-val val-green" : "kpi-val val-red";
@@ -2196,6 +3227,21 @@ function getClientScriptPartB() {
     var toD = document.getElementById("inpBonusFilterTo").value || "2030-12-31";
     var q = (document.getElementById("searchBonusInput").value || "").toLowerCase().trim();
 
+    // Compute live global bonus stats
+    var totalIntReceived = 0;
+    payments.forEach(function(p){ totalIntReceived += cleanNum(p.interest, 0); });
+    var totalCumulativeRd = 0;
+    members.forEach(function(m){ if(String(m.status).toUpperCase() === "ACTIVE") totalCumulativeRd += getMemberTotalRd(m); });
+    var totalAccruedBonus = 0;
+    members.forEach(function(m){ totalAccruedBonus += getMemberBonus(m); });
+
+    var elInt = document.getElementById("dispBonusTotalInterestRecv");
+    var elRd = document.getElementById("dispBonusTotalRdBase");
+    var elAcc = document.getElementById("dispBonusTotalAccrued");
+    if(elInt) elInt.innerText = "₹" + totalIntReceived.toLocaleString("en-IN");
+    if(elRd) elRd.innerText = "₹" + totalCumulativeRd.toLocaleString("en-IN");
+    if(elAcc) elAcc.innerText = "₹" + totalAccruedBonus.toLocaleString("en-IN");
+
     var filtered = members.filter(function(m){
       var matchSearch = String(m.name||"").toLowerCase().indexOf(q) >= 0 || String(m.id||"").toLowerCase().indexOf(q) >= 0;
       var hasSettled = bonusSettlements.some(function(b){ return String(b.id) === String(m.id); });
@@ -2209,7 +3255,7 @@ function getClientScriptPartB() {
 
     var tbody = document.getElementById("tbodyBonusList"); if(!tbody) return;
     if(filtered.length === 0){ 
-      tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;color:#94A3B8;'>No bonus records found</td></tr>"; 
+      tbody.innerHTML = "<tr><td colspan='8' style='text-align:center;color:#94A3B8;'>No bonus records found</td></tr>"; 
       document.getElementById("tfootBonusTotal").innerHTML = "";
       return; 
     }
@@ -2250,6 +3296,243 @@ function getClientScriptPartB() {
         "<td colspan='2'></td>" +
       "</tr>";
   }
+
+  function renderBonusSetoffRegister(){
+    var fromD = document.getElementById("inpBonusSetoffFilterFrom").value || "2026-01-01";
+    var toD = document.getElementById("inpBonusSetoffFilterTo").value || "2026-12-31";
+    var tbody = document.getElementById("tbodyBonusSetoffRegister"); if(!tbody) return;
+    
+    var filtered = bonusSettlements.filter(function(b){
+      var d = b.date || "2026-01-01";
+      return (d >= fromD && d <= toD);
+    });
+
+    if(filtered.length === 0){
+      tbody.innerHTML = "<tr><td colspan='10' style='text-align:center;color:#94A3B8;'>No bonus set-offs recorded in date range (" + toDisplayDate(fromD) + " to " + toDisplayDate(toD) + ")</td></tr>";
+      var tf = document.getElementById("tfootBonusSetoffRegister"); if(tf) tf.innerHTML = "";
+      return;
+    }
+
+    var h = "";
+    var totalBonusSum = 0, totalNetPaid = 0;
+    filtered.forEach(function(b){
+      var bTot = cleanNum(b.totalBonus, 0);
+      var netP = cleanNum(b.netPaid, 0);
+      totalBonusSum += bTot;
+      totalNetPaid += netP;
+      h += "<tr>" +
+        "<td style='font-family:monospace;color:#FBBF24;'>" + (b.settlementId || "-") + "</td>" +
+        "<td>" + toDisplayDate(b.date) + "</td>" +
+        "<td><strong>" + b.name + "</strong> (" + b.id + ")</td>" +
+        "<td style='color:#C084FC;font-weight:700;'>₹" + bTot.toLocaleString("en-IN") + "</td>" +
+        "<td>₹" + cleanNum(b.adjLoan, 0).toLocaleString("en-IN") + "</td>" +
+        "<td>₹" + cleanNum(b.adjInt, 0).toLocaleString("en-IN") + "</td>" +
+        "<td>₹" + cleanNum(b.adjRd, 0).toLocaleString("en-IN") + "</td>" +
+        "<td>₹" + cleanNum(b.adjPenalty, 0).toLocaleString("en-IN") + "</td>" +
+        "<td style='color:#10B981;font-weight:800;'>₹" + netP.toLocaleString("en-IN") + "</td>" +
+        "<td><span style='font-size:0.75rem;color:" + (b.mode==="CASH"?"#F59E0B":"#38BDF8") + ";font-weight:700;'>" + (b.mode||"ONLINE") + "</span></td>" +
+      "</tr>";
+    });
+    tbody.innerHTML = h;
+
+    var tf = document.getElementById("tfootBonusSetoffRegister");
+    if(tf) {
+      tf.innerHTML = 
+        "<tr class='tfoot-total-row'>" +
+          "<td colspan='3' style='color:#FBBF24;'>TOTAL SET-OFFS IN DATE RANGE</td>" +
+          "<td style='color:#C084FC;font-weight:800;'>₹" + totalBonusSum.toLocaleString("en-IN") + "</td>" +
+          "<td colspan='4'></td>" +
+          "<td style='color:#10B981;font-weight:800;'>₹" + totalNetPaid.toLocaleString("en-IN") + "</td>" +
+          "<td></td>" +
+        "</tr>";
+    }
+  }
+
+  function renderFundRegister(){
+    var fromD = document.getElementById("inpFundFilterFrom").value || "2026-01-01";
+    var toD = document.getElementById("inpFundFilterTo").value || "2026-12-31";
+    var accFilter = document.getElementById("selFundFilterAccount").value;
+    var typeFilter = document.getElementById("selFundFilterType").value;
+    var tbody = document.getElementById("tbodyFundRegisterList"); if(!tbody) return;
+
+    var filtered = fundTransactions.filter(function(f){
+      var isoD = toIsoDateStr(f.date);
+      var matchDate = (isoD >= fromD && isoD <= toD);
+      var matchAcc = (accFilter === "ALL" || String(f.account).toUpperCase() === accFilter);
+      var matchType = (typeFilter === "ALL" || String(f.type).toUpperCase() === typeFilter);
+      return matchDate && matchAcc && matchType;
+    });
+
+    if(filtered.length === 0){
+      tbody.innerHTML = "<tr><td colspan='8' style='text-align:center;color:#94A3B8;'>No fund transactions recorded in selected filter range</td></tr>";
+      var tf = document.getElementById("tfootFundRegisterList"); if(tf) tf.innerHTML = "";
+      return;
+    }
+
+    var h = "";
+    var totalInvest = 0, totalBorrow = 0;
+    filtered.forEach(function(f){
+      var amt = cleanNum(f.amount, 0);
+      var isInvest = (String(f.type).toUpperCase() === "INVEST");
+      if(isInvest) totalInvest += amt; else totalBorrow += amt;
+
+      var typeBadge = isInvest 
+        ? "<span class='badge-active'>INVESTMENT (+)</span>"
+        : "<span class='badge-inactive'>BORROWING (-)</span>";
+      var amtColor = isInvest ? "#10B981" : "#EF4444";
+
+      h += "<tr>" +
+        "<td>" + toDisplayDate(f.date) + "</td>" +
+        "<td style='font-family:monospace;color:#38BDF8;'>" + (f.id || "-") + "</td>" +
+        "<td>" + typeBadge + "</td>" +
+        "<td><strong style='color:#FBBF24;'>" + (f.account === "BANK" ? "CASH AT BANK" : "CASH IN HAND") + "</strong></td>" +
+        "<td>" + (f.entity || "-") + "</td>" +
+        "<td style='font-weight:800;color:" + amtColor + ";'>" + (isInvest ? "+₹" : "-₹") + amt.toLocaleString("en-IN") + "</td>" +
+        "<td><small style='color:#CBD5E1;'>" + (f.narration || "-") + "</small></td>" +
+        "<td style='text-align:center;'><button class='btn-action-edit action-edit-fund' data-id='" + f.id + "'>✏️ Edit</button></td>" +
+      "</tr>";
+    });
+    tbody.innerHTML = h;
+
+    var tf = document.getElementById("tfootFundRegisterList");
+    if(tf) {
+      tf.innerHTML = 
+        "<tr class='tfoot-total-row'>" +
+          "<td colspan='5' style='color:#FBBF24;'>NET FUND IMPACT: INVEST (+₹" + totalInvest.toLocaleString("en-IN") + ") | BORROW (-₹" + totalBorrow.toLocaleString("en-IN") + ")</td>" +
+          "<td style='font-weight:800;color:" + (totalInvest >= totalBorrow ? "#10B981" : "#EF4444") + ";'>" +
+            (totalInvest >= totalBorrow ? "+₹" : "-₹") + Math.abs(totalInvest - totalBorrow).toLocaleString("en-IN") +
+          "</td>" +
+          "<td></td>" +
+        "</tr>";
+    }
+  }
+
+  // PROFIT & LOSS REGISTER CALCULATOR & RENDERER
+  function renderProfitAndLossRegister(){
+    var fromD = document.getElementById("inpPlFilterFrom") ? document.getElementById("inpPlFilterFrom").value : "2026-01-01";
+    var toD = document.getElementById("inpPlFilterTo") ? document.getElementById("inpPlFilterTo").value : "2026-12-31";
+    var selFy = document.getElementById("selPlFinancialYear") ? document.getElementById("selPlFinancialYear").value : "2026";
+
+    var selPlFyEl = document.getElementById("selPlFinancialYear");
+    if(selPlFyEl && (!selPlFyEl.options || selPlFyEl.options.length === 0) && document.getElementById("selFinancialYear")){
+      selPlFyEl.innerHTML = document.getElementById("selFinancialYear").innerHTML;
+      selPlFyEl.value = selFy;
+    }
+
+    var intEarned = 0;
+    var penReceived = 0;
+    var waiverGiven = 0;
+    var bonusPaid = 0;
+    var bonusPayable = 0;
+
+    var breakupRows = [];
+
+    // 1. Payments: Interest, Penalty, Waiver
+    payments.forEach(function(p){
+      var d = p.date || "2026-01-01";
+      if(d >= fromD && d <= toD){
+        var iAmt = cleanNum(p.interest, 0);
+        var pAmt = cleanNum(p.penalty, 0);
+        var wAmt = cleanNum(p.waiver, 0);
+
+        if(iAmt > 0){
+          intEarned += iAmt;
+          breakupRows.push({ date: d, category: "Interest Earned (+)", source: p.name + " (" + p.id + ")", inflow: iAmt, outflow: 0, remarks: "Receipt " + p.receiptNo });
+        }
+        if(pAmt > 0){
+          penReceived += pAmt;
+          breakupRows.push({ date: d, category: "Penalty Received (+)", source: p.name + " (" + p.id + ")", inflow: pAmt, outflow: 0, remarks: "Receipt " + p.receiptNo });
+        }
+        if(wAmt > 0){
+          waiverGiven += wAmt;
+          breakupRows.push({ date: d, category: "Waiver Granted (-)", source: p.name + " (" + p.id + ")", inflow: 0, outflow: wAmt, remarks: "Receipt " + p.receiptNo });
+        }
+      }
+    });
+
+    // 2. Bonus Settlements
+    bonusSettlements.forEach(function(b){
+      var d = b.date || "2026-01-01";
+      if(d >= fromD && d <= toD){
+        var bAmt = cleanNum(b.totalBonus, 0);
+        if(bAmt > 0){
+          bonusPaid += bAmt;
+          breakupRows.push({ date: d, category: "Bonus Paid (-)", source: b.name + " (" + b.id + ")", inflow: 0, outflow: bAmt, remarks: "Settlement " + b.settlementId });
+        }
+      }
+    });
+
+    // 3. Exit Settlements Bonus Adjustment
+    exitSettlements.forEach(function(e){
+      var d = e.date || "2026-01-01";
+      if(d >= fromD && d <= toD){
+        var bAdj = cleanNum(e.bonusAdj, 0);
+        if(bAdj > 0){
+          bonusPaid += bAdj;
+          breakupRows.push({ date: d, category: "Bonus Settled on Exit (-)", source: e.name + " (" + e.id + ")", inflow: 0, outflow: bAdj, remarks: "Exit " + e.exitId });
+        }
+      }
+    });
+
+    // 4. Estimated Bonus Payable
+    members.forEach(function(m){
+      if(String(m.status).toUpperCase() === "ACTIVE"){
+        var mBonus = getMemberBonus(m);
+        if(mBonus > 0){
+          bonusPayable += mBonus;
+        }
+      }
+    });
+
+    var netProfit = (intEarned + penReceived) - (waiverGiven + bonusPaid + bonusPayable);
+
+    if(document.getElementById("lblPlIntEarned")) document.getElementById("lblPlIntEarned").innerText = "₹" + intEarned.toLocaleString("en-IN");
+    if(document.getElementById("lblPlPenReceived")) document.getElementById("lblPlPenReceived").innerText = "₹" + penReceived.toLocaleString("en-IN");
+    if(document.getElementById("lblPlWaiver")) document.getElementById("lblPlWaiver").innerText = "₹" + waiverGiven.toLocaleString("en-IN");
+    if(document.getElementById("lblPlBonusPaid")) document.getElementById("lblPlBonusPaid").innerText = "₹" + bonusPaid.toLocaleString("en-IN");
+    if(document.getElementById("lblPlBonusPayable")) document.getElementById("lblPlBonusPayable").innerText = "₹" + bonusPayable.toLocaleString("en-IN");
+    
+    var netEl = document.getElementById("lblPlNetProfit");
+    if(netEl){
+      netEl.innerText = (netProfit >= 0 ? "+₹" : "-₹") + Math.abs(netProfit).toLocaleString("en-IN");
+      netEl.style.color = (netProfit >= 0 ? "#10B981" : "#EF4444");
+    }
+
+    var tbody = document.getElementById("tbodyPlBreakup");
+    if(tbody){
+      if(breakupRows.length === 0){
+        tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;color:#94A3B8;'>No profit & loss transactions in selected range</td></tr>";
+        if(document.getElementById("tfootPlBreakup")) document.getElementById("tfootPlBreakup").innerHTML = "";
+      } else {
+        breakupRows.sort(function(a,b){ return (b.date || "").localeCompare(a.date || ""); });
+        var h = "";
+        breakupRows.forEach(function(r){
+          h += "<tr>" +
+            "<td>" + toDisplayDate(r.date) + "</td>" +
+            "<td><strong style='color:#38BDF8;'>" + r.category + "</strong></td>" +
+            "<td>" + r.source + "</td>" +
+            "<td style='color:#10B981;font-weight:700;'>" + (r.inflow > 0 ? "+₹" + r.inflow.toLocaleString("en-IN") : "-") + "</td>" +
+            "<td style='color:#EF4444;font-weight:700;'>" + (r.outflow > 0 ? "-₹" + r.outflow.toLocaleString("en-IN") : "-") + "</td>" +
+            "<td><small style='color:#CBD5E1;'>" + r.remarks + "</small></td>" +
+          "</tr>";
+        });
+        tbody.innerHTML = h;
+
+        var tfoot = document.getElementById("tfootPlBreakup");
+        if(tfoot){
+          var totIn = intEarned + penReceived;
+          var totOut = waiverGiven + bonusPaid;
+          tfoot.innerHTML = "<tr class='tfoot-total-row'>" +
+            "<td colspan='3' style='color:#FBBF24;'>REALIZED NET INFLOW SUMMARY</td>" +
+            "<td style='color:#10B981;font-weight:800;'>+₹" + totIn.toLocaleString("en-IN") + "</td>" +
+            "<td style='color:#EF4444;font-weight:800;'>-₹" + totOut.toLocaleString("en-IN") + "</td>" +
+            "<td style='color:" + (totIn >= totOut ? "#10B981" : "#EF4444") + ";font-weight:800;'>" + (totIn >= totOut ? "+₹" : "-₹") + Math.abs(totIn - totOut).toLocaleString("en-IN") + "</td>" +
+          "</tr>";
+        }
+      }
+    }
+  }
+  window.renderProfitAndLossRegister = renderProfitAndLossRegister;
 
   // TAB 5: DEDICATED PENALTY REGISTER (₹10/DAY OVERDUE)
   function renderPenaltyTab(){
@@ -2343,10 +3626,10 @@ function getClientScriptPartB() {
 
     var txns = [];
     if(cleanNum(m.rdPaid, 0) > 0){
-      txns.push({ date: m.dateJoined || "2026-01-01", ref: "OPENING", partic: "Opening RD Balance (As on 31 Dec 2025)", debit: 0, credit: cleanNum(m.rdPaid, 0), mode: "SYSTEM" });
+      txns.push({ date: m.dateJoined || "2026-01-01", ref: "OPENING", partic: "Opening RD Balance (As on 31 Dec 2025)", rdDeposit: cleanNum(m.rdPaid, 0), loanIssued: 0, loanRepaid: 0, mode: "SYSTEM" });
     }
     if(cleanNum(m.opLoan, 0) > 0){
-      txns.push({ date: m.dateJoined || "2026-01-01", ref: "OP-LOAN", partic: "Opening Loan Principal", debit: cleanNum(m.opLoan, 0), credit: 0, mode: "SYSTEM" });
+      txns.push({ date: m.dateJoined || "2026-01-01", ref: "OP-LOAN", partic: "Opening Loan Principal", rdDeposit: 0, loanIssued: cleanNum(m.opLoan, 0), loanRepaid: 0, mode: "SYSTEM" });
     }
 
     // Match all loans for this member by ID or Name
@@ -2357,8 +3640,9 @@ function getClientScriptPartB() {
           date: l.date,
           ref: l.loanId,
           partic: "Loan Disbursed (" + l.type + " @ " + l.rate + "% p.m.)" + lNarr,
-          debit: cleanNum(l.principal, 0),
-          credit: 0,
+          rdDeposit: 0,
+          loanIssued: cleanNum(l.principal, 0),
+          loanRepaid: 0,
           mode: "ONLINE"
         });
       }
@@ -2372,7 +3656,7 @@ function getClientScriptPartB() {
         if(cleanNum(p.rd, 0) > 0) parts.push("RD ₹" + p.rd);
         if(cleanNum(p.interest, 0) > 0) parts.push("Int ₹" + p.interest);
         if(cleanNum(p.penalty, 0) > 0) parts.push("Pen ₹" + p.penalty);
-        if(cleanNum(p.loanRepay, 0) > 0) parts.push("Repay ₹" + p.loanRepay);
+        if(cleanNum(p.loanRepay, 0) > 0) parts.push("Loan Repay ₹" + p.loanRepay);
         if(cleanNum(p.waiver, 0) > 0) parts.push("Waiver ₹" + p.waiver);
 
         var safeMode = String(p.mode||"CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "ONLINE" : "CASH";
@@ -2380,8 +3664,9 @@ function getClientScriptPartB() {
           date: p.date,
           ref: p.receiptNo,
           partic: "Receipt: " + parts.join(", ") + pNarr,
-          debit: 0,
-          credit: cleanNum(p.total, 0),
+          rdDeposit: cleanNum(p.rd, 0),
+          loanIssued: 0,
+          loanRepaid: cleanNum(p.loanRepay, 0),
           mode: safeMode
         });
       }
@@ -2390,24 +3675,29 @@ function getClientScriptPartB() {
     // Sort by date ascending
     txns.sort(function(a,b){ return new Date(a.date||"2026-01-01") - new Date(b.date||"2026-01-01"); });
 
-    var runningBal = 0;
+    var runningRdBal = 0;
+    var runningLoanBal = 0;
     var filteredTxns = txns.filter(function(t){ return (t.date >= fromD && t.date <= toD); });
 
     var tbody = document.getElementById("tbodyLedgerTxns");
     if(filteredTxns.length === 0){
-      tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;color:#94A3B8;'>No transactions in selected date range (" + toDisplayDate(fromD) + " to " + toDisplayDate(toD) + ")</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='9' style='text-align:center;color:#94A3B8;'>No transactions in selected date range (" + toDisplayDate(fromD) + " to " + toDisplayDate(toD) + ")</td></tr>";
     } else {
       var h = "";
       filteredTxns.forEach(function(t){
-        runningBal += (t.credit - t.debit);
-        var balCol = runningBal >= 0 ? "#10B981" : "#EF4444";
+        runningRdBal += t.rdDeposit;
+        runningLoanBal += t.loanIssued;
+        runningLoanBal = Math.max(0, runningLoanBal - t.loanRepaid);
+
         h += "<tr>" +
           "<td>" + toDisplayDate(t.date) + "</td>" +
           "<td style='font-family:monospace;color:#FBBF24;'>" + t.ref + "</td>" +
           "<td>" + t.partic + "</td>" +
-          "<td style='color:#EF4444;'>" + (t.debit > 0 ? "₹" + t.debit.toLocaleString("en-IN") : "-") + "</td>" +
-          "<td style='color:#10B981;font-weight:700;'>" + (t.credit > 0 ? "₹" + t.credit.toLocaleString("en-IN") : "-") + "</td>" +
-          "<td style='color:" + balCol + ";font-weight:800;'>₹" + runningBal.toLocaleString("en-IN") + "</td>" +
+          "<td style='color:#10B981;font-weight:700;'>" + (t.rdDeposit > 0 ? "₹" + t.rdDeposit.toLocaleString("en-IN") : "-") + "</td>" +
+          "<td style='color:#10B981;font-weight:800;'>₹" + runningRdBal.toLocaleString("en-IN") + "</td>" +
+          "<td style='color:#EF4444;'>" + (t.loanIssued > 0 ? "₹" + t.loanIssued.toLocaleString("en-IN") : "-") + "</td>" +
+          "<td style='color:#38BDF8;font-weight:700;'>" + (t.loanRepaid > 0 ? "₹" + t.loanRepaid.toLocaleString("en-IN") : "-") + "</td>" +
+          "<td style='color:#EF4444;font-weight:800;'>₹" + runningLoanBal.toLocaleString("en-IN") + "</td>" +
           "<td><span style='font-size:0.75rem;color:" + (t.mode==="CASH"?"#F59E0B":"#38BDF8") + ";font-weight:700;'>" + t.mode + "</span></td>" +
         "</tr>";
       });
@@ -2434,16 +3724,16 @@ function getClientScriptPartB() {
       var initialTotal = safeRd + intDue + penDue;
 
       h += "<tr data-id='" + mid + "'>" +
-        "<td style='text-align:center;'><input type=\"checkbox\" class=\"b-chk\" checked onchange=\"calcBulkTotals()\"></td>" +
+        "<td style='text-align:center;'><input type='checkbox' class='b-chk' checked onchange='calcBulkTotals()'></td>" +
         "<td><strong>" + m.name + "</strong><br><small style='color:#38BDF8;'>RD ₹" + safeRd + " | Int ₹" + intDue + " | Pen ₹" + penDue + "</small></td>" +
-        "<td><input type=\"number\" class=\"field-ctrl b-rd\" value=\"" + safeRd + "\" oninput=\"calcBulkRow(this)\" style=\"width:80px;text-align:right;\"></td>" +
-        "<td><input type=\"number\" class=\"field-ctrl b-int\" value=\"" + intDue + "\" oninput=\"calcBulkRow(this)\" style=\"width:80px;text-align:right;\"></td>" +
-        "<td><input type=\"number\" class=\"field-ctrl b-repay\" value=\"0\" oninput=\"calcBulkRow(this)\" style=\"width:80px;text-align:right;\"></td>" +
-        "<td><input type=\"number\" class=\"field-ctrl b-pen\" value=\"" + penDue + "\" oninput=\"calcBulkRow(this)\" style=\"width:75px;text-align:right;\"></td>" +
-        "<td><input type=\"number\" class=\"field-ctrl b-wvr\" value=\"0\" oninput=\"calcBulkRow(this)\" style=\"width:75px;text-align:right;\"></td>" +
-        "<td style=\"text-align:right; font-weight:800; color:#10B981;\" class=\"b-tot-cell\">₹" + initialTotal.toLocaleString("en-IN") + "</td>" +
-        "<td><select class=\"field-ctrl b-mode\" style=\"width:85px;padding:4px;\"><option value=\"CASH\">CASH</option><option value=\"ONLINE\">ONLINE</option></select></td>" +
-        "<td><input type=\"text\" class=\"field-ctrl b-narr\" placeholder=\"Remarks\" style=\"width:130px;padding:4px;font-size:0.78rem;\"></td>" +
+        "<td><input type='number' class='field-ctrl b-rd' value='" + safeRd + "' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+        "<td><input type='number' class='field-ctrl b-int' value='" + intDue + "' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+        "<td><input type='number' class='field-ctrl b-repay' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+        "<td><input type='number' class='field-ctrl b-pen' value='" + penDue + "' oninput='calcBulkRow(this)' style='width:75px;text-align:right;'></td>" +
+        "<td><input type='number' class='field-ctrl b-wvr' value='0' oninput='calcBulkRow(this)' style='width:75px;text-align:right;'></td>" +
+        "<td style='text-align:right; font-weight:800; color:#10B981;' class='b-tot-cell'>₹" + initialTotal.toLocaleString("en-IN") + "</td>" +
+        "<td><select class='field-ctrl b-mode' style='width:85px;padding:4px;'><option value='CASH'>CASH</option><option value='ONLINE'>ONLINE</option></select></td>" +
+        "<td><input type='text' class='field-ctrl b-narr' placeholder='Remarks' style='width:130px;padding:4px;font-size:0.78rem;'></td>" +
       "</tr>";
     });
     tbody.innerHTML = h;
@@ -2546,23 +3836,30 @@ function getClientScriptPartB() {
   // NOTICE POPUP THAT DOES NOT CLOSE FORM ON OK
   var activeKeepModal = null;
   function showNotice(title, message, keepModalId){
-    document.getElementById("noticeHeader").innerText = title || "Notice";
-    document.getElementById("noticeBody").innerText = message || "";
+    var h = document.getElementById("noticeHeader");
+    var b = document.getElementById("noticeBody");
+    if(h) h.innerText = title || "Notice";
+    if(b) b.innerText = message || "";
     activeKeepModal = keepModalId || null;
     openModal("modalNotice");
   }
 
-  document.getElementById("btnNoticeOk").addEventListener("click", function(){
+  function handleNoticeOkClick(){
     closeModal("modalNotice");
     if(activeKeepModal){
       openModal(activeKeepModal);
       activeKeepModal = null;
     }
-  });
+  }
 
   // OPEN RECEIVE MODAL FOR MEMBER (AUTO-FILL LIVE DUES)
   function openReceiveModalFor(mid, recNo){
-    var m = members.find(function(x){ return String(x.id).trim().toUpperCase() === mid.trim().toUpperCase() || String(x.name).trim().toLowerCase() === mid.trim().toLowerCase(); });
+    if(!mid){
+      var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
+      mid = firstActive ? firstActive.id : (members[0] ? members[0].id : "");
+    }
+    if(!mid) return;
+    var m = members.find(function(x){ return String(x.id).trim().toUpperCase() === String(mid).trim().toUpperCase() || String(x.name).trim().toLowerCase() === String(mid).trim().toLowerCase(); });
     if(!m) return;
 
     var actualMid = String(m.id);
@@ -2611,7 +3908,11 @@ function getClientScriptPartB() {
 
   // OPEN LOAN MODAL FOR MEMBER
   function openLoanModalFor(mid, lId){
-    var m = mid ? members.find(function(x){ return String(x.id).trim().toUpperCase() === mid.trim().toUpperCase() || String(x.name).trim().toLowerCase() === mid.trim().toLowerCase(); }) : null;
+    if(!mid){
+      var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
+      mid = firstActive ? firstActive.id : (members[0] ? members[0].id : "");
+    }
+    var m = mid ? members.find(function(x){ return String(x.id).trim().toUpperCase() === String(mid).trim().toUpperCase() || String(x.name).trim().toLowerCase() === String(mid).trim().toLowerCase(); }) : null;
     document.getElementById("editLoanId").value = lId || "";
     document.getElementById("lblLoanModalHead").innerText = lId ? ("✏️ Edit Society Loan: " + lId) : "💸 Issue Society Loan";
 
@@ -2619,7 +3920,7 @@ function getClientScriptPartB() {
     sel.innerHTML = "";
     members.forEach(function(mem){
       if(String(mem.status).toUpperCase() === "ACTIVE"){
-        var isSel = (m && String(mem.id) === String(m.id)) ? "selected" : "";
+        var isSel = (m && String(mem.id) === String(mem.id)) ? "selected" : "";
         sel.innerHTML += "<option value='" + mem.id + "' " + isSel + ">" + mem.name + " (" + mem.id + ")</option>";
       }
     });
@@ -2663,6 +3964,8 @@ function getClientScriptPartB() {
     renderLoans();
     renderBonusTab();
     renderPenaltyTab();
+    renderFundRegister();
+    renderProfitAndLossRegister();
     if(currentActiveLedgerMember && document.getElementById("modalLedger").style.display === "flex"){
       openMemberLedger(currentActiveLedgerMember.id);
     }
@@ -2671,30 +3974,113 @@ function getClientScriptPartB() {
   // EVENT LISTENERS & HOOKS
   window.refreshAll = refreshAll;
 
+  function safeAddListener(id, evt, fn){
+    var el = document.getElementById(id);
+    if(el) {
+      if(evt === "click") {
+        el.onclick = fn;
+      } else if(evt === "change") {
+        el.onchange = fn;
+      } else if(evt === "input") {
+        el.oninput = fn;
+      } else {
+        el["on" + evt] = fn;
+      }
+      return true;
+    }
+    return false;
+  }
+
   function bootApplication(){
-    // Check saved session
-    try {
-      var saved = sessionStorage.getItem("gullak_v22_session") || sessionStorage.getItem("gullak_v21_session");
-      if(saved){
-        var sess = JSON.parse(saved);
-        if(sess && (String(sess.username).toUpperCase() === "SANISH" || String(sess.username).toUpperCase() === "ADMIN")){
-          window.currentUserSession = sess;
-          var overlay = document.getElementById("windowsLoginOverlay");
-          if(overlay) {
-            overlay.style.display = "none";
-            overlay.style.setProperty("display", "none", "important");
+    var overlay = document.getElementById("windowsLoginOverlay");
+    if (window.currentUserSession && window.currentUserSession.username) {
+      if (overlay) {
+        overlay.style.display = "none";
+        overlay.style.setProperty("display", "none", "important");
+      }
+    } else {
+      if (overlay) {
+        overlay.style.display = "flex";
+      }
+      var pInput = document.getElementById("inpWinPassword");
+      if (pInput) pInput.value = "";
+    }
+    // Global ESC key and Arrow Up / Down listener (Capturing phase to block browser fullscreen exit)
+    window.addEventListener("keydown", function(e){
+      if(e.key === "Escape" || e.keyCode === 27){
+        if(e.preventDefault) e.preventDefault();
+        if(e.stopPropagation) e.stopPropagation();
+        if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+        // 1. Check if fundDrilldownBox is open
+        var box = document.getElementById("fundDrilldownBox");
+        if (box && box.style.display !== "none") {
+          box.style.display = "none";
+          return false;
+        }
+
+        // 2. Find any open modal
+        var openModals = document.querySelectorAll(".modal-backdrop");
+        var activeModal = null;
+        openModals.forEach(function(m){
+          if(m && (m.style.display === "flex" || m.style.display === "block" || (window.getComputedStyle && getComputedStyle(m).display !== "none"))){
+            activeModal = m;
+          }
+        });
+
+        if (activeModal) {
+          var closeBtn = activeModal.querySelector(".action-close-modal, .close-x, button.btn-close, .modal-close, button[onclick*='closeModal']");
+          if (closeBtn) {
+            try {
+              closeBtn.click();
+            } catch(err) {
+              closeModal(activeModal.id);
+            }
+          } else if (typeof closeModal === "function") {
+            closeModal(activeModal.id);
+          } else {
+            activeModal.style.display = "none";
           }
         }
-      }
-    } catch(e) {}
 
-    // F11 Listener for clean fullscreen toggle
-    window.addEventListener("keydown", function(e){
+        if(window.isAppInFullscreenMode || (document.body && document.body.classList.contains("simulated-fullscreen"))){
+          if(document.body) document.body.classList.add("simulated-fullscreen");
+        }
+        return false;
+      }
       if(e.key === "F11" || e.keyCode === 122){
         e.preventDefault();
         window.safeToggleFullscreen();
       }
-    });
+      // Arrow Up and Down scroll support in Fullscreen mode (both Dashboard and inside any open Form)
+      var activeModalBox = document.querySelector(".modal-backdrop[style*='display: flex'] .modal-dialog-box") ||
+                           document.querySelector(".modal-backdrop[style*='display: block'] .modal-dialog-box");
+      if(e.key === "ArrowDown"){
+        if(activeModalBox){
+          activeModalBox.scrollTop += 60;
+        } else {
+          window.scrollBy(0, 60);
+        }
+      } else if(e.key === "ArrowUp"){
+        if(activeModalBox){
+          activeModalBox.scrollTop -= 60;
+        } else {
+          window.scrollBy(0, -60);
+        }
+      } else if(e.key === "PageDown"){
+        if(activeModalBox){
+          activeModalBox.scrollTop += 300;
+        } else {
+          window.scrollBy(0, 300);
+        }
+      } else if(e.key === "PageUp"){
+        if(activeModalBox){
+          activeModalBox.scrollTop -= 300;
+        } else {
+          window.scrollBy(0, -300);
+        }
+      }
+    }, true);
 
     // Date formatting live indicators
     var pDateInp = document.getElementById("inpPayDate");
@@ -2708,6 +4094,23 @@ function getClientScriptPartB() {
       lDateInp.addEventListener("change", function(){
         document.getElementById("dispLoanDateFormatted").innerText = "(" + toDisplayDate(this.value) + ")";
       });
+    }
+
+    function safeAddListener(id, evt, fn){
+      var el = document.getElementById(id);
+      if(el) {
+        if(evt === "click") {
+          el.onclick = fn;
+        } else if(evt === "change") {
+          el.onchange = fn;
+        } else if(evt === "input") {
+          el.oninput = fn;
+        } else {
+          el["on" + evt] = fn;
+        }
+        return true;
+      }
+      return false;
     }
 
     // Modal close buttons
@@ -2726,33 +4129,36 @@ function getClientScriptPartB() {
         if(head) head.className = (i === tIdx) ? "tab-item active" : "tab-item";
         if(panel) panel.style.display = (i === tIdx) ? "block" : "none";
       }
+      if(tIdx === 1 && typeof renderMembers === "function") renderMembers();
+      else if(tIdx === 2 && typeof renderPayments === "function") renderPayments();
+      else if(tIdx === 3 && typeof renderLoans === "function") renderLoans();
+      else if(tIdx === 4 && typeof renderBonusTab === "function") renderBonusTab();
+      else if(tIdx === 5 && typeof renderPenaltyTab === "function") renderPenaltyTab();
     }
+    window.switchTab = switchTab;
 
-    document.getElementById("tabHead1").addEventListener("click", function(){ switchTab(1); renderMembers(); });
-    document.getElementById("tabHead2").addEventListener("click", function(){ switchTab(2); renderPayments(); });
-    document.getElementById("tabHead3").addEventListener("click", function(){ switchTab(3); renderLoans(); });
-    document.getElementById("tabHead4").addEventListener("click", function(){ switchTab(4); renderBonusTab(); });
-    document.getElementById("tabHead5").addEventListener("click", function(){ switchTab(5); renderPenaltyTab(); });
+    safeAddListener("tabHead1", "click", function(){ switchTab(1); renderMembers(); });
+    safeAddListener("tabHead2", "click", function(){ switchTab(2); renderPayments(); });
+    safeAddListener("tabHead3", "click", function(){ switchTab(3); renderLoans(); });
+    safeAddListener("tabHead4", "click", function(){ switchTab(4); renderBonusTab(); });
+    safeAddListener("tabHead5", "click", function(){ switchTab(5); renderPenaltyTab(); });
 
     // Top action buttons
-    document.getElementById("btnTopReceive").addEventListener("click", function(){
+    function openDefaultReceiveModal(){
       var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
       openReceiveModalFor(firstActive ? firstActive.id : "MEM010120261");
-    });
-    document.getElementById("btnPanelNewReceipt").addEventListener("click", function(){
-      var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
-      openReceiveModalFor(firstActive ? firstActive.id : "MEM010120261");
-    });
-    document.getElementById("btnTopLoan").addEventListener("click", function(){
+    }
+    function openDefaultLoanModal(){
       var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
       openLoanModalFor(firstActive ? firstActive.id : "MEM010120261");
-    });
-    document.getElementById("btnPanelNewLoan").addEventListener("click", function(){
-      var firstActive = members.find(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
-      openLoanModalFor(firstActive ? firstActive.id : "MEM010120261");
-    });
+    }
 
-    document.getElementById("btnTopAddMember").addEventListener("click", function(){
+    safeAddListener("btnTopReceive", "click", openDefaultReceiveModal);
+    safeAddListener("btnPanelNewReceipt", "click", openDefaultReceiveModal);
+    safeAddListener("btnTopLoan", "click", openDefaultLoanModal);
+    safeAddListener("btnPanelNewLoan", "click", openDefaultLoanModal);
+
+    safeAddListener("btnTopAddMember", "click", function(){
       document.getElementById("editMemId").value = "";
       document.getElementById("lblMemberModalHead").innerText = "👤 Add New Member Profile";
       document.getElementById("inpNewMemName").value = "";
@@ -2760,7 +4166,9 @@ function getClientScriptPartB() {
       document.getElementById("inpNewMemStatus").value = "ACTIVE";
       document.getElementById("inpNewMemJoinDate").value = getTodayYMD();
       document.getElementById("inpNewMemRd").value = 400;
-      document.getElementById("inpNewMemDueDay").value = "15th of every month";
+      var defDue = getTodayYMD().substring(0,8) + "15";
+      document.getElementById("inpNewMemDueDay").value = defDue;
+      if(document.getElementById("dispDueDayFormatted")) document.getElementById("dispDueDayFormatted").innerText = "(" + toDisplayDate(defDue) + ")";
       document.getElementById("inpNewMemAddress").value = "";
       document.getElementById("inpNewMemNominee").value = "";
       document.getElementById("inpNewMemBal").value = 0;
@@ -2771,7 +4179,13 @@ function getClientScriptPartB() {
       openModal("modalMember");
     });
 
-    document.getElementById("btnTopBulk").addEventListener("click", function(){
+    safeAddListener("inpNewMemDueDay", "change", function(){
+      var v = this.value;
+      var el = document.getElementById("dispDueDayFormatted");
+      if(el) el.innerText = v ? "(" + toDisplayDate(v) + ")" : "";
+    });
+
+    safeAddListener("btnTopBulk", "click", function(){
       var today = getTodayYMD();
       document.getElementById("inpBulkDate").value = today;
       document.getElementById("dispBulkDateFormatted").innerText = "(" + toDisplayDate(today) + ")";
@@ -2779,44 +4193,66 @@ function getClientScriptPartB() {
       openModal("modalBulk");
     });
 
-    document.getElementById("btnBulkSetAllCash").addEventListener("click", function(){
+    safeAddListener("btnBulkSetAllCash", "click", function(){
       document.querySelectorAll("#tbodyBulkList .b-mode").forEach(function(sel){ sel.value = "CASH"; });
     });
-    document.getElementById("btnBulkSetAllOnline").addEventListener("click", function(){
+    safeAddListener("btnBulkSetAllOnline", "click", function(){
       document.querySelectorAll("#tbodyBulkList .b-mode").forEach(function(sel){ sel.value = "ONLINE"; });
     });
-    document.getElementById("chkSelectAllBulk").addEventListener("change", function(){
+    safeAddListener("chkSelectAllBulk", "change", function(){
       var isChk = this.checked;
       document.querySelectorAll("#tbodyBulkList .b-chk").forEach(function(c){ c.checked = isChk; });
       calcBulkTotals();
     });
 
-    document.getElementById("btnTopExit").addEventListener("click", function(){
+    safeAddListener("btnTopExit", "click", function(){
       var sel = document.getElementById("selExitMember");
-      sel.innerHTML = "<option value=''>-- Select Member --</option>";
-      members.forEach(function(m){
-        if(String(m.status).toUpperCase() === "ACTIVE"){
-          sel.innerHTML += "<option value='" + m.id + "'>" + m.name + " (" + m.id + ")</option>";
-        }
-      });
+      if(sel){
+        sel.innerHTML = "<option value=''>-- Select Member --</option>";
+        members.forEach(function(m){
+          if(String(m.status).toUpperCase() === "ACTIVE"){
+            sel.innerHTML += "<option value='" + m.id + "'>" + m.name + " (" + m.id + ")</option>";
+          }
+        });
+      }
+      handleExitMemberChange();
       openModal("modalExit");
     });
 
-    document.getElementById("btnTopSettings").addEventListener("click", function(){
-      document.getElementById("inpGlobalDueDay").value = globalDefaultDue;
-      document.getElementById("inpGlobalRate").value = globalDefaultRate;
+    safeAddListener("btnTopSettings", "click", function(){
+      var d = document.getElementById("inpGlobalDueDay");
+      var r = document.getElementById("inpGlobalRate");
+      var ps = document.getElementById("inpPenaltyStartDate");
+      var chk = document.getElementById("chkSkipPenalty");
+      if(d) d.value = globalDefaultDue;
+      if(r) r.value = globalDefaultRate;
+      if(ps && window.globalSettings && window.globalSettings.penaltyStartDate) ps.value = window.globalSettings.penaltyStartDate;
+      if(chk && window.globalSettings && typeof window.globalSettings.skipPenalty === "boolean") chk.checked = window.globalSettings.skipPenalty;
       openModal("modalSettings");
     });
 
-    document.getElementById("btnApplyGlobalSettings").addEventListener("click", function(){
-      globalDefaultDue = document.getElementById("inpGlobalDueDay").value.trim() || "15th of every month";
+    safeAddListener("btnOpenGoogleSheet", "click", window.handleOpenSpreadsheet);
+
+    safeAddListener("btnApplyGlobalSettings", "click", function(){
+      globalDefaultDue = (document.getElementById("inpGlobalDueDay").value || "").trim() || "15th of every month";
       globalDefaultRate = Number(document.getElementById("inpGlobalRate").value) || 1.0;
+      var penStart = document.getElementById("inpPenaltyStartDate") ? document.getElementById("inpPenaltyStartDate").value : "2026-10-01";
+      var skipPen = document.getElementById("chkSkipPenalty") ? document.getElementById("chkSkipPenalty").checked : true;
+
+      if(!window.globalSettings) window.globalSettings = {};
+      window.globalSettings.penaltyStartDate = penStart;
+      window.globalSettings.skipPenalty = skipPen;
+      saveStore();
+
       closeModal("modalSettings");
-      showNotice("Settings Saved", "Global default due date set to " + globalDefaultDue + " and default loan rate set to " + globalDefaultRate + "% p.m.");
+      refreshAll();
+      showNotice("Settings Saved", "Global settings updated successfully! Overdue penalty status: " + (skipPen ? "PAUSED / SKIPPED" : "Active from " + toDisplayDate(penStart)));
     });
 
+    safeAddListener("btnNoticeOk", "click", handleNoticeOkClick);
+
     // SYNC FROM GOOGLE SHEET DATABASE
-    document.getElementById("btnTopReload").addEventListener("click", function(){
+    safeAddListener("btnTopReload", "click", function(){
       if(typeof google !== "undefined" && google.script && google.script.run){
         showNotice("Syncing...", "Fetching verified records from Google Spreadsheet...");
         google.script.run.withSuccessHandler(function(res){
@@ -2828,6 +4264,7 @@ function getClientScriptPartB() {
             exitSettlements = res.exitSettlements || [];
             bonusSettlements = res.bonusSettlements || [];
             if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
+            if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
             saveStore();
             showNotice("Sync Complete", "Successfully synchronized " + members.length + " members, " + payments.length + " receipts, and " + loans.length + " loans from Google Sheet!");
           }
@@ -2839,74 +4276,83 @@ function getClientScriptPartB() {
     });
 
     // KPI Card Click Events
-    document.getElementById("kpiCardMembers").addEventListener("click", function(){ switchTab(1); });
-    document.getElementById("kpiCardRd").addEventListener("click", function(){ switchTab(2); });
-    document.getElementById("kpiCardLoans").addEventListener("click", function(){ switchTab(3); });
-    document.getElementById("kpiCardBonus").addEventListener("click", function(){ switchTab(4); });
-    document.getElementById("kpiCardNpa").addEventListener("click", function(){
+    safeAddListener("kpiCardMembers", "click", function(){ switchTab(1); });
+    safeAddListener("kpiCardRd", "click", function(){ switchTab(2); });
+    safeAddListener("kpiCardLoans", "click", function(){ switchTab(3); });
+    safeAddListener("kpiCardBonus", "click", function(){ switchTab(4); });
+    safeAddListener("kpiCardNpa", "click", function(){
       renderNpaList();
       openModal("modalNpa");
     });
-    document.getElementById("btnApplyNpaFilter").addEventListener("click", function(){
+    safeAddListener("btnApplyNpaFilter", "click", function(){
       renderNpaList();
     });
 
-    document.getElementById("kpiCardFund").addEventListener("click", function(){
+    safeAddListener("kpiCardFund", "click", function(){
       var cSum = 0, bSum = 0;
       payments.forEach(function(p){
         var safeMode = String(p.mode||"CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "ONLINE" : "CASH";
         if(safeMode === "ONLINE") bSum += cleanNum(p.total, 0); else cSum += cleanNum(p.total, 0);
       });
-      document.getElementById("lblRegCashBal").innerText = "₹" + cSum.toLocaleString("en-IN");
-      document.getElementById("lblRegBankBal").innerText = "₹" + bSum.toLocaleString("en-IN");
-      document.getElementById("lblRegTotalFund").innerText = "₹" + (cSum + bSum).toLocaleString("en-IN");
+      var cashEl = document.getElementById("lblRegCashBal");
+      var bankEl = document.getElementById("lblRegBankBal");
+      var fundEl = document.getElementById("lblRegTotalFund");
+      if(cashEl) cashEl.innerText = "₹" + cSum.toLocaleString("en-IN");
+      if(bankEl) bankEl.innerText = "₹" + bSum.toLocaleString("en-IN");
+      if(fundEl) fundEl.innerText = "₹" + (cSum + bSum).toLocaleString("en-IN");
       openModal("modalFund");
     });
 
     // Filters on change
-    document.getElementById("selFilterStatus").addEventListener("change", renderMembers);
-    document.getElementById("selSortMembers").addEventListener("change", renderMembers);
-    document.getElementById("memberFilterInput").addEventListener("input", renderMembers);
+    safeAddListener("selFilterStatus", "change", renderMembers);
+    safeAddListener("selSortMembers", "change", renderMembers);
+    safeAddListener("memberFilterInput", "input", renderMembers);
 
-    document.getElementById("inpPayFilterFrom").addEventListener("change", renderPayments);
-    document.getElementById("inpPayFilterTo").addEventListener("change", renderPayments);
-    document.getElementById("selFilterPayMode").addEventListener("change", renderPayments);
-    document.getElementById("selSortPayDate").addEventListener("change", renderPayments);
-    document.getElementById("searchPayInput").addEventListener("input", renderPayments);
+    safeAddListener("inpPayFilterFrom", "change", renderPayments);
+    safeAddListener("inpPayFilterTo", "change", renderPayments);
+    safeAddListener("selFilterPayMode", "change", renderPayments);
+    safeAddListener("selSortPayDate", "change", renderPayments);
+    safeAddListener("searchPayInput", "input", renderPayments);
 
-    document.getElementById("inpLoanFilterFrom").addEventListener("change", renderLoans);
-    document.getElementById("inpLoanFilterTo").addEventListener("change", renderLoans);
-    document.getElementById("selFilterLoanType").addEventListener("change", renderLoans);
-    document.getElementById("selFilterLoanStatus").addEventListener("change", renderLoans);
-    document.getElementById("searchLoanInput").addEventListener("input", renderLoans);
+    safeAddListener("inpLoanFilterFrom", "change", renderLoans);
+    safeAddListener("inpLoanFilterTo", "change", renderLoans);
+    safeAddListener("selFilterLoanType", "change", renderLoans);
+    safeAddListener("selFilterLoanStatus", "change", renderLoans);
+    safeAddListener("searchLoanInput", "input", renderLoans);
 
-    document.getElementById("inpBonusFilterFrom").addEventListener("change", renderBonusTab);
-    document.getElementById("inpBonusFilterTo").addEventListener("change", renderBonusTab);
-    document.getElementById("selFilterBonusStatus").addEventListener("change", renderBonusTab);
-    document.getElementById("selSortBonus").addEventListener("change", renderBonusTab);
-    document.getElementById("searchBonusInput").addEventListener("input", renderBonusTab);
+    safeAddListener("inpBonusFilterFrom", "change", renderBonusTab);
+    safeAddListener("inpBonusFilterTo", "change", renderBonusTab);
+    safeAddListener("selFilterBonusStatus", "change", renderBonusTab);
+    safeAddListener("selSortBonus", "change", renderBonusTab);
+    safeAddListener("searchBonusInput", "input", renderBonusTab);
 
-    document.getElementById("inpPenFilterFrom").addEventListener("change", renderPenaltyTab);
-    document.getElementById("inpPenFilterTo").addEventListener("change", renderPenaltyTab);
-    document.getElementById("selFilterPenStatus").addEventListener("change", renderPenaltyTab);
-    document.getElementById("selSortPen").addEventListener("change", renderPenaltyTab);
-    document.getElementById("searchPenInput").addEventListener("input", renderPenaltyTab);
+    safeAddListener("inpPenFilterFrom", "change", renderPenaltyTab);
+    safeAddListener("inpPenFilterTo", "change", renderPenaltyTab);
+    safeAddListener("selFilterPenStatus", "change", renderPenaltyTab);
+    safeAddListener("selSortPen", "change", renderPenaltyTab);
+    safeAddListener("searchPenInput", "input", renderPenaltyTab);
 
-    document.getElementById("selFinancialYear").addEventListener("change", function(){
+    safeAddListener("selFinancialYear", "change", function(){
       refreshAll();
     });
 
     // Passbook dynamic date filter
-    document.getElementById("inpLedgerFilterFrom").addEventListener("change", function(){
+    safeAddListener("inpLedgerFilterFrom", "change", function(){
       if(currentActiveLedgerMember) openMemberLedger(currentActiveLedgerMember.id);
     });
-    document.getElementById("inpLedgerFilterTo").addEventListener("change", function(){
+    safeAddListener("inpLedgerFilterTo", "change", function(){
       if(currentActiveLedgerMember) openMemberLedger(currentActiveLedgerMember.id);
     });
 
     // Delegate Click Actions
     document.addEventListener("click", function(e){
       var t = e.target;
+      if(t.classList.contains("action-edit-fund")){
+        var txnId = t.getAttribute("data-id");
+        if(txnId && typeof openEditFundModal === "function"){
+          openEditFundModal(txnId);
+        }
+      }
       if(t.classList.contains("action-view-ledger")){
         var mid = t.getAttribute("data-id");
         if(mid) openMemberLedger(mid);
@@ -2936,7 +4382,12 @@ function getClientScriptPartB() {
           document.getElementById("inpNewMemStatus").value = m.status;
           document.getElementById("inpNewMemJoinDate").value = m.dateJoined;
           document.getElementById("inpNewMemRd").value = m.rd;
-          document.getElementById("inpNewMemDueDay").value = m.dueDay || "15th of every month";
+          var dueVal = m.dueDay || "";
+          if(!dueVal || dueVal.indexOf("month") >= 0 || dueVal.indexOf("th") >= 0 || dueVal.length < 8){
+            dueVal = getTodayYMD().substring(0,8) + "15";
+          }
+          document.getElementById("inpNewMemDueDay").value = dueVal;
+          if(document.getElementById("dispDueDayFormatted")) document.getElementById("dispDueDayFormatted").innerText = "(" + toDisplayDate(dueVal) + ")";
           document.getElementById("inpNewMemAddress").value = m.address || "";
           document.getElementById("inpNewMemNominee").value = m.nominee || "";
           document.getElementById("inpNewMemBal").value = cleanNum(m.rdPaid, 0);
@@ -2945,6 +4396,19 @@ function getClientScriptPartB() {
           document.getElementById("inpNewMemOpPen").value = cleanNum(m.opPen, 0);
           document.getElementById("inpNewMemCustomLimit").value = cleanNum(m.customLimit, 0);
           openModal("modalMember");
+        }
+      }
+      if(t.classList.contains("action-setoff-bonus")){
+        var mid = t.getAttribute("data-id");
+        var m = members.find(function(x){ return String(x.id) === mid; });
+        if(m){
+          var bVal = getMemberBonus(m);
+          document.getElementById("bonusMemId").value = m.id;
+          document.getElementById("lblBonusTargetMember").innerText = m.name + " (" + m.id + ")";
+          document.getElementById("lblBonusAmount").innerText = "₹" + bVal.toLocaleString("en-IN");
+          document.getElementById("inpBonusDate").value = getTodayYMD();
+          document.getElementById("inpBonusNetPaid").value = bVal;
+          openModal("modalBonusSetoff");
         }
       }
       if(t.classList.contains("action-view-bonus-stmt")){
@@ -2974,8 +4438,136 @@ function getClientScriptPartB() {
       }
     });
 
+    // SUBMIT BONUS SET-OFF
+    safeAddListener("btnSubmitBonusSetoff", "click", function(){
+      var mid = document.getElementById("bonusMemId").value;
+      var m = members.find(function(x){ return String(x.id) === mid; });
+      if(!m) return;
+      var bVal = getMemberBonus(m);
+      var sDate = document.getElementById("inpBonusDate").value || getTodayYMD();
+      var mode = document.getElementById("selBonusMode").value || "ONLINE";
+      var setoffId = generateAutoId("SET", sDate);
+
+      var rec = {
+        settlementId: setoffId,
+        date: sDate,
+        id: m.id,
+        name: m.name,
+        totalBonus: bVal,
+        adjLoan: 0,
+        adjInt: 0,
+        adjRd: 0,
+        adjPenalty: 0,
+        netPaid: bVal,
+        mode: mode
+      };
+      bonusSettlements.push(rec);
+      saveStore();
+      closeModal("modalBonusSetoff");
+      refreshAll();
+      showNotice("Bonus Settled", "Bonus set-off of ₹" + bVal.toLocaleString("en-IN") + " has been posted successfully for " + m.name + ".\\nRef ID: " + setoffId);
+    });
+
+    // BONUS SUB-TABS (INTEREST RECEIVED & SET-OFF REGISTER)
+    safeAddListener("btnBonusSubTab1", "click", function(){
+      document.getElementById("btnBonusSubTab1").classList.add("active");
+      document.getElementById("btnBonusSubTab2").classList.remove("active");
+      document.getElementById("bonusSubView1").style.display = "block";
+      document.getElementById("bonusSubView2").style.display = "none";
+    });
+    safeAddListener("btnBonusSubTab2", "click", function(){
+      document.getElementById("btnBonusSubTab2").classList.add("active");
+      document.getElementById("btnBonusSubTab1").classList.remove("active");
+      document.getElementById("bonusSubView2").style.display = "block";
+      document.getElementById("bonusSubView1").style.display = "none";
+      renderBonusSetoffRegister();
+    });
+    safeAddListener("inpBonusSetoffFilterFrom", "change", renderBonusSetoffRegister);
+    safeAddListener("inpBonusSetoffFilterTo", "change", renderBonusSetoffRegister);
+
+    // SETTINGS MODAL & FUND REGISTER SUB-TABS
+    function switchSettingsSubTab(tabNum){
+      [1, 2, 3, 4].forEach(function(n){
+        var b = document.getElementById("btnSettingsSubTab" + n);
+        var v = document.getElementById("settingsSubView" + n);
+        if(b) {
+          if(n === tabNum) b.classList.add("active"); else b.classList.remove("active");
+        }
+        if(v) {
+          v.style.display = (n === tabNum) ? "block" : "none";
+        }
+      });
+      if(tabNum === 2) renderFundRegister();
+      if(tabNum === 4) renderProfitAndLossRegister();
+    }
+    safeAddListener("btnSettingsSubTab1", "click", function(){ switchSettingsSubTab(1); });
+    safeAddListener("btnSettingsSubTab2", "click", function(){ switchSettingsSubTab(2); });
+    safeAddListener("btnSettingsSubTab3", "click", function(){ switchSettingsSubTab(3); });
+    safeAddListener("btnSettingsSubTab4", "click", function(){ switchSettingsSubTab(4); });
+    safeAddListener("btnSwitchToFundForm", "click", function(){ switchSettingsSubTab(3); });
+
+    safeAddListener("inpFundFilterFrom", "change", renderFundRegister);
+    safeAddListener("inpFundFilterTo", "change", renderFundRegister);
+    safeAddListener("selFundFilterAccount", "change", renderFundRegister);
+    safeAddListener("selFundFilterType", "change", renderFundRegister);
+
+    safeAddListener("inpPlFilterFrom", "change", renderProfitAndLossRegister);
+    safeAddListener("inpPlFilterTo", "change", renderProfitAndLossRegister);
+    safeAddListener("selPlFinancialYear", "change", renderProfitAndLossRegister);
+    safeAddListener("btnApplyPlFilter", "click", renderProfitAndLossRegister);
+
+    // SUBMIT FUND ENTRY (BORROW / INVEST)
+    safeAddListener("btnSubmitFundEntry", "click", function(){
+      var fType = document.getElementById("inpFundEntryType") ? document.getElementById("inpFundEntryType").value : "INVEST";
+      var fAcc = document.getElementById("inpFundEntryAccount") ? document.getElementById("inpFundEntryAccount").value : "BANK";
+      var fDate = (document.getElementById("inpFundEntryDate") && document.getElementById("inpFundEntryDate").value) ? document.getElementById("inpFundEntryDate").value : getTodayYMD();
+      var rawAmt = document.getElementById("inpFundEntryAmount") ? document.getElementById("inpFundEntryAmount").value : "0";
+      var fAmt = cleanNum(rawAmt, 0);
+      var fEntity = document.getElementById("inpFundEntryEntity") ? (document.getElementById("inpFundEntryEntity").value || "").trim() : "";
+      var fNarr = document.getElementById("inpFundEntryNarration") ? (document.getElementById("inpFundEntryNarration").value || "").trim() : "";
+
+      if(fAmt < 0){
+        showNotice("Validation Error", "Kripya sahi transaction amount bharein (e.g. 50000). Amount 0 ya usse bada hona chahiye.", "modalSettings");
+        return;
+      }
+      var txnId = generateAutoId("FUND", fDate);
+      var fObj = {
+        id: txnId,
+        date: fDate,
+        type: fType,
+        account: fAcc,
+        entity: fEntity || "Society Capital",
+        amount: fAmt,
+        narration: fNarr || (fType === "INVEST" ? "Capital Investment" : "Fund Borrowing")
+      };
+
+      if(!window.fundTransactions) window.fundTransactions = [];
+      window.fundTransactions.push(fObj);
+      fundTransactions = window.fundTransactions;
+      saveStore();
+
+      if(typeof google !== "undefined" && google.script && google.script.run){
+        try {
+          google.script.run.withSuccessHandler(function(res){
+            console.log("Fund transaction synced:", res);
+          }).withFailureHandler(function(err){
+            console.warn("Fund transaction sync issue:", err);
+          }).saveFundTransactionBackend(fObj);
+        } catch(e) {
+          console.warn("google.script.run exception:", e);
+        }
+      }
+
+      if(document.getElementById("inpFundEntryAmount")) document.getElementById("inpFundEntryAmount").value = "";
+      if(document.getElementById("inpFundEntryEntity")) document.getElementById("inpFundEntryEntity").value = "";
+      if(document.getElementById("inpFundEntryNarration")) document.getElementById("inpFundEntryNarration").value = "";
+      switchSettingsSubTab(2);
+      refreshAll();
+      showNotice("Transaction Saved", "Fund transaction " + txnId + " (" + fType + ": ₹" + fAmt.toLocaleString("en-IN") + ") successfully recorded.", "modalSettings");
+    });
+
     // SUBMIT RECEIVE AMOUNT / EDIT RECEIPT
-    document.getElementById("btnSubmitReceive").addEventListener("click", function(){
+    safeAddListener("btnSubmitReceive", "click", function(){
       var recNo = document.getElementById("editReceiptNo").value.trim();
       var mid = document.getElementById("selPayMember").value;
       var m = members.find(function(x){ return String(x.id) === mid; });
@@ -2994,16 +4586,7 @@ function getClientScriptPartB() {
       if(tot < 0) tot = 0;
 
       if(!recNo){
-        // STRICT ID FORMAT: CER + DD + MM + YY
-        var dateSuffix = getDDMMYYFromYMD(pDate);
-        var baseId = "CER" + dateSuffix;
-        var finalId = baseId;
-        var counter = 1;
-        while(payments.some(function(p){ return String(p.receiptNo) === finalId; })){
-          finalId = baseId + counter;
-          counter++;
-        }
-        recNo = finalId;
+        recNo = generateAutoId("REC", pDate);
       }
 
       var newP = {
@@ -3053,7 +4636,7 @@ function getClientScriptPartB() {
     });
 
     // SUBMIT ISSUE LOAN / EDIT LOAN
-    document.getElementById("btnSubmitLoan").addEventListener("click", function(){
+    safeAddListener("btnSubmitLoan", "click", function(){
       var lId = document.getElementById("editLoanId").value.trim();
       var mid = document.getElementById("selLoanMember").value;
       var m = members.find(function(x){ return String(x.id) === mid; });
@@ -3078,16 +4661,7 @@ function getClientScriptPartB() {
           return;
         }
 
-        // STRICT ID FORMAT: LOAN + DD + MM + YY
-        var dateSuffix = getDDMMYYFromYMD(lDate);
-        var baseId = "LOAN" + dateSuffix;
-        var finalId = baseId;
-        var counter = 1;
-        while(loans.some(function(l){ return String(l.loanId) === finalId; })){
-          finalId = baseId + counter;
-          counter++;
-        }
-        lId = finalId;
+        lId = generateAutoId("LN", lDate);
       }
 
       var newL = {
@@ -3124,7 +4698,7 @@ function getClientScriptPartB() {
     });
 
     // SUBMIT ADD / EDIT MEMBER (WITH STRICT MEMDDMMYYYY AND PRESERVING FORM ON VALIDATION NOTICE)
-    document.getElementById("btnSubmitMember").addEventListener("click", function(){
+    safeAddListener("btnSubmitMember", "click", function(){
       var mid = document.getElementById("editMemId").value.trim();
       var name = document.getElementById("inpNewMemName").value.trim();
       var mob = document.getElementById("inpNewMemMobile").value.trim();
@@ -3159,16 +4733,7 @@ function getClientScriptPartB() {
       }
 
       if(!mid){
-        // STRICT ID FORMAT: MEM + DD + MM + YYYY (4 digits, e.g. MEM04092026)
-        var dateSuffix = getDDMMYYYYFromYMD(jDate);
-        var baseId = "MEM" + dateSuffix;
-        var finalId = baseId;
-        var counter = 1;
-        while(members.some(function(m){ return String(m.id) === finalId; })){
-          finalId = baseId + counter;
-          counter++;
-        }
-        mid = finalId;
+        mid = generateAutoId("MEM", jDate);
       }
 
       var newM = {
@@ -3206,7 +4771,7 @@ function getClientScriptPartB() {
     });
 
     // SUBMIT BULK ENTRY (WITH SHORT NARRATION)
-    document.getElementById("btnSubmitBulk").addEventListener("click", function(){
+    safeAddListener("btnSubmitBulk", "click", function(){
       var bDate = document.getElementById("inpBulkDate").value || getTodayYMD();
       var rows = document.querySelectorAll("#tbodyBulkList tr");
       var postedCount = 0;
@@ -3228,14 +4793,7 @@ function getClientScriptPartB() {
 
             var tot = rdVal + intVal + repayVal + penVal - wvrVal;
             if(tot > 0){
-              var dateSuffix = getDDMMYYFromYMD(bDate);
-              var baseId = "CER" + dateSuffix;
-              var finalId = baseId;
-              var counter = 1;
-              while(payments.some(function(p){ return String(p.receiptNo) === finalId; })){
-                finalId = baseId + counter;
-                counter++;
-              }
+              var finalId = generateAutoId("REC", bDate);
 
               var newP = {
                 receiptNo: finalId,
@@ -3289,10 +4847,10 @@ function getClientScriptPartB() {
     });
 
     // PRINTING PASSBOOK
-    document.getElementById("btnPrintLedgerPdf").addEventListener("click", function(){
+    safeAddListener("btnPrintLedgerPdf", "click", function(){
       window.print();
     });
-    document.getElementById("btnPrintBonusPdf").addEventListener("click", function(){
+    safeAddListener("btnPrintBonusPdf", "click", function(){
       window.print();
     });
 
@@ -3309,6 +4867,7 @@ function getClientScriptPartB() {
           exitSettlements = res.exitSettlements || [];
           bonusSettlements = res.bonusSettlements || [];
           if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
+          if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
           saveStore();
           refreshAll();
         }
@@ -3316,11 +4875,738 @@ function getClientScriptPartB() {
     }
   }
 
+  // EXPOSE ALL ESSENTIAL FUNCTIONS GLOBALLY
+  window.bootApplication = bootApplication;
+  window.refreshAll = refreshAll;
+  window.openModal = openModal;
+  window.closeModal = closeModal;
+  window.closeAllModals = closeAllModals;
+  window.showNotice = showNotice;
+  window.openReceiveModalFor = openReceiveModalFor;
+  window.openLoanModalFor = openLoanModalFor;
+  window.renderMembers = renderMembers;
+  window.renderPayments = renderPayments;
+  window.renderLoans = renderLoans;
+  window.renderBonusTab = renderBonusTab;
+  window.renderPenaltyTab = renderPenaltyTab;
+
+  window.openAddMemberModal = function(){
+    var editId = document.getElementById("editMemId");
+    if(editId) editId.value = "";
+    var lbl = document.getElementById("lblMemberModalHead");
+    if(lbl) lbl.innerText = "👤 Add New Member Profile";
+    var nameEl = document.getElementById("inpNewMemName"); if(nameEl) nameEl.value = "";
+    var mobEl = document.getElementById("inpNewMemMobile"); if(mobEl) mobEl.value = "";
+    var stEl = document.getElementById("inpNewMemStatus"); if(stEl) stEl.value = "ACTIVE";
+    var jDateEl = document.getElementById("inpNewMemJoinDate"); if(jDateEl) jDateEl.value = getTodayYMD();
+    var rdEl = document.getElementById("inpNewMemRd"); if(rdEl) rdEl.value = 400;
+    var defDue = getTodayYMD().substring(0,8) + "15";
+    var dueEl = document.getElementById("inpNewMemDueDay"); if(dueEl) dueEl.value = defDue;
+    var dueFmt = document.getElementById("dispDueDayFormatted"); if(dueFmt) dueFmt.innerText = "(" + toDisplayDate(defDue) + ")";
+    var addrEl = document.getElementById("inpNewMemAddress"); if(addrEl) addrEl.value = "";
+    var nomEl = document.getElementById("inpNewMemNominee"); if(nomEl) nomEl.value = "";
+    var balEl = document.getElementById("inpNewMemBal"); if(balEl) balEl.value = 0;
+    var opLoanEl = document.getElementById("inpNewMemOpLoan"); if(opLoanEl) opLoanEl.value = 0;
+    var opIntEl = document.getElementById("inpNewMemOpInt"); if(opIntEl) opIntEl.value = 0;
+    var opPenEl = document.getElementById("inpNewMemOpPen"); if(opPenEl) opPenEl.value = 0;
+    var limEl = document.getElementById("inpNewMemCustomLimit"); if(limEl) limEl.value = 0;
+    openModal("modalMember");
+  };
+
+  window.openBulkModal = function(){
+    var today = getTodayYMD();
+    var bDate = document.getElementById("inpBulkDate"); if(bDate) bDate.value = today;
+    var bFmt = document.getElementById("dispBulkDateFormatted"); if(bFmt) bFmt.innerText = "(" + toDisplayDate(today) + ")";
+    renderBulkList();
+    openModal("modalBulk");
+  };
+
+  function renderFundModal(){
+    var cIn = 0, cOut = 0, bIn = 0, bOut = 0;
+
+    var fromEl = document.getElementById("inpFundFrom");
+    var toEl = document.getElementById("inpFundTo");
+    var fromD = fromEl ? fromEl.value : "2026-01-01";
+    var toD = toEl ? toEl.value : "2026-12-31";
+    if(!fromD) fromD = "2026-01-01";
+    if(!toD) toD = "2026-12-31";
+
+    payments.forEach(function(p){
+      var safeMode = String(p.mode||"CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "BANK" : "CASH";
+      var amt = cleanNum(p.total, 0);
+      if(safeMode === "BANK") bIn += amt; else cIn += amt;
+    });
+
+    fundTransactions.forEach(function(f){
+      var acc = String(f.account || "BANK").toUpperCase() === "CASH" ? "CASH" : "BANK";
+      var type = String(f.type || "INVEST").toUpperCase();
+      var amt = cleanNum(f.amount, 0);
+      if(type === "INVEST"){
+        if(acc === "CASH") cIn += amt; else bIn += amt;
+      } else {
+        if(acc === "CASH") cOut += amt; else bOut += amt;
+      }
+    });
+
+    loans.forEach(function(l){
+      var safeMode = String(l.mode || "CASH").toUpperCase().indexOf("ONLINE") >= 0 ? "BANK" : "CASH";
+      var amt = cleanNum(l.principal, 0);
+      if(safeMode === "BANK") bOut += amt; else cOut += amt;
+    });
+
+    exitSettlements.forEach(function(x){
+      var amt = cleanNum(x.payout, 0);
+      cOut += amt;
+    });
+
+    var netCash = cIn - cOut;
+    var netBank = bIn - bOut;
+    var netTotal = netCash + netBank;
+
+    var cashEl = document.getElementById("lblRegCashBal");
+    var bankEl = document.getElementById("lblRegBankBal");
+    var fundEl = document.getElementById("lblRegTotalFund");
+    if(cashEl) cashEl.innerText = "₹" + netCash.toLocaleString("en-IN");
+    if(bankEl) bankEl.innerText = "₹" + netBank.toLocaleString("en-IN");
+    if(fundEl) fundEl.innerText = "₹" + netTotal.toLocaleString("en-IN");
+
+    var monthMap = {};
+    var monthList = [];
+    var monthNames = [];
+    var monthNamesFull = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    try {
+      var startYr = parseInt(fromD.substring(0, 4), 10);
+      var startMo = parseInt(fromD.substring(5, 7), 10);
+      var endYr = parseInt(toD.substring(0, 4), 10);
+      var endMo = parseInt(toD.substring(5, 7), 10);
+
+      if (isNaN(startYr) || isNaN(startMo)) { startYr = 2026; startMo = 1; }
+      if (isNaN(endYr) || isNaN(endMo)) { endYr = 2026; endMo = 12; }
+
+      var curYr = startYr;
+      var curMo = startMo;
+      var limit = 0;
+      while ((curYr < endYr || (curYr === endYr && curMo <= endMo)) && limit < 120) {
+        var mKey = curYr + "-" + String(curMo).padStart(2, "0");
+        monthList.push(mKey);
+        monthNames.push(monthNamesFull[curMo - 1] + " " + curYr);
+        monthMap[mKey] = { inflow: 0, outflow: 0 };
+        curMo++;
+        if (curMo > 12) {
+          curMo = 1;
+          curYr++;
+        }
+        limit++;
+      }
+    } catch(e) {
+      console.error("Error generating month list:", e);
+      monthList = ["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"];
+      monthNames = ["Jan 2026","Feb 2026","Mar 2026","Apr 2026","May 2026","Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026"];
+      monthList.forEach(function(mKey){
+        monthMap[mKey] = { inflow: 0, outflow: 0 };
+      });
+    }
+
+    payments.forEach(function(p){
+      var mKey = getYearMonthKey(p.date);
+      if(monthMap[mKey]) {
+        monthMap[mKey].inflow += cleanNum(p.total, 0);
+      }
+    });
+
+    fundTransactions.forEach(function(f){
+      var mKey = getYearMonthKey(f.date);
+      if(monthMap[mKey]) {
+        if(String(f.type || "INVEST").toUpperCase() === "INVEST"){
+          monthMap[mKey].inflow += cleanNum(f.amount, 0);
+        } else {
+          monthMap[mKey].outflow += cleanNum(f.amount, 0);
+        }
+      }
+    });
+
+    loans.forEach(function(l){
+      var mKey = getYearMonthKey(l.date);
+      if(monthMap[mKey]) {
+        monthMap[mKey].outflow += cleanNum(l.principal, 0);
+      }
+    });
+
+    exitSettlements.forEach(function(x){
+      var mKey = getYearMonthKey(x.date);
+      if(monthMap[mKey]) {
+        monthMap[mKey].outflow += cleanNum(x.payout, 0);
+      }
+    });
+
+    var tbodyMonths = document.getElementById("tbodyFundMonths");
+    if(tbodyMonths){
+      var html = "";
+      monthList.forEach(function(mKey, idx){
+        var data = monthMap[mKey] || { inflow: 0, outflow: 0 };
+        var net = data.inflow - data.outflow;
+        var netBadge = net >= 0 ? "<span style='color:#10B981; font-weight:700;'>+₹" + net.toLocaleString("en-IN") + "</span>" : "<span style='color:#EF4444; font-weight:700;'>-₹" + Math.abs(net).toLocaleString("en-IN") + "</span>";
+        
+        html += "<tr>" +
+          "<td style='font-weight:700; color:#FBBF24;'>" + (monthNames[idx] || mKey) + "</td>" +
+          "<td style='color:#10B981; font-weight:700;'>+₹" + data.inflow.toLocaleString("en-IN") + "</td>" +
+          "<td style='color:#EF4444; font-weight:700;'>-₹" + data.outflow.toLocaleString("en-IN") + "</td>" +
+          "<td>" + netBadge + "</td>" +
+          "<td><button class='btn btn-dark action-view-fund-drilldown' data-ym='" + mKey + "' style='padding:3px 8px; font-size:0.75rem;'>🔍 Details</button></td>" +
+        "</tr>";
+      });
+      tbodyMonths.innerHTML = html || "<tr><td colspan='5' style='text-align:center; color:#94A3B8;'>No monthly data within selected range</td></tr>";
+      tbodyMonths.onclick = function(ev) {
+        var target = ev.target || ev.srcElement;
+        var btn = target.closest ? target.closest(".action-view-fund-drilldown") : null;
+        if (btn) {
+          var ym = btn.getAttribute("data-ym");
+          if (ym && typeof window.showFundMonthDrilldown === "function") {
+            window.showFundMonthDrilldown(ym);
+          }
+        }
+      };
+    }
+  }
+  window.renderFundModal = renderFundModal;
+
+  window.showFundMonthDrilldown = function(mKey) {
+    var box = document.getElementById("fundDrilldownBox");
+    var title = document.getElementById("lblDrilldownTitle");
+    var tbody = document.getElementById("tbodyDrilldown");
+    var btnClose = document.getElementById("btnCloseDrilldown");
+    if (!box || !tbody) return;
+
+    if (btnClose) {
+      btnClose.onclick = function() {
+        box.style.display = "none";
+      };
+    }
+
+    var items = [];
+    // 1. Payments
+    payments.forEach(function(p){
+      if (getYearMonthKey(p.date) === mKey) {
+        items.push({
+          date: toDisplayDate(p.date),
+          name: p.name || "Member " + p.id,
+          cat: "RD + Repay + Int",
+          amt: "+₹" + cleanNum(p.total, 0).toLocaleString("en-IN"),
+          mode: p.mode || "CASH",
+          color: "#10B981"
+        });
+      }
+    });
+
+    // 2. Fund Register
+    fundTransactions.forEach(function(f){
+      if (getYearMonthKey(f.date) === mKey) {
+        var isIn = String(f.type || "INVEST").toUpperCase() === "INVEST";
+        items.push({
+          date: toDisplayDate(f.date),
+          name: f.entity || "Fund Register",
+          cat: f.narration || f.type,
+          amt: (isIn ? "+₹" : "-₹") + cleanNum(f.amount, 0).toLocaleString("en-IN"),
+          mode: f.account || "BANK",
+          color: isIn ? "#10B981" : "#EF4444"
+        });
+      }
+    });
+
+    // 3. Loans
+    loans.forEach(function(l){
+      if (getYearMonthKey(l.date) === mKey) {
+        items.push({
+          date: toDisplayDate(l.date),
+          name: l.name || "Member " + l.id,
+          cat: "Loan Disbursed (" + (l.type || "Gullak Loan") + ")",
+          amt: "-₹" + cleanNum(l.principal, 0).toLocaleString("en-IN"),
+          mode: "CASH/BANK",
+          color: "#EF4444"
+        });
+      }
+    });
+
+    // 4. Exit Settlements
+    exitSettlements.forEach(function(x){
+      if (getYearMonthKey(x.date) === mKey) {
+        items.push({
+          date: toDisplayDate(x.date),
+          name: x.name || "Member " + x.id,
+          cat: "Exit Settlement Payout",
+          amt: "-₹" + cleanNum(x.payout || x.netSettlement, 0).toLocaleString("en-IN"),
+          mode: "CASH/BANK",
+          color: "#EF4444"
+        });
+      }
+    });
+
+    if (title) title.innerText = "Source Details for " + mKey + " (" + items.length + " transactions)";
+
+    if (items.length === 0) {
+      tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; color:#94A3B8; padding:10px;'>No transactions recorded for " + mKey + "</td></tr>";
+    } else {
+      var h = "";
+      items.forEach(function(it){
+        h += "<tr>" +
+          "<td style='font-size:0.75rem;'>" + it.date + "</td>" +
+          "<td style='font-weight:700; font-size:0.75rem; color:#F8FAFC;'>" + it.name + "</td>" +
+          "<td style='font-size:0.75rem; color:#CBD5E1;'>" + it.cat + "</td>" +
+          "<td style='font-weight:700; font-size:0.75rem; color:" + it.color + ";'>" + it.amt + "</td>" +
+          "<td style='font-size:0.75rem;'><span class='badge' style='background:#334155; color:#FBBF24;'>" + it.mode + "</span></td>" +
+        "</tr>";
+      });
+      tbody.innerHTML = h;
+    }
+
+    box.style.display = "block";
+  };
+
+  window.openFundModal = function(){
+    renderFundModal();
+    openModal("modalFund");
+  };
+
+  window.openNpaModal = function(){
+    renderNpaList();
+    openModal("modalNpa");
+  };
+
+  window.logoutSession = function(){
+    window.currentUserSession = null;
+    try {
+      sessionStorage.clear();
+    } catch(e){}
+    var overlay = document.getElementById("windowsLoginOverlay");
+    if(overlay) {
+      overlay.style.display = "flex";
+    }
+    var pInput = document.getElementById("inpWinPassword");
+    if(pInput) {
+      pInput.value = "";
+      try { pInput.focus(); } catch(err) {}
+    }
+  };
+
+  window.handleTopReload = function(){
+    if(typeof google !== "undefined" && google.script && google.script.run){
+      showNotice("Syncing...", "Fetching verified records from Google Spreadsheet...");
+      google.script.run.withSuccessHandler(function(res){
+        closeModal("modalNotice");
+        if(res && res.members && res.members.length > 0){
+          members = res.members;
+          payments = res.payments || [];
+          loans = res.loans || [];
+          exitSettlements = res.exitSettlements || [];
+          bonusSettlements = res.bonusSettlements || [];
+          if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
+          if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
+          saveStore();
+          showNotice("Sync Complete", "Successfully synchronized " + members.length + " members, " + payments.length + " receipts, and " + loans.length + " loans from Google Sheet!");
+        }
+      }).getSocietyFullData();
+    } else {
+      refreshAll();
+      showNotice("Local Reloaded", "Database re-indexed locally.");
+    }
+  };
+
+  // MEMBER EXIT SETTLEMENT CONTROLLER (V41 PRO)
+  function handleExitMemberChange(){
+    var sel = document.getElementById("selExitMember");
+    var selId = sel ? sel.value : "";
+    var m = (members || []).find(function(x){
+      return String(x.id).trim().toUpperCase() === String(selId).trim().toUpperCase();
+    });
+
+    var dispRd = document.getElementById("lblExitRd") || document.getElementById("dispExitRd");
+    var dispLoan = document.getElementById("lblExitLoan") || document.getElementById("dispExitLoan");
+    var dispBonus = document.getElementById("lblExitBonus") || document.getElementById("dispExitBonus");
+    var dispPen = document.getElementById("lblExitPen") || document.getElementById("dispExitPen");
+
+    if(!m){
+      if(dispRd) dispRd.textContent = "₹0";
+      if(dispLoan) dispLoan.textContent = "₹0";
+      if(dispBonus) dispBonus.textContent = "₹0";
+      if(dispPen) dispPen.textContent = "₹0";
+      recalculateExitFinal();
+      return;
+    }
+
+    var mid = String(m.id || "").trim().toUpperCase();
+    var mName = String(m.name || "").trim().toLowerCase();
+
+    var totalRd = cleanNum(m.rdPaid, 0);
+    (payments || []).forEach(function(p){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase();
+      var pMName = String(p.name || "").trim().toLowerCase();
+      if((pMid && pMid === mid) || (pMName && pMName === mName)){
+        totalRd += cleanNum(p.rd, 0);
+      }
+    });
+
+    var totalLoanDue = 0;
+    (loans || []).forEach(function(l){
+      var lMid = String(l.memberId || l.id || "").trim().toUpperCase();
+      var lMName = String(l.name || "").trim().toLowerCase();
+      if((lMid && lMid === mid) || (lMName && lMName === mName)){
+        totalLoanDue += (cleanNum(l.balance, 0) + cleanNum(l.interestDue, 0));
+      }
+    });
+
+    var bonusObj = calculate1PercentPmBonus(m);
+    var totalBonus = bonusObj.bonusAccrued || 0;
+    var totalPenalty = calculateMemberLivePenaltyDue(m);
+
+    if(dispRd) dispRd.textContent = "₹" + totalRd.toLocaleString("en-IN");
+    if(dispLoan) dispLoan.textContent = "₹" + totalLoanDue.toLocaleString("en-IN");
+    if(dispBonus) dispBonus.textContent = "₹" + totalBonus.toLocaleString("en-IN");
+    if(dispPen) dispPen.textContent = "₹" + totalPenalty.toLocaleString("en-IN");
+
+    recalculateExitFinal();
+  }
+  window.handleExitMemberChange = handleExitMemberChange;
+  window.loadExitDetails = handleExitMemberChange;
+
+  function recalculateExitFinal(){
+    var sel = document.getElementById("selExitMember");
+    var selId = sel ? sel.value : "";
+    var m = (members || []).find(function(x){
+      return String(x.id).trim().toUpperCase() === String(selId).trim().toUpperCase();
+    });
+
+    var dispFinal = document.getElementById("dispExitNetResult") || document.getElementById("dispExitFinal");
+    var lblResult = document.getElementById("lblExitResultType");
+    var inpRefund = document.getElementById("inpExitNetRefund");
+    if(!m){
+      if(dispFinal) dispFinal.textContent = "₹0";
+      if(lblResult) lblResult.textContent = "FINAL SETTLEMENT AMOUNT";
+      if(inpRefund) inpRefund.value = "0";
+      return;
+    }
+
+    var mid = String(m.id || "").trim().toUpperCase();
+    var mName = String(m.name || "").trim().toLowerCase();
+
+    var totalRd = cleanNum(m.rdPaid, 0);
+    (payments || []).forEach(function(p){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase();
+      var pMName = String(p.name || "").trim().toLowerCase();
+      if((pMid && pMid === mid) || (pMName && pMName === mName)){
+        totalRd += cleanNum(p.rd, 0);
+      }
+    });
+
+    var totalLoanDue = 0;
+    (loans || []).forEach(function(l){
+      var lMid = String(l.memberId || l.id || "").trim().toUpperCase();
+      var lMName = String(l.name || "").trim().toLowerCase();
+      if((lMid && lMid === mid) || (lMName && lMName === mName)){
+        totalLoanDue += (cleanNum(l.balance, 0) + cleanNum(l.interestDue, 0));
+      }
+    });
+
+    var bonusObj = calculate1PercentPmBonus(m);
+    var totalBonus = bonusObj.bonusAccrued || 0;
+    var totalPenalty = calculateMemberLivePenaltyDue(m);
+
+    var inclBonus = document.getElementById("chkExitIncludeBonus") ? document.getElementById("chkExitIncludeBonus").checked : true;
+    var npaLoss = cleanNum(document.getElementById("inpExitNpa") ? document.getElementById("inpExitNpa").value : 0, 0);
+    var waiver = cleanNum(document.getElementById("inpExitWaiver") ? document.getElementById("inpExitWaiver").value : 0, 0);
+
+    var netSettlement = totalRd + (inclBonus ? totalBonus : 0) - totalLoanDue - totalPenalty + waiver - npaLoss;
+    if(inpRefund) inpRefund.value = String(netSettlement);
+
+    if(dispFinal){
+      if(netSettlement >= 0){
+        dispFinal.textContent = "₹" + netSettlement.toLocaleString("en-IN") + " (Payable to Member)";
+        dispFinal.style.color = "#10B981";
+      } else {
+        dispFinal.textContent = "₹" + Math.abs(netSettlement).toLocaleString("en-IN") + " (Recoverable from Member)";
+        dispFinal.style.color = "#EF4444";
+      }
+    }
+    if(lblResult){
+      lblResult.textContent = netSettlement >= 0 ? "PAYABLE SETTLEMENT REFUND" : "RECOVERY BALANCE DUE";
+    }
+  }
+  window.recalculateExitFinal = recalculateExitFinal;
+  window.calcExitNet = recalculateExitFinal;
+
+  function handleExecuteExitSettlement(){
+    var sel = document.getElementById("selExitMember");
+    var selId = sel ? sel.value : "";
+    var m = (members || []).find(function(x){
+      return String(x.id).trim().toUpperCase() === String(selId).trim().toUpperCase();
+    });
+
+    if(!m){
+      showNotice("Select Member", "Kripya exit settlement ke liye pehle active member select karein.", "modalExit");
+      return;
+    }
+
+    var mid = String(m.id || "").trim().toUpperCase();
+    var mName = String(m.name || "").trim();
+
+    var totalRd = cleanNum(m.rdPaid, 0);
+    (payments || []).forEach(function(p){
+      var pMid = String(p.memberId || p.id || "").trim().toUpperCase();
+      var pMName = String(p.name || "").trim().toLowerCase();
+      if((pMid && pMid === mid) || (pMName && pMName === mName.toLowerCase())){
+        totalRd += cleanNum(p.rd, 0);
+      }
+    });
+
+    var totalLoanDue = 0;
+    (loans || []).forEach(function(l){
+      var lMid = String(l.memberId || l.id || "").trim().toUpperCase();
+      var lMName = String(l.name || "").trim().toLowerCase();
+      if((lMid && lMid === mid) || (lMName && lMName === mName.toLowerCase())){
+        totalLoanDue += (cleanNum(l.balance, 0) + cleanNum(l.interestDue, 0));
+      }
+    });
+
+    var bonusObj = calculate1PercentPmBonus(m);
+    var totalBonus = bonusObj.bonusAccrued || 0;
+    var totalPenalty = calculateMemberLivePenaltyDue(m);
+
+    var inclBonus = document.getElementById("chkExitIncludeBonus") ? document.getElementById("chkExitIncludeBonus").checked : true;
+    var npaLoss = cleanNum(document.getElementById("inpExitNpa") ? document.getElementById("inpExitNpa").value : 0, 0);
+    var waiver = cleanNum(document.getElementById("inpExitWaiver") ? document.getElementById("inpExitWaiver").value : 0, 0);
+
+    var netSettlement = totalRd + (inclBonus ? totalBonus : 0) - totalLoanDue - totalPenalty + waiver - npaLoss;
+
+    var exitDate = getTodayYMD();
+    var exitId = generateAutoId("EXIT", exitDate);
+
+    var exitRecord = {
+      exitId: exitId,
+      date: exitDate,
+      id: m.id,
+      name: m.name,
+      totalRd: totalRd,
+      loanDues: totalLoanDue,
+      bonusAdj: inclBonus ? totalBonus : 0,
+      npaLoss: npaLoss,
+      waiver: waiver,
+      netSettlement: netSettlement,
+      status: "INACTIVE"
+    };
+
+    if(!window.exitSettlements) window.exitSettlements = [];
+    window.exitSettlements.push(exitRecord);
+    exitSettlements = window.exitSettlements;
+
+    m.status = "INACTIVE";
+    saveStore();
+
+    if(typeof google !== "undefined" && google.script && google.script.run){
+      try {
+        google.script.run.saveExitSettlementBackend(exitRecord);
+        google.script.run.saveMemberBackend(m);
+      } catch(e) {
+        console.warn("Backend exit sync issue:", e);
+      }
+    }
+
+    closeModal("modalExit");
+    refreshAll();
+    showNotice("Settlement Completed", "Member " + m.name + " (" + m.id + ") has been successfully settled and marked INACTIVE.\\n\\nExit ID: " + exitId + "\\nNet Settlement: ₹" + netSettlement.toLocaleString("en-IN"));
+  }
+  window.handleExecuteExitSettlement = handleExecuteExitSettlement;
+
+  // EDIT BORROW / INVEST TRANSACTION CONTROLLER (V41 PRO)
+  function openEditFundModal(txnId){
+    if(!window.fundTransactions) window.fundTransactions = fundTransactions || [];
+    var f = window.fundTransactions.find(function(x){ return String(x.id) === String(txnId); });
+    if(!f){
+      showNotice("Not Found", "Transaction " + txnId + " not found!");
+      return;
+    }
+
+    if(document.getElementById("inpEditFundId")) document.getElementById("inpEditFundId").value = f.id || "";
+    if(document.getElementById("inpEditFundType")) document.getElementById("inpEditFundType").value = (f.type || "INVEST").toUpperCase();
+    if(document.getElementById("inpEditFundAccount")) document.getElementById("inpEditFundAccount").value = (f.account || "BANK").toUpperCase();
+    if(document.getElementById("inpEditFundDate")) document.getElementById("inpEditFundDate").value = toIsoDateStr(f.date || getTodayYMD());
+    if(document.getElementById("inpEditFundAmount")) document.getElementById("inpEditFundAmount").value = cleanNum(f.amount, 0);
+    if(document.getElementById("inpEditFundEntity")) document.getElementById("inpEditFundEntity").value = f.entity || "";
+    if(document.getElementById("inpEditFundNarration")) document.getElementById("inpEditFundNarration").value = f.narration || "";
+
+    openModal("modalEditFund");
+  }
+  window.openEditFundModal = openEditFundModal;
+
+  function handleSaveEditFund(){
+    var txnId = document.getElementById("inpEditFundId") ? document.getElementById("inpEditFundId").value : "";
+    var fType = document.getElementById("inpEditFundType") ? document.getElementById("inpEditFundType").value : "INVEST";
+    var fAcc = document.getElementById("inpEditFundAccount") ? document.getElementById("inpEditFundAccount").value : "BANK";
+    var fDate = document.getElementById("inpEditFundDate") ? document.getElementById("inpEditFundDate").value : getTodayYMD();
+    var rawAmt = document.getElementById("inpEditFundAmount") ? document.getElementById("inpEditFundAmount").value : "0";
+    var fAmt = cleanNum(rawAmt, 0);
+    var fEntity = document.getElementById("inpEditFundEntity") ? (document.getElementById("inpEditFundEntity").value || "").trim() : "";
+    var fNarr = document.getElementById("inpEditFundNarration") ? (document.getElementById("inpEditFundNarration").value || "").trim() : "";
+
+    if(fAmt < 0){
+      showNotice("Validation Error", "Kripya sahi transaction amount bharein. Amount 0 ya usse bada hona chahiye.", "modalEditFund");
+      return;
+    }
+
+    if(!window.fundTransactions) window.fundTransactions = fundTransactions || [];
+    var f = window.fundTransactions.find(function(x){ return String(x.id) === String(txnId); });
+    
+    if(!f){
+      f = { id: txnId };
+      window.fundTransactions.push(f);
+    }
+
+    f.type = fType;
+    f.account = fAcc;
+    f.date = fDate;
+    f.amount = fAmt;
+    f.entity = fEntity || "Society Capital";
+    f.narration = fNarr || (fType === "INVEST" ? "Capital Investment" : "Fund Borrowing");
+
+    fundTransactions = window.fundTransactions;
+    saveStore();
+
+    if(typeof google !== "undefined" && google.script && google.script.run){
+      try {
+        google.script.run.withSuccessHandler(function(res){
+          console.log("Edit fund sync:", res);
+        }).saveFundTransactionBackend(f);
+      } catch(e) {
+        console.warn("Backend edit fund sync error:", e);
+      }
+    }
+
+    closeModal("modalEditFund");
+    renderFundRegister();
+    renderProfitAndLossRegister();
+    refreshAll();
+    showNotice("Transaction Updated", "Fund transaction " + txnId + " has been successfully updated!");
+  }
+  window.handleSaveEditFund = handleSaveEditFund;
+
+  // DIALOG / SUB-TAB / MODAL ACTION CONTROLLERS
+  safeAddListener("btnSubmitExit", "click", handleExecuteExitSettlement);
+  safeAddListener("btnApplyFundDate", "click", renderFundModal);
+
+  safeAddListener("btnAddBulkRow", "click", function(){
+    var tbody = document.getElementById("tbodyBulkList");
+    if(!tbody) return;
+    var activeMems = (members || []).filter(function(m){ return String(m.status).toUpperCase() === "ACTIVE"; });
+    if(activeMems.length === 0) return;
+    var opts = activeMems.map(function(m){ return "<option value='" + m.id + "'>" + m.name + " (" + m.id + ")</option>"; }).join("");
+    var tr = document.createElement("tr");
+    tr.setAttribute("data-id", activeMems[0].id);
+    tr.innerHTML = "<td style='text-align:center;'><input type='checkbox' class='b-chk' checked onchange='calcBulkTotals()'></td>" +
+      "<td><select class='field-ctrl' style='width:160px;' onchange='this.closest(\\\"tr\\\").setAttribute(\\\"data-id\\\", this.value);'>" + opts + "</select></td>" +
+      "<td><input type='number' class='field-ctrl b-rd' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+      "<td><input type='number' class='field-ctrl b-int' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+      "<td><input type='number' class='field-ctrl b-repay' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+      "<td><input type='number' class='field-ctrl b-pen' value='0' oninput='calcBulkRow(this)' style='width:80px;text-align:right;'></td>" +
+      "<td><strong class='b-tot' style='color:#10B981;'>₹0</strong></td>" +
+      "<td><select class='field-ctrl b-mode' style='width:90px;'><option value='CASH'>CASH</option><option value='ONLINE'>ONLINE</option></select></td>" +
+      "<td><input type='text' class='field-ctrl b-rem' placeholder='Note...' style='width:120px;'></td>";
+    tbody.appendChild(tr);
+    calcBulkTotals();
+  });
+
+  var pendingConfirmCallback = null;
+  window.showConfirm = function(title, msg, onProceed){
+    var h = document.getElementById("confirmHeader");
+    var b = document.getElementById("confirmBody");
+    if(h) h.innerText = title || "Confirm Action";
+    if(b) b.innerText = msg || "Are you sure you want to proceed?";
+    pendingConfirmCallback = onProceed;
+    openModal("modalConfirm");
+  };
+  safeAddListener("btnConfirmProceed", "click", function(){
+    closeModal("modalConfirm");
+    if(typeof pendingConfirmCallback === "function"){
+      var cb = pendingConfirmCallback;
+      pendingConfirmCallback = null;
+      cb();
+    }
+  });
+
+  function showSubTabInterest(){
+    var b1 = document.getElementById("btnSubTabInterest");
+    var b2 = document.getElementById("btnSubTabBonus");
+    var p1 = document.getElementById("boxSubInterest");
+    var p2 = document.getElementById("boxSubBonus");
+    if(b1) b1.className = "tab-item active";
+    if(b2) b2.className = "tab-item";
+    if(p1) p1.style.display = "block";
+    if(p2) p2.style.display = "none";
+  }
+  function showSubTabBonus(){
+    var b1 = document.getElementById("btnSubTabInterest");
+    var b2 = document.getElementById("btnSubTabBonus");
+    var p1 = document.getElementById("boxSubInterest");
+    var p2 = document.getElementById("boxSubBonus");
+    if(b1) b1.className = "tab-item";
+    if(b2) b2.className = "tab-item active";
+    if(p1) p1.style.display = "none";
+    if(p2) p2.style.display = "block";
+  }
+  function renderSubTables(){
+    var fromD = document.getElementById("inpSubFilterFrom") ? document.getElementById("inpSubFilterFrom").value : "2026-01-01";
+    var toD = document.getElementById("inpSubFilterTo") ? document.getElementById("inpSubFilterTo").value : "2026-12-31";
+    var tbodyI = document.getElementById("tbodySubInterest");
+    var tbodyB = document.getElementById("tbodySubBonus");
+    if(tbodyI){
+      var hI = "";
+      (payments || []).forEach(function(p){
+        var d = p.date || "2026-01-01";
+        if(d >= fromD && d <= toD && cleanNum(p.interest, 0) > 0){
+          hI += "<tr><td>" + toDisplayDate(d) + "</td><td>" + (p.name || "") + " (" + (p.id || "") + ")</td><td>" + (p.receiptNo || "") + "</td><td style='color:#10B981; font-weight:700;'>₹" + cleanNum(p.interest, 0).toLocaleString("en-IN") + "</td><td>" + (p.mode || "CASH") + "</td></tr>";
+        }
+      });
+      tbodyI.innerHTML = hI || "<tr><td colspan='5' style='text-align:center;color:#94A3B8;'>No interest records found</td></tr>";
+    }
+    if(tbodyB){
+      var hB = "";
+      (bonusSettlements || []).forEach(function(b){
+        var d = b.date || "2026-01-01";
+        if(d >= fromD && d <= toD){
+          hB += "<tr><td>" + toDisplayDate(d) + "</td><td>" + (b.name || "") + " (" + (b.id || "") + ")</td><td>" + (b.settlementId || "") + "</td><td style='color:#C084FC; font-weight:700;'>₹" + cleanNum(b.amount || b.netBonus, 0).toLocaleString("en-IN") + "</td><td>" + (b.mode || "SET-OFF") + "</td></tr>";
+        }
+      });
+      tbodyB.innerHTML = hB || "<tr><td colspan='5' style='text-align:center;color:#94A3B8;'>No bonus settlement records found</td></tr>";
+    }
+  }
+  safeAddListener("btnSubTabInterest", "click", showSubTabInterest);
+  safeAddListener("btnSubTabBonus", "click", showSubTabBonus);
+  safeAddListener("btnApplySubFilter", "click", renderSubTables);
+  window.openBonusOverviewModal = function(){
+    renderSubTables();
+    showSubTabInterest();
+    openModal("modalBonusOverview");
+  };
+
+  // Expose global state arrays for external testing and inspection
+  window.members = members;
+  window.payments = payments;
+  window.loans = loans;
+  window.exitSettlements = exitSettlements;
+  window.bonusSettlements = bonusSettlements;
+  window.fundTransactions = fundTransactions;
+
+  // Force lock on initial load or F5 refresh
+  window.currentUserSession = null;
+  try {
+    sessionStorage.removeItem("gullak_v22_session");
+    sessionStorage.removeItem("gullak_v21_session");
+  } catch(e) {}
+
+  // RUN IMMEDIATELY AND ON READY
+  bootApplication();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootApplication);
-  } else {
-    bootApplication();
   }
+  window.addEventListener("load", bootApplication);
 })();
 </script>
 `;

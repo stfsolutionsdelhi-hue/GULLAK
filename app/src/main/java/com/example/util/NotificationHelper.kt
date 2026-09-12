@@ -5,47 +5,60 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.MainActivity
-import com.example.R
 
 object NotificationHelper {
-    private const val CHANNEL_ID = "gullak_society_channel"
+
+    const val CHANNEL_ID = "gullak_society_channel_v2"
     private const val CHANNEL_NAME = "Gullak Society Alerts"
-    private const val CHANNEL_DESC = "Notifications for society dues, payments, and notices"
+    private const val CHANNEL_DESC = "Official updates for RD, loan dues, approvals and reminders with sound & vibration."
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val importance = NotificationManager.IMPORTANCE_HIGH
+            val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                .build()
+
             val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance).apply {
                 description = CHANNEL_DESC
                 enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250, 150, 250)
                 enableLights(true)
+                setSound(defaultSoundUri, audioAttributes)
             }
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager: NotificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
     }
 
-    fun showPushNotification(
+    fun sendPushNotification(
         context: Context,
         title: String,
         message: String,
-        notificationId: Int = (1000..9999).random()
+        notificationId: Int = (System.currentTimeMillis() % 10000).toInt()
     ) {
         createNotificationChannel(context)
 
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
-        val pendingIntent = PendingIntent.getActivity(
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(
             context,
             0,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+
+        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -53,18 +66,19 @@ object NotificationHelper {
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setSound(soundUri)
+            .setVibrate(longArrayOf(0, 250, 150, 250))
+            .setDefaults(NotificationCompat.DEFAULT_SOUND or NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_LIGHTS)
 
         try {
             val notificationManager = NotificationManagerCompat.from(context)
             notificationManager.notify(notificationId, builder.build())
         } catch (e: SecurityException) {
-            // Handled gracefully if notification permission wasn't granted yet
+            // Permission not granted on Android 13+
         } catch (e: Exception) {
-            // Ignore background error
+            // Fallback
         }
     }
 }
