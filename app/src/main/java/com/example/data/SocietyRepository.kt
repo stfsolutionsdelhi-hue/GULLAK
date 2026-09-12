@@ -40,7 +40,7 @@ class SocietyRepository(private val context: Context) {
     private val _isLiveSyncActive = MutableStateFlow(true)
     val isLiveSyncActive: StateFlow<Boolean> = _isLiveSyncActive.asStateFlow()
 
-    private val _isSessionLocked = MutableStateFlow(false)
+    private val _isSessionLocked = MutableStateFlow(true)
     val isSessionLocked: StateFlow<Boolean> = _isSessionLocked.asStateFlow()
 
     private val _loggedInMemberId = MutableStateFlow<String?>(null)

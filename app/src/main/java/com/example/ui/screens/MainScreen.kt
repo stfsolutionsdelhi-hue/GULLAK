@@ -324,6 +324,7 @@ fun MainScreen(
                         // Switch to Admin / Staff Login
                         Surface(
                             onClick = {
+                                repository.logoutAdmin()
                                 selectedTab = 0
                                 scope.launch { drawerState.close() }
                             },
@@ -494,7 +495,10 @@ fun MainScreen(
                         2 -> PaymentsScreen(repository = repository)
                         3 -> RemindersScreen(repository = repository)
                         4 -> SettingsScreen(repository = repository)
-                        5 -> MemberPortalScreen(repository = repository, onSwitchToAdmin = { selectedTab = 0 })
+                        5 -> MemberPortalScreen(repository = repository, onSwitchToAdmin = {
+                            repository.logoutAdmin()
+                            selectedTab = 0
+                        })
                     }
                 }
             }

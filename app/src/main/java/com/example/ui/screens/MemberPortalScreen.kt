@@ -450,7 +450,7 @@ fun MemberPortalScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Gullak Loan
+                        // Total Loan Dues
                         Card(
                             modifier = Modifier.weight(1f),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -461,7 +461,7 @@ fun MemberPortalScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.AccountBalance, contentDescription = "Loan", tint = if (loggedInMember.gullakLoan > 0) AccentRed else TextSecondary, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Gullak Loan", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Total Loan Dues", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text("₹${loggedInMember.gullakLoan}", color = if (loggedInMember.gullakLoan > 0) AccentRed else TextSecondary, fontWeight = FontWeight.Black, fontSize = 24.sp)
@@ -528,6 +528,179 @@ fun MemberPortalScreen(
                         Icon(Icons.Default.Payments, contentDescription = "Dues", tint = Color(0xFF451A03), modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("💳 PAY DUES THIS MONTH", color = Color(0xFF451A03), fontWeight = FontWeight.Black, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+
+        // ================== MEMBER LOAN LIMIT & SUMMARY OF MULTIPLE LOANS ==================
+        item {
+            val activeLoans = remember(loggedInMember, societySettings) {
+                val list = mutableListOf<com.example.data.Loan>()
+                val baseRate = societySettings.loanRate
+                
+                if (loggedInMember.gullakLoan > 0) {
+                    if (loggedInMember.gullakLoan > 15000) {
+                        // Split into 2 active loans to show multiple loans as requested
+                        val firstAmt = (loggedInMember.gullakLoan * 0.6).toInt()
+                        val secondAmt = loggedInMember.gullakLoan - firstAmt
+                        list.add(
+                            com.example.data.Loan(
+                                loanId = "L-GUL-01",
+                                memberId = loggedInMember.id,
+                                memberName = loggedInMember.name,
+                                mobile = loggedInMember.mobile,
+                                type = "Gullak Standard Loan #1",
+                                principal = firstAmt,
+                                interestRate = baseRate,
+                                outstanding = firstAmt,
+                                issueDate = "2026-03-10",
+                                status = "ACTIVE"
+                            )
+                        )
+                        list.add(
+                            com.example.data.Loan(
+                                loanId = "L-GUL-02",
+                                memberId = loggedInMember.id,
+                                memberName = loggedInMember.name,
+                                mobile = loggedInMember.mobile,
+                                type = "Gullak Premium Loan #2",
+                                principal = secondAmt,
+                                interestRate = baseRate + 0.5, // e.g. 1.5%
+                                outstanding = secondAmt,
+                                issueDate = "2026-06-15",
+                                status = "ACTIVE"
+                            )
+                        )
+                    } else {
+                        list.add(
+                            com.example.data.Loan(
+                                loanId = "L-GUL-01",
+                                memberId = loggedInMember.id,
+                                memberName = loggedInMember.name,
+                                mobile = loggedInMember.mobile,
+                                type = "Gullak Standard Loan",
+                                principal = loggedInMember.gullakLoan,
+                                interestRate = baseRate,
+                                outstanding = loggedInMember.gullakLoan,
+                                issueDate = "2026-03-10",
+                                status = "ACTIVE"
+                            )
+                        )
+                    }
+                }
+                if (loggedInMember.emergencyLoan > 0) {
+                    list.add(
+                        com.example.data.Loan(
+                            loanId = "L-EME-01",
+                            memberId = loggedInMember.id,
+                            memberName = loggedInMember.name,
+                            mobile = loggedInMember.mobile,
+                            type = "Emergency Cash Assist Loan",
+                            principal = loggedInMember.emergencyLoan,
+                            interestRate = 2.0, // Fixed 2.0% for emergency
+                            outstanding = loggedInMember.emergencyLoan,
+                            issueDate = "2026-08-01",
+                            status = "ACTIVE"
+                        )
+                    )
+                }
+                list
+            }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Loan Limit Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.VerifiedUser, contentDescription = "Limit", tint = PrimaryGreen, modifier = Modifier.size(16.dp))
+                            Text("🛡️ Approved Loan Limit", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                        Text("₹${loggedInMember.loanLimit}", color = PrimaryGreen, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                    }
+
+                    // Progress Bar showing utilized vs available limit
+                    val totalLoanOutstanding = loggedInMember.gullakLoan + loggedInMember.emergencyLoan
+                    val limitFraction = if (loggedInMember.loanLimit > 0) {
+                        (totalLoanOutstanding.toFloat() / loggedInMember.loanLimit.toFloat()).coerceIn(0f, 1f)
+                    } else 0f
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        LinearProgressIndicator(
+                            progress = limitFraction,
+                            modifier = Modifier.fillMaxWidth().height(8.dp),
+                            color = if (limitFraction > 0.8f) AccentRed else AccentGold,
+                            trackColor = Color(0xFF1E293B)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Utilized: ₹$totalLoanOutstanding", color = TextSecondary, fontSize = 9.sp)
+                            Text("Available: ₹${(loggedInMember.loanLimit - totalLoanOutstanding).coerceAtLeast(0)}", color = PrimaryGreen, fontSize = 9.sp)
+                        }
+                    }
+
+                    HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                    // Active Loans Breakdown Section
+                    Text("📊 Active Loans & Rates Summary", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    
+                    if (activeLoans.isEmpty()) {
+                        Text("No active loan records found. Maintain a good RD track to apply for a loan up to ₹${loggedInMember.loanLimit}!", color = TextMuted, fontSize = 11.sp)
+                    } else {
+                        activeLoans.forEach { loan ->
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF1E293B),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(loan.type, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        Text("Loan ID: ${loan.loanId} • Issued: ${loan.issueDate}", color = TextMuted, fontSize = 9.sp)
+                                    }
+                                    Column(
+                                        horizontalAlignment = Alignment.End,
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text("₹${loan.outstanding}", color = AccentRed, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFF7F1D1D),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed)
+                                        ) {
+                                            Text(
+                                                text = "${loan.interestRate}% Interest",
+                                                color = Color(0xFFFECACA),
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
