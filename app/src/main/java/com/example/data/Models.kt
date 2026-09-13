@@ -1,5 +1,28 @@
 package com.example.data
 
+fun sanitizeMobileNumber(phone: String): String {
+    var temp = phone.trim()
+    if (temp.contains("E", ignoreCase = true)) {
+        try {
+            val bigDecimal = java.math.BigDecimal(temp)
+            temp = bigDecimal.toPlainString()
+        } catch (e: Exception) {
+            // fallback
+        }
+    }
+    if (temp.contains(".")) {
+        temp = temp.substringBefore(".")
+    }
+    var clean = temp.filter { it.isDigit() }
+    if (clean.length == 12 && clean.startsWith("91")) {
+        clean = clean.substring(2)
+    }
+    if (clean.length == 11 && clean.startsWith("0")) {
+        clean = clean.substring(1)
+    }
+    return clean
+}
+
 data class Member(
     val id: String,
     val name: String,
@@ -19,7 +42,8 @@ data class Member(
     val loginPin: String = "1234",
     val notificationsEnabled: Boolean = true,
     val isAppInstalled: Boolean = false,
-    val penaltyApplicable: Int = 0
+    val penaltyApplicable: Int = 0,
+    val estimatedBonus: Int = 0
 )
 
 data class Payment(

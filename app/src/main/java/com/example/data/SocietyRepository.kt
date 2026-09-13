@@ -88,6 +88,15 @@ class SocietyRepository(private val context: Context) {
     private val _appDownloadUrl = MutableStateFlow("https://gullaksociety.example.com/download")
     val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
 
+    private val _rulesAndRegulations = MutableStateFlow<List<String>>(emptyList())
+    val rulesAndRegulations: StateFlow<List<String>> = _rulesAndRegulations.asStateFlow()
+
+    fun updateRules(newRules: List<String>) {
+        _rulesAndRegulations.value = newRules
+        prefs.edit().putStringSet("rules_and_regulations", newRules.toSet()).apply()
+        addAuditLog("RULES UPDATED", "Rules and regulations updated successfully by admin.")
+    }
+
     init {
         loadLocalData()
     }
@@ -117,6 +126,21 @@ class SocietyRepository(private val context: Context) {
         _isLiveSyncActive.value = prefs.getBoolean("live_sync_active", true)
         _societyQrUri.value = prefs.getString("society_qr_uri", null)
         _appDownloadUrl.value = prefs.getString("app_download_url", "https://gullaksociety.example.com/download") ?: "https://gullaksociety.example.com/download"
+
+        val savedRules = prefs.getStringSet("rules_and_regulations", null)
+        if (savedRules != null) {
+            _rulesAndRegulations.value = savedRules.toList().sorted()
+        } else {
+            val defaultRules = listOf(
+                "1. RD Deposit: Har mahine ki 15 tareekh tak RD kist kalyan nidhi me jama karna anivary hai.",
+                "2. Penalty Rate: RD kist vilamb se jama karne par ₹100 penalty automatic lagayi jayegi.",
+                "3. Loan Limit: Sadasya ki RD track record ke aadhar par hi loan swikriti di jayegi.",
+                "4. Emergency Loan: Emergency loan 2% masik sadharan interest par diya jata hai.",
+                "5. Bonus Dividend: Varshik mulyankan ke aadhar par sabhi active sadasyon ko bonus diya jata hai."
+            )
+            _rulesAndRegulations.value = defaultRules
+            prefs.edit().putStringSet("rules_and_regulations", defaultRules.toSet()).apply()
+        }
 
         val isAutoRemEnabled = prefs.getBoolean("auto_rem_enabled", true)
         val remFreq = prefs.getString("auto_rem_freq", "Every 2 Days") ?: "Every 2 Days"
@@ -714,7 +738,8 @@ class SocietyRepository(private val context: Context) {
                             loginPin = m.optString("loginPin", "1234"),
                             notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                             isAppInstalled = m.optBoolean("isAppInstalled", false),
-                            penaltyApplicable = m.optInt("penaltyApplicable", m.optInt("penalty", 0))
+                            penaltyApplicable = m.optInt("penaltyApplicable", m.optInt("penalty", 0)),
+                            estimatedBonus = m.optInt("estimatedBonus", m.optInt("bonus", m.optInt("bonusEarned", m.optInt("estBonus", 0))))
                         )
                     )
                 }
@@ -763,6 +788,7 @@ class SocietyRepository(private val context: Context) {
             obj.put("notificationsEnabled", m.notificationsEnabled)
             obj.put("isAppInstalled", m.isAppInstalled)
             obj.put("penaltyApplicable", m.penaltyApplicable)
+            obj.put("estimatedBonus", m.estimatedBonus)
             arr.put(obj)
         }
         prefs.edit().putString("members_cache", arr.toString()).apply()
@@ -842,7 +868,8 @@ class SocietyRepository(private val context: Context) {
                     loginPin = m.optString("loginPin", "1234"),
                     notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                     isAppInstalled = m.optBoolean("isAppInstalled", false),
-                    penaltyApplicable = m.optInt("penaltyApplicable", m.optInt("penalty", 0))
+                    penaltyApplicable = m.optInt("penaltyApplicable", m.optInt("penalty", 0)),
+                    estimatedBonus = m.optInt("estimatedBonus", 0)
                 )
             )
         }

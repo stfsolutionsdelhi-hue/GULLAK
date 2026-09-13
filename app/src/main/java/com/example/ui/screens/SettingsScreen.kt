@@ -82,6 +82,11 @@ fun SettingsScreen(
 
     var isAuditLogsExpanded by remember { mutableStateOf(false) }
 
+    val rulesAndRegulations by repository.rulesAndRegulations.collectAsState()
+    var editableRulesList by remember(rulesAndRegulations) { mutableStateOf(rulesAndRegulations) }
+    var newRuleInputText by remember { mutableStateOf("") }
+    var isRulesExpanded by remember { mutableStateOf(false) }
+
     // Photo picker launcher for custom QR image upload
     val qrImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -905,6 +910,188 @@ fun SettingsScreen(
                         Icon(Icons.Default.Lock, contentDescription = "Logout", tint = AccentGold, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Logout 🔒", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+
+        // Card 4.5: Manage Rules & Regulations
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isRulesExpanded = !isRulesExpanded }
+                    .border(1.dp, CardBorder, RoundedCornerShape(8.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Gavel,
+                            contentDescription = "Rules",
+                            tint = AccentGold,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Manage Rules & Regulations 📜",
+                                color = TextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Add, edit, or delete official society guidelines",
+                                color = TextSecondary,
+                                fontSize = 9.sp
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = if (isRulesExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (isRulesExpanded) "Collapse" else "Expand",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        if (isRulesExpanded) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, CardBorder, RoundedCornerShape(10.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Official Rules & Regulations",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+
+                        if (editableRulesList.isEmpty()) {
+                            Text("No rules added yet. Add guidelines below.", color = TextMuted, fontSize = 11.sp)
+                        } else {
+                            editableRulesList.forEachIndexed { idx, rule ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Text(
+                                            text = "•",
+                                            color = AccentGold,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            text = rule,
+                                            color = TextSecondary,
+                                            fontSize = 11.sp,
+                                            lineHeight = 15.sp
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            editableRulesList = editableRulesList.toMutableList().apply { removeAt(idx) }
+                                        },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Rule",
+                                            tint = AccentRed,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                                if (idx < editableRulesList.size - 1) {
+                                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                        // Add new rule input
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = newRuleInputText,
+                                onValueChange = { newRuleInputText = it },
+                                placeholder = { Text("Enter rule in Hindi or English...", color = TextMuted, fontSize = 11.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = false,
+                                maxLines = 3,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AccentGold,
+                                    unfocusedBorderColor = CardBorder,
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary,
+                                    focusedContainerColor = BgDark,
+                                    unfocusedContainerColor = BgDark
+                                ),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            Button(
+                                onClick = {
+                                    if (newRuleInputText.trim().isNotEmpty()) {
+                                        editableRulesList = editableRulesList + newRuleInputText.trim()
+                                        newRuleInputText = ""
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text("Add", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            }
+                        }
+
+                        // Save all rules button
+                        Button(
+                            onClick = {
+                                repository.updateRules(editableRulesList)
+                                Toast.makeText(context, "Rules and Regulations Saved Successfully!", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = "Save",
+                                tint = Color(0xFF064E3B),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("SAVE SYSTEM RULES 💾", color = Color(0xFF064E3B), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                        }
                     }
                 }
             }

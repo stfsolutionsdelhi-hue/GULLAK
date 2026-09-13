@@ -30,9 +30,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.Member
+import com.example.data.sanitizeMobileNumber
 import com.example.data.PaymentApproval
 import com.example.data.SocietyRepository
 import com.example.ui.theme.*
@@ -72,6 +74,7 @@ fun MemberPortalScreen(
     val loggedInMemberId by repository.loggedInMemberId.collectAsState()
     var enteredMobile by remember { mutableStateOf("") }
     var enteredPin by remember { mutableStateOf("") }
+    var isPinVisible by remember { mutableStateOf(false) }
     var multiAccountSelectionList by remember { mutableStateOf<List<Member>>(emptyList()) }
     var showMultiAccountDialog by remember { mutableStateOf(false) }
 
@@ -158,7 +161,16 @@ fun MemberPortalScreen(
                         onValueChange = { if (it.length <= 4) enteredPin = it },
                         label = { Text("4-Digit Member PIN") },
                         placeholder = { Text("••••", color = TextMuted) },
-                        visualTransformation = PasswordVisualTransformation(),
+                        visualTransformation = if (isPinVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isPinVisible = !isPinVisible }) {
+                                Icon(
+                                    imageVector = if (isPinVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (isPinVisible) "Toggle PIN Visibility" else "Toggle PIN Visibility",
+                                    tint = AccentBlue
+                                )
+                            }
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -200,7 +212,7 @@ fun MemberPortalScreen(
                     // Login Button (Requirement 5)
                     Button(
                         onClick = {
-                            val cleanMobile = enteredMobile.trim()
+                            val cleanMobile = sanitizeMobileNumber(enteredMobile)
                             if (cleanMobile.isEmpty()) {
                                 Toast.makeText(context, "Please enter a valid registered mobile number.", Toast.LENGTH_SHORT).show()
                                 return@Button
@@ -210,8 +222,8 @@ fun MemberPortalScreen(
                                 return@Button
                             }
 
-                            // Find matching member accounts
-                            val matchingMembers = members.filter { it.mobile.trim() == cleanMobile }
+                            // Find matching member accounts with robust sanitization
+                            val matchingMembers = members.filter { sanitizeMobileNumber(it.mobile) == cleanMobile }
                             if (matchingMembers.isEmpty()) {
                                 Toast.makeText(context, "No registered member found with this mobile number. Please contact Admin.", Toast.LENGTH_SHORT).show()
                                 return@Button

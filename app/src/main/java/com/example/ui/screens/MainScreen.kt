@@ -41,6 +41,7 @@ fun MainScreen(
     var showAccountSummaryDialog by remember { mutableStateOf(false) }
     var showLoanSummaryDialog by remember { mutableStateOf(false) }
     var showDrawerLogoutDialog by remember { mutableStateOf(false) }
+    var showRulesDialog by remember { mutableStateOf(false) }
 
     val navItems = listOf(
         NavigationItem("Tasks", Icons.Default.Home),
@@ -213,11 +214,11 @@ fun MainScreen(
                         )
 
                         NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.AccountBalance, contentDescription = "Loan Summary", tint = AccentBlue) },
-                            label = { Text("Loan Summary", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                            icon = { Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentGold) },
+                            label = { Text("Rules & Regulations 📜", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
                             selected = false,
                             onClick = {
-                                showLoanSummaryDialog = true
+                                showRulesDialog = true
                                 scope.launch { drawerState.close() }
                             },
                             colors = NavigationDrawerItemDefaults.colors(
@@ -291,6 +292,23 @@ fun MainScreen(
                             colors = NavigationDrawerItemDefaults.colors(
                                 selectedContainerColor = Color(0xFF075985),
                                 selectedTextColor = TextPrimary,
+                                unselectedTextColor = TextSecondary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentBlue) },
+                            label = { Text("Rules & Regulations 📜", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                            selected = false,
+                            onClick = {
+                                showRulesDialog = true
+                                scope.launch { drawerState.close() }
+                            },
+                            colors = NavigationDrawerItemDefaults.colors(
+                                selectedTextColor = PrimaryGreen,
                                 unselectedTextColor = TextSecondary
                             ),
                             shape = RoundedCornerShape(8.dp)
@@ -506,7 +524,7 @@ fun MainScreen(
     }
 
     // ================== DIALOG: ACCOUNT SUMMARY (Requirement 7) ==================
-    if (showAccountSummaryDialog) {
+    if (showAccountSummaryDialog && !isSessionLocked) {
         val totalMembers = members.size
         val totalMonthlyRd = members.sumOf { it.monthlyRd }
         val totalCollected = payments.sumOf { it.totalAmount }
@@ -581,7 +599,7 @@ fun MainScreen(
     }
 
     // ================== DIALOG: LOAN SUMMARY (Requirement 8) ==================
-    if (showLoanSummaryDialog) {
+    if (showLoanSummaryDialog && !isSessionLocked) {
         val activeBorrowers = members.filter { it.gullakLoan > 0 }
         val totalOutstandingLoans = members.sumOf { it.gullakLoan }
         val totalLoanRepayments = payments.sumOf { it.loanRepayAmount }
@@ -722,6 +740,73 @@ fun MainScreen(
             dismissButton = {
                 TextButton(onClick = { showDrawerLogoutDialog = false }) {
                     Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = CardDark,
+            shape = RoundedCornerShape(12.dp)
+        )
+    }
+
+    // ================== DIALOG: RULES & REGULATIONS (Requirement 9) ==================
+    if (showRulesDialog && !isSessionLocked) {
+        val rules by repository.rulesAndRegulations.collectAsState()
+        AlertDialog(
+            onDismissRequest = { showRulesDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentGold)
+                    Text("📜 नियम और विनियम (Rules)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Society ke official niyam aur nirdesh niche diye gaye hain:",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                    rules.forEach { rule ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = "•",
+                                    color = AccentGold,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = rule,
+                                    color = TextPrimary,
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showRulesDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                ) {
+                    Text("ठीक है (OK)", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = CardDark,
