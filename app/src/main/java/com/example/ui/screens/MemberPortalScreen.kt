@@ -238,11 +238,15 @@ fun MemberPortalScreen(
 
                             if (correctMatches.size == 1) {
                                 // Single matched account
-                                repository.loginMember(correctMatches.first().id)
+                                val singleAccount = correctMatches.first()
+                                repository.loginMember(singleAccount.id)
                                 enteredPin = ""
-                                Toast.makeText(context, "Welcome ${correctMatches.first().name}!", Toast.LENGTH_SHORT).show()
+                                enteredMobile = ""
+                                showMultiAccountDialog = false
+                                multiAccountSelectionList = emptyList()
+                                Toast.makeText(context, "Welcome ${singleAccount.name}!", Toast.LENGTH_SHORT).show()
                             } else {
-                                // Multiple accounts matched
+                                // Multiple accounts matched under this phone number
                                 multiAccountSelectionList = correctMatches
                                 showMultiAccountDialog = true
                             }
@@ -267,8 +271,7 @@ fun MemberPortalScreen(
                 Text("Switch to Society Admin Panel", color = PrimaryGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
-        return
-    }
+    } else {
 
     // ==================== MEMBER PASSBOOK SCREEN (Requirement 7) ====================
     val memberTxns = payments.filter { it.memberId == loggedInMember.id }
@@ -330,58 +333,89 @@ fun MemberPortalScreen(
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Top Bar in Member Passbook (Clean, no clutter)
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // Top Bar in Member Passbook (Clean, with prominent Logout & Switch)
+            item {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF0369A1)),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
-                        Text("👤", fontSize = 18.sp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF0369A1)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("👤", fontSize = 18.sp)
+                        }
+                        Column {
+                            Text(
+                                text = loggedInMember.name,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = "Member ID: ${loggedInMember.id} • 📱 ${loggedInMember.mobile}",
+                                color = TextSecondary,
+                                fontSize = 10.sp
+                            )
+                        }
                     }
-                    Column {
-                        Text(
-                            text = loggedInMember.name,
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            text = "Member ID: ${loggedInMember.id} • 📱 ${loggedInMember.mobile}",
-                            color = TextSecondary,
-                            fontSize = 10.sp
-                        )
-                    }
-                }
 
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF0F172A),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
-                ) {
-                    Text(
-                        text = "PASSBOOK",
-                        color = AccentBlue,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF0F172A),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                        ) {
+                            Text(
+                                text = "PASSBOOK",
+                                color = AccentBlue,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        // Prominent 1-Tap Logout Button
+                        Surface(
+                            onClick = {
+                                repository.logoutMember()
+                                enteredPin = ""
+                                enteredMobile = ""
+                                showMultiAccountDialog = false
+                                multiAccountSelectionList = emptyList()
+                                Toast.makeText(context, "Logged out from Member Passbook. Background alerts & notifications remain active 🔔", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF3B0712).copy(alpha = 0.85f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed.copy(alpha = 0.6f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed, modifier = Modifier.size(12.dp))
+                                Text("Logout", color = Color(0xFFFCA5A5), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
-        }
 
         // ================== MEMBER SUMMARY & PASSBOOK CARD ==================
         item {
@@ -1333,11 +1367,15 @@ fun MemberPortalScreen(
             shape = RoundedCornerShape(12.dp)
         )
     }
+    } // Closes else { for Logged-In Passbook Screen
 
-    // Secure Multi-Account Selection Popup (Requirement 3)
+    // Secure Multi-Account Selection Popup (Rendered at root, always visible on login)
     if (showMultiAccountDialog) {
         AlertDialog(
-            onDismissRequest = { showMultiAccountDialog = false },
+            onDismissRequest = {
+                showMultiAccountDialog = false
+                multiAccountSelectionList = emptyList()
+            },
             containerColor = Color(0xFF0F172A),
             title = {
                 Row(
@@ -1345,7 +1383,7 @@ fun MemberPortalScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(Icons.Default.AccountCircle, contentDescription = "Profile", tint = AccentBlue)
-                    Text("Select Your Account", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Select Member Account", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             },
             text = {
@@ -1354,7 +1392,7 @@ fun MemberPortalScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Multiple accounts found under this mobile. Tap your name to open your passbook:",
+                        text = "Multiple family member accounts registered with mobile ${enteredMobile.ifEmpty { "this number" }}. Tap your account to open passbook:",
                         color = TextSecondary,
                         fontSize = 12.sp
                     )
@@ -1364,7 +1402,9 @@ fun MemberPortalScreen(
                             onClick = {
                                 repository.loginMember(member.id)
                                 showMultiAccountDialog = false
+                                multiAccountSelectionList = emptyList()
                                 enteredPin = ""
+                                enteredMobile = ""
                                 Toast.makeText(context, "Welcome ${member.name}!", Toast.LENGTH_SHORT).show()
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -1377,19 +1417,24 @@ fun MemberPortalScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(member.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Text("ID: ${member.id}", color = TextSecondary, fontSize = 11.sp)
+                                    Text("Member ID: ${member.id} • RD: ₹${member.monthlyRd}/mo", color = AccentGold, fontSize = 11.sp)
                                 }
-                                Icon(Icons.Default.ArrowForward, contentDescription = "Select", tint = AccentBlue, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ArrowForward, contentDescription = "Open Passbook", tint = AccentBlue, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showMultiAccountDialog = false }) {
-                    Text("Cancel", color = AccentGold)
+                TextButton(
+                    onClick = {
+                        showMultiAccountDialog = false
+                        multiAccountSelectionList = emptyList()
+                    }
+                ) {
+                    Text("Back / Change Number", color = AccentGold, fontWeight = FontWeight.Bold)
                 }
             }
         )

@@ -718,27 +718,28 @@ class SocietyRepository(private val context: Context) {
                 val parsedMembers = mutableListOf<Member>()
                 for (i in 0 until memArray.length()) {
                     val m = memArray.getJSONObject(i)
+                    val rawPhone = m.optString("mobile", "")
                     parsedMembers.add(
                         Member(
                             id = m.optString("id", "MEM$i"),
                             name = m.optString("name", "Unknown"),
-                            mobile = m.optString("mobile", ""),
+                            mobile = sanitizeMobileNumber(rawPhone).ifEmpty { rawPhone.trim() },
                             address = m.optString("address", ""),
                             nominee = m.optString("nominee", ""),
-                            monthlyRd = m.optInt("monthlyRd", 400),
+                            monthlyRd = m.optInt("monthlyRd", m.optInt("rd", 400)),
                             status = m.optString("status", "ACTIVE"),
-                            joinDate = m.optString("joinDate", "2026-01-01"),
-                            openingRd = m.optInt("openingRd", 4800),
+                            joinDate = m.optString("joinDate", m.optString("dateJoined", "2026-01-01")),
+                            openingRd = m.optInt("openingRd", m.optInt("rdPaid", 4800)),
                             dueDay = m.optString("dueDay", "15th of every month"),
-                            gullakLoan = m.optInt("gullakLoan", 0),
+                            gullakLoan = m.optInt("gullakLoan", m.optInt("opLoan", 0)),
                             emergencyLoan = m.optInt("emergencyLoan", 0),
                             pendingDues = m.optInt("pendingDues", 0),
                             npaLoss = m.optInt("npaLoss", 0),
-                            loanLimit = m.optInt("loanLimit", 50000),
+                            loanLimit = m.optInt("loanLimit", m.optInt("customLimit", 50000)),
                             loginPin = m.optString("loginPin", "1234"),
                             notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                             isAppInstalled = m.optBoolean("isAppInstalled", false),
-                            penaltyApplicable = m.optInt("penaltyApplicable", m.optInt("penalty", 0)),
+                            penaltyApplicable = m.optInt("penaltyApplicable", m.optInt("penalty", m.optInt("opPen", 0))),
                             estimatedBonus = m.optInt("estimatedBonus", m.optInt("bonus", m.optInt("bonusEarned", m.optInt("estBonus", 0))))
                         )
                     )
@@ -848,11 +849,12 @@ class SocietyRepository(private val context: Context) {
         val list = mutableListOf<Member>()
         for (i in 0 until arr.length()) {
             val m = arr.getJSONObject(i)
+            val rawPhone = m.optString("mobile", "")
             list.add(
                 Member(
                     id = m.optString("id"),
                     name = m.optString("name"),
-                    mobile = m.optString("mobile"),
+                    mobile = sanitizeMobileNumber(rawPhone).ifEmpty { rawPhone.trim() },
                     address = m.optString("address"),
                     nominee = m.optString("nominee"),
                     monthlyRd = m.optInt("monthlyRd", 400),

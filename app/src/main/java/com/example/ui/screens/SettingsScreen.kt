@@ -57,6 +57,8 @@ fun SettingsScreen(
     val societySettings by repository.societySettings.collectAsState()
 
     val appDownloadUrl by repository.appDownloadUrl.collectAsState()
+    var isUrlEditUnlocked by remember { mutableStateOf(false) }
+    var isAppDownloadUrlUnlocked by remember { mutableStateOf(false) }
     var inputAppDownloadUrl by remember(appDownloadUrl) { mutableStateOf(appDownloadUrl) }
 
     var inputUrl by remember(webAppUrl) { mutableStateOf(webAppUrl) }
@@ -284,88 +286,209 @@ fun SettingsScreen(
                         fontSize = 10.sp
                     )
 
-                    // Web App Script URL Field with Label Above
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "Web App Script URL (Editable & Auto-filled)",
-                            color = TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        OutlinedTextField(
-                            value = inputUrl,
-                            onValueChange = { inputUrl = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("https://script.google.com/macros/s/.../exec", color = TextMuted, fontSize = 11.sp) },
-                            trailingIcon = {
-                                IconButton(
+                    // Protected Web App Script URL Column (Touch-Mistake Safe)
+                    if (!isUrlEditUnlocked) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgDark,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(Icons.Default.Lock, contentDescription = "Locked", tint = PrimaryGreen, modifier = Modifier.size(15.dp))
+                                        Text("Cloud Web App URL (Protected 🔒)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = PrimaryGreenDark
+                                    ) {
+                                        Text("Active", color = PrimaryGreen, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                    }
+                                }
+                                Text(
+                                    text = if (webAppUrl.isNotEmpty()) webAppUrl else "No URL Configured",
+                                    color = AccentGold,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                Button(
                                     onClick = {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        if (clipboard.hasPrimaryClip() && clipboard.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true) {
-                                            val item = clipboard.primaryClip?.getItemAt(0)
-                                            val text = item?.text?.toString() ?: ""
-                                            if (text.isNotEmpty()) {
-                                                inputUrl = text
-                                                Toast.makeText(context, "Pasted from Clipboard!", Toast.LENGTH_SHORT).show()
+                                        inputUrl = webAppUrl
+                                        isUrlEditUnlocked = true
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(32.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AccentGold, modifier = Modifier.size(13.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Unlock & Edit Cloud Sync URL", color = AccentGold, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    } else {
+                        // Unlocked Editable Field with Double Protection
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF172554).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .border(1.dp, AccentBlue, RoundedCornerShape(8.dp))
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("✏️ Edit Cloud Web App URL", color = AccentBlue, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                TextButton(
+                                    onClick = {
+                                        inputUrl = webAppUrl
+                                        isUrlEditUnlocked = false
+                                    }
+                                ) {
+                                    Text("Cancel & Lock 🔒", color = TextSecondary, fontSize = 10.sp)
+                                }
+                            }
+                            OutlinedTextField(
+                                value = inputUrl,
+                                onValueChange = { inputUrl = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("https://script.google.com/macros/s/.../exec", color = TextMuted, fontSize = 11.sp) },
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            if (clipboard.hasPrimaryClip() && clipboard.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true) {
+                                                val item = clipboard.primaryClip?.getItemAt(0)
+                                                val text = item?.text?.toString() ?: ""
+                                                if (text.isNotEmpty()) {
+                                                    inputUrl = text
+                                                    Toast.makeText(context, "Pasted from Clipboard!", Toast.LENGTH_SHORT).show()
+                                                }
                                             }
+                                        },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentPaste,
+                                            contentDescription = "Paste",
+                                            tint = AccentGold,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = PrimaryGreen,
+                                    unfocusedBorderColor = CardBorder,
+                                    focusedTextColor = AccentGold,
+                                    unfocusedTextColor = TextPrimary,
+                                    focusedContainerColor = BgDark,
+                                    unfocusedContainerColor = BgDark
+                                ),
+                                singleLine = true,
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        val cleanUrl = inputUrl.trim()
+                                        if (cleanUrl.isNotEmpty()) {
+                                            pendingUrlToSave = cleanUrl
+                                            showUrlConfirmDialog1 = true
+                                        } else {
+                                            Toast.makeText(context, "Please enter or paste a valid Web App URL.", Toast.LENGTH_SHORT).show()
                                         }
                                     },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.weight(1f).height(34.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                                    shape = RoundedCornerShape(6.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ContentPaste,
-                                        contentDescription = "Paste",
-                                        tint = AccentGold,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    Text("Save URL (2-Step Confirm)", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                 }
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = PrimaryGreen,
-                                unfocusedBorderColor = CardBorder,
-                                focusedTextColor = AccentGold,
-                                unfocusedTextColor = TextPrimary,
-                                focusedContainerColor = BgDark,
-                                unfocusedContainerColor = BgDark
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(6.dp)
-                        )
+                            }
+                        }
                     }
 
-                    // App Download URL Field with Label Above
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "App Download URL (For Invite SMS)",
-                            color = TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        OutlinedTextField(
-                            value = inputAppDownloadUrl,
-                            onValueChange = { 
-                                inputAppDownloadUrl = it
-                                repository.updateAppDownloadUrl(it)
-                            },
+                    // App Download URL (Protected)
+                    if (!isAppDownloadUrlUnlocked) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgDark,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("App Download URL (For Invite SMS)", color = TextSecondary, fontSize = 10.sp)
+                                    Text(inputAppDownloadUrl.ifEmpty { "https://gullaksociety.in/download" }, color = TextPrimary, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
+                                IconButton(
+                                    onClick = { isAppDownloadUrlUnlocked = true },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit Download URL", tint = AccentGold, modifier = Modifier.size(15.dp))
+                                }
+                            }
+                        }
+                    } else {
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("https://gullaksociety.in/download", color = TextMuted, fontSize = 11.sp) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = PrimaryGreen,
-                                unfocusedBorderColor = CardBorder,
-                                focusedTextColor = AccentGold,
-                                unfocusedTextColor = TextPrimary,
-                                focusedContainerColor = BgDark,
-                                unfocusedContainerColor = BgDark
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(6.dp)
-                        )
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("App Download URL (For Invite SMS)", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                TextButton(onClick = { isAppDownloadUrlUnlocked = false }) {
+                                    Text("Done 🔒", color = PrimaryGreen, fontSize = 10.sp)
+                                }
+                            }
+                            OutlinedTextField(
+                                value = inputAppDownloadUrl,
+                                onValueChange = { 
+                                    inputAppDownloadUrl = it
+                                    repository.updateAppDownloadUrl(it)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("https://gullaksociety.in/download", color = TextMuted, fontSize = 11.sp) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = PrimaryGreen,
+                                    unfocusedBorderColor = CardBorder,
+                                    focusedTextColor = AccentGold,
+                                    unfocusedTextColor = TextPrimary,
+                                    focusedContainerColor = BgDark,
+                                    unfocusedContainerColor = BgDark
+                                ),
+                                singleLine = true,
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                        }
                     }
 
                     if (syncStatus.isNotEmpty()) {
@@ -1288,6 +1411,7 @@ fun SettingsScreen(
                         if (isCodeValid) {
                             repository.saveWebAppUrl(pendingUrlToSave)
                             showUrlConfirmDialog2 = false
+                            isUrlEditUnlocked = false
                             Toast.makeText(context, "Web App URL Successfully Saved & Applied! ✅", Toast.LENGTH_SHORT).show()
                             coroutineScope.launch {
                                 val result = repository.syncWithGoogleSheet()
