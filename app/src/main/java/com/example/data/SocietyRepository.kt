@@ -88,6 +88,31 @@ class SocietyRepository(private val context: Context) {
     private val _appDownloadUrl = MutableStateFlow("https://gullaksociety.example.com/download")
     val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
 
+    private val _reminderTemplates = MutableStateFlow<List<ReminderTemplate>>(DEFAULT_REMINDER_TEMPLATES)
+    val reminderTemplates: StateFlow<List<ReminderTemplate>> = _reminderTemplates.asStateFlow()
+
+    fun updateReminderTemplate(updatedTemplate: ReminderTemplate) {
+        val updatedList = _reminderTemplates.value.map {
+            if (it.id == updatedTemplate.id) updatedTemplate else it
+        }
+        _reminderTemplates.value = updatedList
+        saveReminderTemplatesToLocal(updatedList)
+        addAuditLog("TEMPLATE UPDATED", "Reminder Template '${updatedTemplate.name}' updated.")
+    }
+
+    private fun saveReminderTemplatesToLocal(list: List<ReminderTemplate>) {
+        val arr = JSONArray()
+        list.forEach { t ->
+            val obj = JSONObject()
+            obj.put("id", t.id)
+            obj.put("name", t.name)
+            obj.put("notificationTitle", t.notificationTitle)
+            obj.put("body", t.body)
+            arr.put(obj)
+        }
+        prefs.edit().putString("reminder_templates_cache", arr.toString()).apply()
+    }
+
     private val _rulesAndRegulations = MutableStateFlow<List<String>>(emptyList())
     val rulesAndRegulations: StateFlow<List<String>> = _rulesAndRegulations.asStateFlow()
 
@@ -147,6 +172,32 @@ class SocietyRepository(private val context: Context) {
         val remTime = prefs.getString("auto_rem_time", "10:00 AM") ?: "10:00 AM"
         val remTmpl = prefs.getString("auto_rem_tmpl", "Namaste [Member_Name] Ji, Gullak Society ki monthly RD (₹[Amount]) aur loan kist ka reminder hai. Kripya samay par jama karein. - Gullak Society") ?: ""
         _autoReminderConfig.value = AutoReminderConfig(isAutoRemEnabled, remFreq, remTime, remTmpl)
+
+        val tmplsJson = prefs.getString("reminder_templates_cache", null)
+        if (!tmplsJson.isNullOrEmpty()) {
+            try {
+                val arr = JSONArray(tmplsJson)
+                val list = mutableListOf<ReminderTemplate>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    list.add(
+                        ReminderTemplate(
+                            id = obj.getString("id"),
+                            name = obj.getString("name"),
+                            notificationTitle = obj.getString("notificationTitle"),
+                            body = obj.getString("body")
+                        )
+                    )
+                }
+                if (list.isNotEmpty()) {
+                    _reminderTemplates.value = list
+                }
+            } catch (e: Exception) {
+                _reminderTemplates.value = DEFAULT_REMINDER_TEMPLATES
+            }
+        } else {
+            _reminderTemplates.value = DEFAULT_REMINDER_TEMPLATES
+        }
 
         val memJson = prefs.getString("members_cache", null)
         if (memJson.isNullOrEmpty()) {
@@ -735,7 +786,7 @@ class SocietyRepository(private val context: Context) {
                             emergencyLoan = m.optInt("emergencyLoan", 0),
                             pendingDues = m.optInt("pendingDues", 0),
                             npaLoss = m.optInt("npaLoss", 0),
-                            loanLimit = m.optInt("loanLimit", m.optInt("customLimit", 50000)),
+                            loanLimit = m.optInt("loanLimit", m.optInt("customLimit", 0)),
                             loginPin = m.optString("loginPin", "1234"),
                             notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                             isAppInstalled = m.optBoolean("isAppInstalled", false),

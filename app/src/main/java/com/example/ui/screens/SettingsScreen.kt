@@ -263,21 +263,58 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudSync,
-                            contentDescription = "Cloud",
-                            tint = PrimaryGreen,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "Google Sheets & Web App Live Sync",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudSync,
+                                contentDescription = "Cloud",
+                                tint = PrimaryGreen,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Google Sheets & Web App Live Sync",
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+
+                        // Prominent Admin Live/Pause Toggle Control Button
+                        Surface(
+                            onClick = {
+                                val state = repository.toggleLiveSync()
+                                val msg = if (state) "🟢 Live Sync RESUMED & ACTIVE" else "⏸ Live Sync PAUSED by Admin"
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isLiveSyncActive) PrimaryGreenDark else Color(0xFF451A03),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isLiveSyncActive) PrimaryGreen else AccentGold)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isLiveSyncActive) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                    contentDescription = "Toggle Sync",
+                                    tint = if (isLiveSyncActive) PrimaryGreen else AccentGold,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = if (isLiveSyncActive) "🟢 LIVE (Active)" else "⏸ PAUSED (Tap to Resume)",
+                                    color = if (isLiveSyncActive) PrimaryGreen else AccentGold,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
                     }
 
                     Text(
@@ -506,16 +543,9 @@ fun SettingsScreen(
                     ) {
                         Button(
                             onClick = {
-                                val cleanUrl = inputUrl.trim()
-                                if (cleanUrl.isNotEmpty() && cleanUrl != webAppUrl) {
-                                    pendingUrlToSave = cleanUrl
-                                    showUrlConfirmDialog1 = true
-                                } else {
-                                    // Trigger sync directly with existing saved URL
-                                    coroutineScope.launch {
-                                        val result = repository.syncWithGoogleSheet()
-                                        Toast.makeText(context, result.second, Toast.LENGTH_LONG).show()
-                                    }
+                                coroutineScope.launch {
+                                    val result = repository.syncWithGoogleSheet()
+                                    Toast.makeText(context, result.second, Toast.LENGTH_LONG).show()
                                 }
                             },
                             modifier = Modifier
@@ -534,7 +564,7 @@ fun SettingsScreen(
                             } else {
                                 Icon(Icons.Default.Sync, contentDescription = "Sync", tint = PrimaryGreen, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (inputUrl.trim() != webAppUrl) "Update URL & Sync" else "Live Sync", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                Text("Live Sync Now", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
                         }
 
@@ -1518,6 +1548,12 @@ fun SettingsScreen(
                             unfocusedTextColor = TextPrimary
                         )
                     )
+                    Text(
+                        "🔔 Note: Logout hone ke baad bhi important payment alerts aur push notifications device par aate rahenge.",
+                        color = PrimaryGreen,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             },
             confirmButton = {
@@ -1526,7 +1562,7 @@ fun SettingsScreen(
                         if (repository.verifyAdminPassword(logoutConfirmInput)) {
                             repository.logoutAdmin()
                             showLogoutDialog = false
-                            Toast.makeText(context, "Admin Logged Out & Locked.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Admin Logged Out & Locked. Push alerts remain active 🔔", Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(context, "Please enter correct admin passkey to confirm logout!", Toast.LENGTH_SHORT).show()
                         }

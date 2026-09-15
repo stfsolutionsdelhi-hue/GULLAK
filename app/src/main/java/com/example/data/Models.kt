@@ -84,6 +84,46 @@ data class PaymentApproval(
     val rejectionReason: String = ""
 )
 
+data class ReminderTemplate(
+    val id: String,
+    val name: String,
+    val notificationTitle: String,
+    val body: String
+)
+
+val DEFAULT_REMINDER_TEMPLATES = listOf(
+    ReminderTemplate(
+        id = "t1",
+        name = "1. RD & Loan Due Date Reminder (15th)",
+        notificationTitle = "📢 Gullak Society RD Due Alert",
+        body = "Namaste [Member_Name] Ji, Gullak Co-operative Society ki monthly RD (₹[Amount]) aur loan kist ka reminder hai. Kripya 15 tarikh tak payment samay par jama karein. Dhanyawad!"
+    ),
+    ReminderTemplate(
+        id = "t2",
+        name = "2. Urgent Overdue & Penalty Alert",
+        notificationTitle = "⚠️ Gullak Society: Payment Overdue Notice",
+        body = "Urgent Alert [Member_Name] Ji: Gullak Society RD/Loan payment ki due date nikal chuki hai. Kripya bina vilamb (penalty) ke turant bhuqtan karein: https://gullaksociety.in"
+    ),
+    ReminderTemplate(
+        id = "t3",
+        name = "3. Annual Bonus & Dividend Announcement",
+        notificationTitle = "🎉 Gullak Society: Annual Bonus Credited",
+        body = "Shubh Suchna: Gullak Society ke sabhi active members ka varshik bonus & dividend calculate ho gaya hai. Apni live passbook check karein!"
+    ),
+    ReminderTemplate(
+        id = "t4",
+        name = "4. Emergency & Gullak Loan Facility Alert",
+        notificationTitle = "💳 Gullak Society: Loan Facility Available",
+        body = "Society Alert: Gullak Society emergency loan aur gullak loan suvidha uplabdh hai. Apni eligible loan limit aur low interest details app me dekhein."
+    ),
+    ReminderTemplate(
+        id = "t5",
+        name = "5. App Download & Passbook Verification",
+        notificationTitle = "📲 Gullak Society: Official App Download",
+        body = "Namaste! Gullak Co-operative Society official Android App download karein aur apni live passbook, payment receipts aur loan status dekhein: https://gullaksociety.in"
+    )
+)
+
 data class AutoReminderConfig(
     val isEnabled: Boolean = true,
     val frequency: String = "Every 2 Days", // "Daily", "Every 2 Days", "Weekly"

@@ -222,10 +222,22 @@ fun MemberPortalScreen(
                                 return@Button
                             }
 
-                            // Find matching member accounts with robust sanitization
-                            val matchingMembers = members.filter { sanitizeMobileNumber(it.mobile) == cleanMobile }
+                            // Find matching member accounts with comprehensive sanitization & substring matching
+                            val digitsOnlyInput = cleanMobile.filter { it.isDigit() }.takeLast(10)
+                            val matchingMembers = members.filter { m ->
+                                val mSanitized = sanitizeMobileNumber(m.mobile)
+                                val mDigits = mSanitized.filter { it.isDigit() }
+                                val mRawDigits = m.mobile.filter { it.isDigit() }
+                                val mAddressDigits = m.address.filter { it.isDigit() }
+                                
+                                mSanitized == cleanMobile ||
+                                (digitsOnlyInput.length >= 10 && mDigits.endsWith(digitsOnlyInput)) ||
+                                (digitsOnlyInput.length >= 10 && mRawDigits.contains(digitsOnlyInput)) ||
+                                (digitsOnlyInput.length >= 10 && mAddressDigits.contains(digitsOnlyInput)) ||
+                                (digitsOnlyInput.length >= 10 && m.name.contains(digitsOnlyInput))
+                            }
                             if (matchingMembers.isEmpty()) {
-                                Toast.makeText(context, "No registered member found with this mobile number. Please contact Admin.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "No registered member found with mobile $cleanMobile. Please tap 'Live Sync' in Admin panel or contact Admin.", Toast.LENGTH_LONG).show()
                                 return@Button
                             }
 

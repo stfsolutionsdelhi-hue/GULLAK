@@ -49,6 +49,26 @@ fun TasksScreen(
     var rejectingApproval by remember { mutableStateOf<PaymentApproval?>(null) }
     var showSimulateMemberDialog by remember { mutableStateOf(false) }
 
+    // Dashboard Quick Overview Member Search
+    var overviewSearchQuery by remember { mutableStateOf("") }
+
+    val filteredOverviewMembers = remember(members, overviewSearchQuery) {
+        val q = overviewSearchQuery.trim().lowercase()
+        if (q.isBlank()) {
+            members
+        } else {
+            val qDigits = q.filter { it.isDigit() }
+            members.filter { m ->
+                m.name.lowercase().contains(q) ||
+                m.id.lowercase().contains(q) ||
+                m.mobile.contains(q) ||
+                (qDigits.isNotEmpty() && m.mobile.filter { it.isDigit() }.contains(qDigits)) ||
+                m.address.lowercase().contains(q) ||
+                m.nominee.lowercase().contains(q)
+            }
+        }
+    }
+
     val totalRdCollected = payments.sumOf { it.rdAmount } + (members.size * 4800)
     val totalLoansOutstanding = members.sumOf { it.gullakLoan + it.emergencyLoan }
     val availableFund = totalRdCollected - totalLoansOutstanding + 45000
@@ -364,65 +384,138 @@ fun TasksScreen(
             }
         }
 
-        // Section Title: Member Overview (Tapping opens Member Details Dialog)
+        // Section Title: Member Overview with Search Box (Requirement 1)
         item {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("👥 Society Members Quick Overview", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Tap member for profile 👆", color = TextMuted, fontSize = 11.sp)
-            }
-        }
-
-        items(members.take(15)) { member ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
-                    .clickable {
-                        // User Request 5: Tapping on member opens full details & action sheet!
-                        selectedMemberForDetails = member
-                    },
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1120)),
-                shape = RoundedCornerShape(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                    Text(
+                        "👥 Society Members Quick Overview",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        "${filteredOverviewMembers.size} / ${members.size} Members",
+                        color = AccentGold,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Member Search Box
+                OutlinedTextField(
+                    value = overviewSearchQuery,
+                    onValueChange = { overviewSearchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text("Search member by name, mobile, address, ID...", color = TextMuted, fontSize = 12.sp)
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = "Search", tint = PrimaryGreen, modifier = Modifier.size(18.dp))
+                    },
+                    trailingIcon = {
+                        if (overviewSearchQuery.isNotEmpty()) {
+                            IconButton(onClick = { overviewSearchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextMuted, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = PrimaryGreen,
+                        unfocusedBorderColor = CardBorder,
+                        focusedContainerColor = CardDark,
+                        unfocusedContainerColor = CardDark
+                    )
+                )
+            }
+        }
+
+        if (filteredOverviewMembers.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = CardDark),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(CardDark),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = member.name.take(1),
-                                color = AccentGold,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                        }
-                        Column {
-                            Text(member.name, color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            Text("📱 ${member.mobile} • Due: ${member.dueDay}", color = TextSecondary, fontSize = 11.sp)
-                        }
+                        Icon(Icons.Default.SearchOff, contentDescription = "Not Found", tint = TextMuted, modifier = Modifier.size(28.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "No member found matching '$overviewSearchQuery'",
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("RD ₹${member.monthlyRd}/mo", color = PrimaryGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        if (member.gullakLoan > 0 || member.emergencyLoan > 0) {
-                            Text("Loan ₹${member.gullakLoan + member.emergencyLoan}", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        } else {
+            items(if (overviewSearchQuery.isBlank()) filteredOverviewMembers.take(20) else filteredOverviewMembers, key = { it.id }) { member ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
+                        .clickable {
+                            // User Request: Tapping on member opens full details & action sheet!
+                            selectedMemberForDetails = member
+                        },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1120)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(CardDark),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = member.name.take(1),
+                                    color = AccentGold,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                            }
+                            Column {
+                                Text(member.name, color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("📱 ${member.mobile} • Due: ${member.dueDay}", color = TextSecondary, fontSize = 11.sp)
+                                if (member.address.isNotBlank()) {
+                                    Text("📍 ${member.address}", color = TextMuted, fontSize = 10.sp, maxLines = 1)
+                                }
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("RD ₹${member.monthlyRd}/mo", color = PrimaryGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            if (member.gullakLoan > 0 || member.emergencyLoan > 0) {
+                                Text("Loan ₹${member.gullakLoan + member.emergencyLoan}", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
