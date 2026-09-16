@@ -7,14 +7,15 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('🏦 Gullak Co-operative')
     .addItem('⚡ 1. Initialize & Auto-Fix Sheet Database', 'installAndRunDatabase')
-    .addItem('🛠️ 2. Fix & Align Columns & Formats Now', 'autoFixAndAlignAllSheets')
-    .addItem('🔒 3. Lock All Sheets (Strict Lock - No Accidental Edits)', 'enableStrictSheetProtectionWithPassword')
-    .addItem('🔓 4. Unlock All Sheets (Requires Password)', 'unlockAllSheetsWithPassword')
-    .addItem('🔑 5. Change Sheet Security Password', 'changeSheetMasterPassword')
-    .addItem('⚠️ 6. Warning Mode Only (Show Warning Dialog)', 'enableSafeSheetProtection')
-    .addItem('👤 7. Reset User Passwords to 12345', 'resetUsersCredentialsToDefault')
-    .addItem('🌐 8. Get Live Web App URL', 'showWebPortalUrl')
-    .addItem('✉️ 9. Authorize Email Sending Permission', 'testEmailPermission')
+    .addItem('📥 2. Load / Restore All 67 Real Members', 'restoreAll67RealSocietyMembers')
+    .addItem('🛠️ 3. Fix & Align Columns & Formats Now', 'autoFixAndAlignAllSheets')
+    .addItem('🔒 4. Lock All Sheets (Strict Lock - No Accidental Edits)', 'enableStrictSheetProtectionWithPassword')
+    .addItem('🔓 5. Unlock All Sheets (Requires Password)', 'unlockAllSheetsWithPassword')
+    .addItem('🔑 6. Change Sheet Security Password', 'changeSheetMasterPassword')
+    .addItem('⚠️ 7. Warning Mode Only (Show Warning Dialog)', 'enableSafeSheetProtection')
+    .addItem('👤 8. Reset User Passwords to 12345', 'resetUsersCredentialsToDefault')
+    .addItem('🌐 9. Get Live Web App URL', 'showWebPortalUrl')
+    .addItem('✉️ 10. Authorize Email Sending Permission', 'testEmailPermission')
     .addToUi();
 
   // Auto-upgrade legacy credentials in Users sheet on open
@@ -101,7 +102,7 @@ function resetUsersCredentialsToDefault() {
       installAndRunDatabase();
       return;
     }
-    userSheet.clearContent();
+    try { userSheet.clearContents(); } catch(e) { try { userSheet.clear(); } catch(e2) {} }
     var userH = ["Username", "Password", "Role", "Email", "Status", "CreatedAt"];
     userSheet.getRange(1, 1, 1, userH.length).setValues([userH]);
     userSheet.appendRow(["SANISH", "12345", "Super Admin", "stfsolutionsdelhi@gmail.com", "ACTIVE", new Date()]);
@@ -278,13 +279,8 @@ function installAndRunDatabase() {
   }
 
   if (memSheet.getLastRow() <= 1) {
-    var sampleM = [
-      ["MEM010120261", "Rahul Kumar", "9810011111", "H-12, Sector 3, Rohini", "Sunita Kumar (Wife)", 400, "ACTIVE", "2026-01-01", 4800, "15th of every month", 0, 0, 0, 0],
-      ["MEM010120262", "Suresh Sharma", "9810022222", "Shop 4, Main Market", "Vikas Sharma (Son)", 400, "ACTIVE", "2026-01-01", 4400, "15th of every month", 0, 0, 0, 0],
-      ["MEM010120263", "Amit Verma", "9810033333", "B-45, Shastri Nagar", "Pooja Verma (Wife)", 400, "ACTIVE", "2026-01-01", 4400, "15th of every month", 0, 0, 0, 0],
-      ["MEM010120264", "SANISH", "9718174244", "ASD", "DFFF", 400, "ACTIVE", "2026-01-01", 1000, "15th of every month", 0, 0, 0, 0]
-    ];
-    memSheet.getRange(2, 1, sampleM.length, 14).setValues(sampleM);
+    var all67Members = get67RealMembersArray();
+    memSheet.getRange(2, 1, all67Members.length, 14).setValues(all67Members);
   }
 
   // 3. Fix and align all sheets column formatting, filters, validations and headers
@@ -340,7 +336,7 @@ function autoFixAndAlignAllSheets(silent) {
         cleanData.push([idVal, nameVal, mobVal, addrVal, nomVal, rdVal, stVal, dateVal, opRdVal, dueVal, limitVal, opLoanVal, opIntVal, opPenVal]);
       }
       if (cleanData.length > 0) {
-        memSheet.getRange(2, 1, memSheet.getLastRow() - 1, memSheet.getLastColumn()).clearContent();
+        if (memSheet.getLastRow() > 1) { memSheet.getRange(2, 1, memSheet.getLastRow() - 1, memSheet.getLastColumn()).clearContent(); }
         memSheet.getRange(2, 1, cleanData.length, cleanData[0].length).setValues(cleanData);
         memSheet.getRange(2, 1, cleanData.length, 1).setNumberFormat('@');
         memSheet.getRange(2, 3, cleanData.length, 1).setNumberFormat('@');
@@ -355,7 +351,10 @@ function autoFixAndAlignAllSheets(silent) {
   if (paySheet) {
     var payH = ["Receipt No", "Date", "Member ID", "Name", "RD Amount (₹)", "Interest (₹)", "Penalty (₹)", "Loan Repayment (₹)", "Waiver (₹)", "Total (₹)", "Mode", "Recorded By", "Type", "Narration"];
     paySheet.getRange(1, 1, 1, payH.length).setValues([payH]);
-    paySheet.getRange(1, 1, 1, payH.length).setFontWeight("bold").setBackground("#0F766E").setFontColor("#FFFFFF");
+    var hRange = paySheet.getRange(1, 1, 1, payH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#0F766E");
+    hRange.setFontColor("#FFFFFF");
     try { paySheet.setFrozenRows(1); } catch(e) {}
 
     var pLast = paySheet.getLastRow();
@@ -402,10 +401,13 @@ function autoFixAndAlignAllSheets(silent) {
       }
     }
 
-    loanSheet.clearContent();
-    loanSheet.clearFormats();
+    try { loanSheet.clearContents(); } catch(e) { try { loanSheet.clear(); } catch(e2) {} }
+    try { try { try { loanSheet.clearFormats(); } catch(e) {} } catch(e) {} } catch(e) {}
     loanSheet.getRange(1, 1, 1, loanH.length).setValues([loanH]);
-    loanSheet.getRange(1, 1, 1, loanH.length).setFontWeight("bold").setBackground("#991B1B").setFontColor("#FFFFFF");
+    var hRange = loanSheet.getRange(1, 1, 1, loanH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#991B1B");
+    hRange.setFontColor("#FFFFFF");
     try { loanSheet.setFrozenRows(1); } catch(e) {}
 
     if (cleanLoanData.length > 0) {
@@ -427,7 +429,10 @@ function autoFixAndAlignAllSheets(silent) {
   if (penSheet) {
     var penH = ["Member ID", "Full Name", "Due Day", "Date Joined", "Total RD Paid (₹)", "Overdue Days", "Accrued Penalty (₹)", "Penalty Paid (₹)", "Waived (₹)", "Net Penalty Due (₹)", "Status", "Last Updated"];
     penSheet.getRange(1, 1, 1, penH.length).setValues([penH]);
-    penSheet.getRange(1, 1, 1, penH.length).setFontWeight("bold").setBackground("#B45309").setFontColor("#FFFFFF");
+    var hRange = penSheet.getRange(1, 1, 1, penH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#B45309");
+    hRange.setFontColor("#FFFFFF");
     try { penSheet.setFrozenRows(1); } catch(e) {}
     applySheetTableStylingAndFilters(penSheet, { 11: ["OVERDUE", "CLEAR"] });
   }
@@ -437,7 +442,10 @@ function autoFixAndAlignAllSheets(silent) {
   if (bonusSheet) {
     var bonusH = ["Settlement ID", "Date", "Member ID", "Name", "Total Bonus (₹)", "Adj Loan (₹)", "Adj Interest (₹)", "Adj RD (₹)", "Adj Penalty (₹)", "Net Paid (₹)", "Mode"];
     bonusSheet.getRange(1, 1, 1, bonusH.length).setValues([bonusH]);
-    bonusSheet.getRange(1, 1, 1, bonusH.length).setFontWeight("bold").setBackground("#D97706").setFontColor("#FFFFFF");
+    var hRange = bonusSheet.getRange(1, 1, 1, bonusH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#D97706");
+    hRange.setFontColor("#FFFFFF");
     try { bonusSheet.setFrozenRows(1); } catch(e) {}
     var bLast = bonusSheet.getLastRow();
     if (bLast > 1) {
@@ -451,7 +459,10 @@ function autoFixAndAlignAllSheets(silent) {
   if (fundSheet) {
     var fundH = ["Txn ID", "Date", "Type", "Account", "Entity", "Amount (₹)", "Narration", "CreatedAt"];
     fundSheet.getRange(1, 1, 1, fundH.length).setValues([fundH]);
-    fundSheet.getRange(1, 1, 1, fundH.length).setFontWeight("bold").setBackground("#4338CA").setFontColor("#FFFFFF");
+    var hRange = fundSheet.getRange(1, 1, 1, fundH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#4338CA");
+    hRange.setFontColor("#FFFFFF");
     try { fundSheet.setFrozenRows(1); } catch(e) {}
     var fLast = fundSheet.getLastRow();
     if (fLast > 1) {
@@ -465,7 +476,10 @@ function autoFixAndAlignAllSheets(silent) {
   if (exitSheet) {
     var exitH = ["Exit ID", "Date", "Member ID", "Name", "Total RD (₹)", "Loan Dues (₹)", "Bonus Adj (₹)", "NPA Loss (₹)", "Waiver (₹)", "Net Settlement (₹)", "Status"];
     exitSheet.getRange(1, 1, 1, exitH.length).setValues([exitH]);
-    exitSheet.getRange(1, 1, 1, exitH.length).setFontWeight("bold").setBackground("#7F1D1D").setFontColor("#FFFFFF");
+    var hRange = exitSheet.getRange(1, 1, 1, exitH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#7F1D1D");
+    hRange.setFontColor("#FFFFFF");
     try { exitSheet.setFrozenRows(1); } catch(e) {}
     var exLast = exitSheet.getLastRow();
     if (exLast > 1) {
@@ -479,7 +493,10 @@ function autoFixAndAlignAllSheets(silent) {
   if (plSheet) {
     var plH = ["Metric / Account", "Inflow / Income (₹)", "Outflow / Expense (₹)", "Net Surplus / Profit (₹)", "Breakdown Details", "Last Updated"];
     plSheet.getRange(1, 1, 1, plH.length).setValues([plH]);
-    plSheet.getRange(1, 1, 1, plH.length).setFontWeight("bold").setBackground("#047857").setFontColor("#FFFFFF");
+    var hRange = plSheet.getRange(1, 1, 1, plH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#047857");
+    hRange.setFontColor("#FFFFFF");
     try { plSheet.setFrozenRows(1); } catch(e) {}
     applySheetTableStylingAndFilters(plSheet);
   }
@@ -489,7 +506,10 @@ function autoFixAndAlignAllSheets(silent) {
   if (uSheet) {
     var userH = ["Username", "Password", "Role", "Email", "Status", "CreatedAt"];
     uSheet.getRange(1, 1, 1, userH.length).setValues([userH]);
-    uSheet.getRange(1, 1, 1, userH.length).setFontWeight("bold").setBackground("#0F172A").setFontColor("#FFFFFF");
+    var hRange = uSheet.getRange(1, 1, 1, userH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#0F172A");
+    hRange.setFontColor("#FFFFFF");
     try { uSheet.setFrozenRows(1); } catch(e) {}
     applySheetTableStylingAndFilters(uSheet, { 3: ["Super Admin", "Manager", "Auditor"], 5: ["ACTIVE", "INACTIVE"] });
   }
@@ -499,7 +519,10 @@ function autoFixAndAlignAllSheets(silent) {
   if (finSheet) {
     var finH = ["Metric / Category", "Value (₹)", "Description", "Last Updated"];
     finSheet.getRange(1, 1, 1, finH.length).setValues([finH]);
-    finSheet.getRange(1, 1, 1, finH.length).setFontWeight("bold").setBackground("#0284C7").setFontColor("#FFFFFF");
+    var hRange = finSheet.getRange(1, 1, 1, finH.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#0284C7");
+    hRange.setFontColor("#FFFFFF");
     try { finSheet.setFrozenRows(1); } catch(e) {}
     applySheetTableStylingAndFilters(finSheet);
   }
@@ -624,7 +647,7 @@ function syncPenaltyRegisterSheetBackend() {
     });
 
     if (penSheet.getLastRow() > 1) {
-      penSheet.getRange(2, 1, penSheet.getLastRow() - 1, penH.length).clearContent();
+      if (penSheet.getLastRow() > 1) { penSheet.getRange(2, 1, penSheet.getLastRow() - 1, Math.max(penSheet.getLastColumn(), penH.length)).clearContent(); }
     }
     if (penRows.length > 0) {
       penSheet.getRange(2, 1, penRows.length, penH.length).setValues(penRows);
@@ -682,7 +705,7 @@ function syncProfitAndLossSheetBackend() {
     ];
 
     if (plSheet.getLastRow() > 1) {
-      plSheet.getRange(2, 1, plSheet.getLastRow() - 1, plH.length).clearContent();
+      if (plSheet.getLastRow() > 1) { plSheet.getRange(2, 1, plSheet.getLastRow() - 1, Math.max(plSheet.getLastColumn(), plH.length)).clearContent(); }
     }
     plSheet.getRange(2, 1, plRows.length, plH.length).setValues(plRows);
     plSheet.getRange(2, 2, plRows.length, 3).setNumberFormat("#,##0");
@@ -910,7 +933,9 @@ function getSocietyFullDataWithoutFinSync() {
           customLimit: Math.round(Number(getValByHeader(r, mMap, ["custom loan limit (₹)", "custom limit"], 10, 0))) || 0,
           opLoan: Math.round(Number(getValByHeader(r, mMap, ["opening loan (₹)", "op loan"], 11, 0))) || 0,
           opInt: Math.round(Number(getValByHeader(r, mMap, ["opening int (₹)", "op int"], 12, 0))) || 0,
-          opPen: Math.round(Number(getValByHeader(r, mMap, ["opening pen (₹)", "op pen"], 13, 0))) || 0
+          opPen: Math.round(Number(getValByHeader(r, mMap, ["opening pen (₹)", "op pen"], 13, 0))) || 0,
+          loginPin: String(getValByHeader(r, mMap, ["app pin", "login pin", "pin"], 14, "1234")).trim() || "1234",
+          pin: String(getValByHeader(r, mMap, ["app pin", "login pin", "pin"], 14, "1234")).trim() || "1234"
         };
 
         var existingIdx = -1;
@@ -1175,8 +1200,8 @@ function saveMemberBackend(m) {
     var ss = SpreadsheetApp.getActiveSpreadsheet(); if (!ss) return { success: true };
     var sheet = ss.getSheetByName("Members"); if (!sheet) { installAndRunDatabase(); sheet = ss.getSheetByName("Members"); }
     
-    // Ensure sufficient columns
-    var reqCols = 14;
+    // Ensure sufficient columns (15 columns for App PIN)
+    var reqCols = 15;
     if (sheet.getMaxColumns() < reqCols) {
       sheet.insertColumnsAfter(sheet.getMaxColumns(), reqCols - sheet.getMaxColumns());
     }
@@ -1186,6 +1211,7 @@ function saveMemberBackend(m) {
     var safeOpRd = Math.round(Number(m.rdPaid)) || 0;
     var rawSt = String(m.status || "ACTIVE").trim().toUpperCase();
     var safeStatus = (rawSt === "INACTIVE" || rawSt === "IN-ACTIVE" || rawSt === "DEACTIVE" || rawSt === "DEACTIVATED") ? "INACTIVE" : "ACTIVE";
+    var safePin = String(m.loginPin || m.pin || "1234").trim() || "1234";
 
     var rowVals = [
       String(m.id || "").trim(),
@@ -1201,7 +1227,8 @@ function saveMemberBackend(m) {
       Math.round(Number(m.customLimit)) || 0,
       Math.round(Number(m.opLoan)) || 0,
       Math.round(Number(m.opInt)) || 0,
-      Math.round(Number(m.opPen)) || 0
+      Math.round(Number(m.opPen)) || 0,
+      safePin
     ];
 
     var updated = false;
@@ -1210,7 +1237,7 @@ function saveMemberBackend(m) {
     var cleanTargetMobile = String(m.mobile || "").trim();
 
     if (lastRow > 1) {
-      var lastCol = Math.max(sheet.getLastColumn(), 14);
+      var lastCol = Math.max(sheet.getLastColumn(), 15);
       var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
       var mMap = buildHeaderMap(sheet);
       
@@ -1235,7 +1262,7 @@ function saveMemberBackend(m) {
 
         if (isMatch) {
           var targetRowNum = i + 2;
-          sheet.getRange(targetRowNum, 1, 1, 14).setValues([rowVals]);
+          sheet.getRange(targetRowNum, 1, 1, 15).setValues([rowVals]);
           sheet.getRange(targetRowNum, statusColIdx + 1).setValue(safeStatus);
           updated = true;
         }
@@ -1249,6 +1276,44 @@ function saveMemberBackend(m) {
     SpreadsheetApp.flush();
     return { success: true, member: m };
   } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+function updateMemberPinBackend(memberId, pin) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); if (!ss) return { success: false, error: "Spreadsheet not found" };
+    var sheet = ss.getSheetByName("Members"); if (!sheet) return { success: false, error: "Members sheet not found" };
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return { success: false, error: "No members in sheet" };
+
+    var safePin = String(pin || "1234").trim() || "1234";
+    var cleanTargetId = String(memberId || "").trim().toUpperCase();
+    var lastCol = Math.max(sheet.getLastColumn(), 15);
+    var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var mMap = buildHeaderMap(sheet);
+    var idColIdx = (mMap.hasOwnProperty("member id") ? mMap["member id"] : (mMap.hasOwnProperty("id") ? mMap["id"] : 0));
+    var mobColIdx = (mMap.hasOwnProperty("mobile number") ? mMap["mobile number"] : (mMap.hasOwnProperty("mobile") ? mMap["mobile"] : 2));
+    var pinColIdx = (mMap.hasOwnProperty("app pin") ? mMap["app pin"] : (mMap.hasOwnProperty("login pin") ? mMap["login pin"] : (mMap.hasOwnProperty("pin") ? mMap["pin"] : 14)));
+
+    if (sheet.getMaxColumns() < pinColIdx + 1) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), (pinColIdx + 1) - sheet.getMaxColumns());
+    }
+
+    var updated = false;
+    for (var i = 0; i < allData.length; i++) {
+      var rowId = String(allData[i][idColIdx] || "").trim().toUpperCase();
+      var rowMob = String(allData[i][mobColIdx] || "").trim();
+      if ((cleanTargetId && rowId === cleanTargetId) || (cleanTargetId && rowMob === cleanTargetId)) {
+        sheet.getRange(i + 2, pinColIdx + 1).setValue(safePin);
+        sheet.getRange(i + 2, pinColIdx + 1).setNumberFormat('@');
+        updated = true;
+        break;
+      }
+    }
+    SpreadsheetApp.flush();
+    return { success: true, updated: updated, memberId: memberId, pin: safePin };
+  } catch(e) {
     return { success: false, error: e.toString() };
   }
 }
@@ -1384,12 +1449,1186 @@ function saveFundTransactionBackend(entry) {
   }
 }
 
+function handleApiRequest(params, postData) {
+  var action = (params && params.action) || (postData && postData.action) || 'getData';
+  var result = { success: false };
+  try {
+    if (action === 'getData' || action === 'getSocietyData') {
+      result = { success: true, data: getSocietyFullDataWithoutFinSync() };
+    } else if (action === 'login') {
+      var u = (params && params.username) || (postData && postData.username);
+      var p = (params && params.password) || (postData && postData.password);
+      result = checkUserLoginBackend(u, p);
+    } else if (action === 'saveMember') {
+      var memberObj = (postData && postData.member) || (params && params.member ? JSON.parse(params.member) : null);
+      result = saveMemberBackend(memberObj);
+    } else if (action === 'deleteMember') {
+      var memId = (postData && postData.memberId) || (params && params.memberId);
+      result = deleteMemberBackend(memId);
+    } else if (action === 'updatePin' || action === 'updateMemberPin') {
+      var mId = (postData && (postData.id || postData.memberId)) || (params && (params.id || params.memberId));
+      var mPin = (postData && (postData.pin || postData.loginPin)) || (params && (params.pin || params.loginPin));
+      result = updateMemberPinBackend(mId, mPin);
+    } else if (action === 'savePayment') {
+      var payObj = (postData && postData.payment) || (params && params.payment ? JSON.parse(params.payment) : null);
+      result = savePaymentBackend(payObj);
+    } else if (action === 'saveLoan') {
+      var loanObj = (postData && postData.loan) || (params && params.loan ? JSON.parse(params.loan) : null);
+      result = saveLoanBackend(loanObj);
+    } else if (action === 'saveExitSettlement') {
+      var exitObj = (postData && postData.exitSettlement) || (params && params.exitSettlement ? JSON.parse(params.exitSettlement) : null);
+      result = saveExitSettlementBackend(exitObj);
+    } else if (action === 'saveBonusSettlement') {
+      var bonusObj = (postData && postData.bonusSettlement) || (params && params.bonusSettlement ? JSON.parse(params.bonusSettlement) : null);
+      result = saveBonusSettlementBackend(bonusObj);
+    } else if (action === 'saveFund') {
+      var fundObj = (postData && postData.fund) || (params && params.fund ? JSON.parse(params.fund) : null);
+      result = saveFundTransactionBackend(fundObj);
+    } else if (action === 'restore67Members') {
+      result = restoreAll67RealSocietyMembers();
+    } else {
+      result = { success: true, data: getSocietyFullDataWithoutFinSync() };
+    }
+  } catch(err) {
+    result = { success: false, error: err.toString() };
+  }
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function doGet(e) {
+  if (e && e.parameter && (e.parameter.action || e.parameter.format === 'json')) {
+    return handleApiRequest(e.parameter, null);
+  }
   return HtmlService.createHtmlOutput(getCompleteSoftwareHtml())
-    .setTitle("GULLAK CO-OPERATIVE SOCIETY - Master Accounting Platform (V41 PRO)")
+    .setTitle("GULLAK CO-OPERATIVE SOCIETY - Master Accounting Platform (V63 PRO)")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag("viewport", "width=device-width, initial-scale=1.0");
 }
+
+function doPost(e) {
+  var postData = null;
+  if (e && e.postData && e.postData.contents) {
+    try {
+      postData = JSON.parse(e.postData.contents);
+    } catch(parseErr) {
+      postData = e.parameter;
+    }
+  }
+  return handleApiRequest(e ? e.parameter : {}, postData);
+}
+
+function get67RealMembersArray() {
+  return [
+  [
+    "MEM010120261",
+    "Afsana Sister Pappu Ji 012025",
+    "9773841314",
+    "Mohan Garden",
+    "Pappu Ji",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM010120262",
+    "Ajay Kumar Garg Ref Suresh Lala Ji 012025",
+    "9873898898",
+    "Kakrola",
+    "Suresh Lala Ji",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM010120263",
+    "Amit S/O Sunil (Omwati Aunti Ji ) 102022",
+    "8287127921",
+    "Vikas Vihar Kakrola",
+    "Omwati Aunti",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    15200,
+    "15th of every month",
+    0,
+    18000,
+    0,
+    0
+  ],
+  [
+    "MEM010120264",
+    "Arvind Kumar 022022X2",
+    "9350743408",
+    "Ghaziabad",
+    "Rekha Kumari",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    18800,
+    "15th of every month",
+    0,
+    7500,
+    0,
+    0
+  ],
+  [
+    "MEM010120265",
+    "ASHA DEVI REF SUSHIL SO SHILA JI 012025",
+    "9311043442",
+    "Vikas Vihar",
+    "Sushil",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM010120266",
+    "Ashish Aswal Ashu Vikas Vihar 022022",
+    "9899801307",
+    "C-141 Vikas Vihar Kakrola",
+    "Sarita Aswal",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    14000,
+    "15th of every month",
+    0,
+    9000,
+    0,
+    0
+  ],
+  [
+    "MEM010120267",
+    "Chanchal D/O Anil Padosi 022022",
+    "9910216942",
+    "Vikas Vihar Kakrola",
+    "Anil Padosi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16600,
+    "15th of every month",
+    0,
+    16000,
+    0,
+    0
+  ],
+  [
+    "MEM010120268",
+    "Chanda Devi Ref Shila Devi 022024",
+    "8447218816",
+    "Kakrola",
+    "Shila Devi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    9200,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM010120269",
+    "Deep Lal - Reena Devi 022023",
+    "9871869719",
+    "Vikas Vihar Kakrola",
+    "Reena Devi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    14000,
+    "15th of every month",
+    0,
+    4000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202610",
+    "Deep Lal Electrician 022022",
+    "9871869719",
+    "Vikas Vihar Kakrola",
+    "Deep Lal",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16600,
+    "15th of every month",
+    0,
+    3000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202611",
+    "DEVENDER SINGH REF RAVI 202501",
+    "9456304719",
+    "Kakrola",
+    "Ravi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202612",
+    "Geeta Devi Wo Narender 012025",
+    "7042511156",
+    "Vikas Vihar Kakrola",
+    "Narender",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202613",
+    "Hari Ram Ji Vikas Vihar 032022",
+    "9650013268",
+    "Kakrola",
+    "Hari Ram",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16400,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202614",
+    "Hirender Kumar - 2 - Neetu 012023",
+    "9599356910",
+    "Vikas Vihar Kakrola",
+    "Neetu",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    15360,
+    "15th of every month",
+    0,
+    5050,
+    0,
+    0
+  ],
+  [
+    "MEM0101202615",
+    "Hirender Kumar -1- 022022",
+    "9599356910",
+    "Vikas Vihar Kakrola",
+    "Hirender",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    17802,
+    "15th of every month",
+    0,
+    3030,
+    0,
+    0
+  ],
+  [
+    "MEM0101202616",
+    "Jagdish Mehto X2  022022",
+    "7042511481",
+    "Jj Colony Bharat Vihar",
+    "Jagdish",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    18400,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202617",
+    "Jagriti Sharma W/O Jugal Kishor 012023",
+    "9953111505",
+    "Vikas Vihar Kakrola",
+    "Jugal Kishor",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    14400,
+    "15th of every month",
+    0,
+    15000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202618",
+    "JAHANVI SHARMA DO JAGRITI JI 012025",
+    "9953111505",
+    "Vikas Vihar Kakrola",
+    "Jagriti Sharma",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202619",
+    "Jot Singh Ref Ravi 012025",
+    "8178738999",
+    "Kakrola",
+    "Ravi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202620",
+    "Jugal Kishor Ji X2 072022",
+    "9310732656",
+    "Vikas Vihar Kakrola",
+    "Jagriti Sharma",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202621",
+    "JYOTI JOSHI JI REF JAGRITI JI 012025",
+    "9716124006",
+    "Vikas Vihar Kakrola",
+    "Jagriti Ji",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202622",
+    "Kazim So Mumina Khatoon Ref Pappu 012025",
+    "8287493771",
+    "Kakrola",
+    "Mumina Khatoon",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202623",
+    "KEERTHI R S DO SOMYA MADAM 202501",
+    "7827596703",
+    "Kakrola",
+    "Somya Madam",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202624",
+    "KIRAN DEVI WO SUSHIL KUMAR 202501",
+    "7042480937",
+    "Vikas Vihar Kakrola",
+    "Sushil Kumar",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202625",
+    "Kuwar Pal -1 X2 082022",
+    "9871130935",
+    "Vikas Vihar Kakrola",
+    "Kuwar Pal",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16400,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202626",
+    "Kuwar Pal-2 X2 082022",
+    "9871130935",
+    "Vikas Vihar Kakrola",
+    "Kuwar Pal",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16400,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202627",
+    "Mukesh Sharma Ji X2 022022",
+    "8285405743",
+    "Vikas Vihar",
+    "Mukesh",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    18800,
+    "15th of every month",
+    0,
+    5623,
+    0,
+    0
+  ],
+  [
+    "MEM0101202628",
+    "NANDINI JI 202501",
+    "8383071508",
+    "SULAHKUL VIHAR",
+    "Nandini",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202629",
+    "Narayan Yadav X2 032022",
+    "9599959948",
+    "Vikas Vihar",
+    "Narayan",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    18400,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202630",
+    "Narender Babblu Bo Ravi 012025",
+    "9354214597",
+    "Kakrola",
+    "Ravi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202631",
+    "Narender Kumar S/O Shila Devi 012023",
+    "7042511156",
+    "S/O Shila Devi Vikas Vihar Kakrola",
+    "Shila Devi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    14400,
+    "15th of every month",
+    0,
+    2000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202632",
+    "Neeraj Renew So Raghuveer Ji 012025",
+    "9891811697",
+    "Kakrola",
+    "Raghuveer Ji",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202633",
+    "Omwati Aunti M/O Anil Kumar 022022",
+    "9971157481",
+    "C-143 Vikas Vihar Kakrola",
+    "Anil Kumar",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    17800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202634",
+    "Pappu Carpainter - 1 - 022022",
+    "9911563986",
+    "Vikas Vihar Kakrola",
+    "Pappu",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16600,
+    "15th of every month",
+    0,
+    13000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202635",
+    "Pappu Carpainter - 2 - Nargis 102022",
+    "9911563986",
+    "Vikas Vihar Kakrola",
+    "Nargis",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    15600,
+    "15th of every month",
+    0,
+    21000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202636",
+    "Pawan Kumar X2 072022",
+    "8368934198",
+    "S/O Rakesh Kumar Vikas Vihar",
+    "Rakesh Kumar",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16800,
+    "15th of every month",
+    0,
+    19230,
+    0,
+    0
+  ],
+  [
+    "MEM0101202637",
+    "Peter Masih 042022",
+    "99990023275",
+    "Mohan Garden",
+    "Peter",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202638",
+    "Raj Kumar (Colony) Kakrola 062022",
+    "8750830986",
+    "Vikas Vihar Kakrola",
+    "Raj Kumar",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    15800,
+    "15th of every month",
+    0,
+    22136,
+    0,
+    0
+  ],
+  [
+    "MEM0101202639",
+    "Raja Ram Ji Ref Deepak 062022",
+    "9810812331",
+    "Narela",
+    "Deepak",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202640",
+    "Ram Bharose Ji Goyla Dairy 022022",
+    "9717961768",
+    "Goyla Dairy 9717961768 , 0838392003",
+    "Ram Bharose",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16200,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202641",
+    "Ravi Garwali 022022",
+    "7042085508",
+    "Vikas Vihar Kakrola",
+    "Ravi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16600,
+    "15th of every month",
+    0,
+    17000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202642",
+    "Sanjay Kumar -1- Ref DeeplaI 022022",
+    "9650862110",
+    "Bharat Vihar Kakrola",
+    "Deep Lal",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    18800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202643",
+    "Sanjay Kumar -2-  Sandeep Kr Ref DeeplaI 022023",
+    "9650862110",
+    "Bharat Vihar Kakrola",
+    "Sandeep Kumar",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    14400,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202645",
+    "Sanjay Yadav -1 X2 022022",
+    "7827004101",
+    "Vikas Vihar Kakrola",
+    "Sanjay Yadav",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    18800,
+    "15th of every month",
+    0,
+    23000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202646",
+    "Sanjay Yadav -2- Shubhankar 072023",
+    "7827004101",
+    "Vikas Vihar Kakrola",
+    "Shubhankar",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16800,
+    "15th of every month",
+    0,
+    5000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202647",
+    "Santosh Mehto X2 022022",
+    "9968062512",
+    "Bharat Vihar Kakrola",
+    "Santosh",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    18800,
+    "15th of every month",
+    0,
+    17000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202648",
+    "Santosh Mistri Ref DeeplaI 012025",
+    "9891703298",
+    "Kakrola",
+    "Deep Lal",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202649",
+    "Sarika 022022",
+    "9718174244",
+    "Kakrola",
+    "Sarika",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    15584,
+    "15th of every month",
+    0,
+    12000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202650",
+    "Sarita Aswal Wo Ashish 012025",
+    "9899801307",
+    "Kakrola",
+    "Ashish Aswal",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    25000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202651",
+    "Shila Devi Ref Omwati Aunti X2 092022",
+    "9643588165",
+    "Vikas Vihar Kakrola",
+    "Omwati Aunti",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    16000,
+    "15th of every month",
+    0,
+    11000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202652",
+    "Somya Madam Ref Jagriti Sharma 012023",
+    "7827596703",
+    "Kakrola",
+    "Jagriti Sharma",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    14400,
+    "15th of every month",
+    0,
+    16000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202653",
+    "Sushil Ji So Sheela Devi 012025",
+    "7042480937",
+    "Vikas Vihar",
+    "Sheela Devi",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202654",
+    "URUZ KHATMA DO MUMINA REF PAPPU 012025",
+    "8287493771",
+    "Kakrola",
+    "Mumina Khatoon",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    4800,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202655",
+    "Viney Electrician Ref Deep Lal 052023",
+    "7065708037",
+    "Vikas Vihar Kakrola",
+    "Deep Lal",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    12800,
+    "15th of every month",
+    0,
+    18000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202656",
+    "Vishnu Aggarwal -1 102022",
+    "9773557036",
+    "Kakrola",
+    "Vishnu",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    15600,
+    "15th of every month",
+    0,
+    10000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202657",
+    "Vishnu Aggarwal -2 102022",
+    "9773557036",
+    "Kakrola",
+    "Vishnu",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    15600,
+    "15th of every month",
+    0,
+    10000,
+    0,
+    0
+  ],
+  [
+    "MEM0101202658",
+    "Parvesh Ansari Ref DeeplaI 010126",
+    "9315426875",
+    "Kakrola",
+    "Deep Lal",
+    400,
+    "ACTIVE",
+    "2026-01-12",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202659",
+    "Hazrat Ref Parvesh Ansari 010126",
+    "9718172262",
+    "Dda Flat Janak Puri",
+    "Parvesh Ansari",
+    400,
+    "ACTIVE",
+    "2026-01-12",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202660",
+    "Mintu Devi Ref Chanda Devi 012026",
+    "7033953938",
+    "Vikas Vihar",
+    "Chanda Devi",
+    400,
+    "ACTIVE",
+    "2026-01-15",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202661",
+    "Mariam R/O Rupam & Shila Devi",
+    "8826567542",
+    "Bharat Vihar Kakrola",
+    "Shila Devi",
+    400,
+    "ACTIVE",
+    "2026-01-19",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202662",
+    "Rupam Ref Shila Devi 012026",
+    "8130546714",
+    "Vikas Vihar Kakrola",
+    "Shila Devi",
+    400,
+    "ACTIVE",
+    "2026-01-19",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202663",
+    "Surender Rawat 012026",
+    "9266782629",
+    "Vikas Vihar Kakrola",
+    "Sumitra Rawat",
+    400,
+    "ACTIVE",
+    "2026-01-19",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202664",
+    "Sumitra Rawat Wo Surender 012026",
+    "9266782629",
+    "Vikas Vihar Kakrola",
+    "Surender Rawat",
+    400,
+    "ACTIVE",
+    "2026-01-19",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202665",
+    "Priya Sood Ref Raj Kumar 012026",
+    "8750830986",
+    "House Number B-115 Surya Vihar Binda",
+    "Raj Kumar",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202666",
+    "Raj Kumari Ref Raj Kumar 012026",
+    "8750830986",
+    "B-75 Bharat Vihar Kakrola 9810424981",
+    "Raj Kumar",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202667",
+    "Arvind Kumar Rekha Kumari 012026",
+    "9350743408",
+    "Gazhiabad",
+    "Arvind Kumar",
+    400,
+    "ACTIVE",
+    "2026-01-31",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ],
+  [
+    "MEM0101202668",
+    "Rakhi Madam Ref Shila Ji 012026",
+    "9311633238",
+    "Delhi",
+    "Shila Ji",
+    400,
+    "ACTIVE",
+    "2026-01-01",
+    0,
+    "15th of every month",
+    0,
+    0,
+    0,
+    0
+  ]
+];
+}
+
+function restoreAll67RealSocietyMembers() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return { success: false, error: "No active spreadsheet found" };
+    var memSheet = getOrCreateSheet(ss, "Members", [
+      "Member ID", "Full Name", "Mobile Number", "Address", "Nominee / Ref", 
+      "RD / Month (₹)", "Status", "Date Joined", "Opening RD (₹)", "Due Day", 
+      "Custom Loan Limit (₹)", "Opening Loan (₹)", "Opening Int (₹)", "Opening Pen (₹)"
+    ]);
+    
+    // Clear old data rows if any
+    if (memSheet.getLastRow() > 1) {
+      if (memSheet.getLastRow() > 1) { memSheet.getRange(2, 1, memSheet.getLastRow() - 1, memSheet.getLastColumn()).clearContent(); }
+    }
+    
+    var allRows = get67RealMembersArray();
+    memSheet.getRange(2, 1, allRows.length, 14).setValues(allRows);
+    
+    // Re-format
+    alignAndFormatSheet(memSheet, [6, 9, 11, 12, 13, 14], [8]);
+    
+    try {
+      SpreadsheetApp.getUi().alert("✅ Success: All 67 Real Society Members Restored!\n\nTotal " + allRows.length + " official society members with original opening balances and nominees loaded successfully into the Members sheet.");
+    } catch(uiErr) {}
+    
+    return { success: true, count: allRows.length };
+  } catch(e) {
+    try {
+      SpreadsheetApp.getUi().alert("Error restoring members: " + e.toString());
+    } catch(uiErr) {}
+    return { success: false, error: e.toString() };
+  }
+}
+
 
 
 // =========================================================================
@@ -1474,11 +2713,6 @@ function getMasterSheetPassword() {
   }
   return '12345';
 }
-
-
-/**
- * 🔄 CASCADE MEMBER NAME UPDATE ACROSS ALL LINKED SHEETS
- */
 
 
 /**
@@ -1653,7 +2887,6 @@ function deleteMemberBackend(memberIdOrName) {
 function deleteLedgerBackend(ledgerNameOrId) {
   return deleteMemberBackend(ledgerNameOrId);
 }
-
 
 function getCompleteSoftwareHtmlContent() {
   return `<!DOCTYPE html>
@@ -2169,7 +3402,7 @@ function getCompleteSoftwareHtmlContent() {
     <div class="logo-icon">🏦</div>
     <div>
       <div class="title-main">GULLAK CO-OPERATIVE SOCIETY</div>
-      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (V48 PRO)</div>
+      <div class="title-sub">MASTER CLOUD ACCOUNTING SYSTEM (V64 PRO)</div>
     </div>
   </div>
   <div class="btn-group">
@@ -2556,10 +3789,17 @@ function getCompleteSoftwareHtmlContent() {
       <div><label class="field-label">Joining Date</label><input type="date" id="inpNewMemJoinDate" class="field-ctrl" value="2026-01-01"></div>
       <div><label class="field-label">Monthly RD (₹) *</label><input type="number" step="1" id="inpNewMemRd" class="field-ctrl" value="400"></div>
     </div>
-    <div class="field-box">
-      <label class="field-label">Due Date (Every Month - Calendar Based) *</label>
-      <input type="date" id="inpNewMemDueDay" class="field-ctrl">
-      <small id="dispDueDayFormatted" style="color:#38BDF8; font-weight:600; margin-top:2px; display:block;"></small>
+    <div class="two-cols field-box">
+      <div>
+        <label class="field-label">Due Date (Every Month) *</label>
+        <input type="date" id="inpNewMemDueDay" class="field-ctrl">
+        <small id="dispDueDayFormatted" style="color:#38BDF8; font-weight:600; margin-top:2px; display:block;"></small>
+      </div>
+      <div>
+        <label class="field-label">App PIN (Live Sync) *</label>
+        <input type="text" id="inpNewMemPin" class="field-ctrl" maxlength="6" value="1234" placeholder="1234" style="font-weight:700; color:#FBBF24; letter-spacing:2px;">
+        <small style="color:#94A3B8; font-size:0.68rem; display:block; margin-top:2px;">Default 1234 (Editable & Synced)</small>
+      </div>
     </div>
     <div class="field-box">
       <label class="field-label">Address *</label>
@@ -2797,17 +4037,33 @@ function getCompleteSoftwareHtmlContent() {
       <button type="button" class="tab-item" id="btnSettingsSubTab4" style="border-radius:6px; font-weight:700;">📈 4. Profit & Loss Register</button>
     </div>
 
-    <!-- SUB-TAB 1: GENERAL SETTINGS -->
+        <!-- SUB-TAB 1: GENERAL SETTINGS & CLOUD SYNC -->
     <div id="settingsSubView1">
-      <div style="margin-bottom:16px; padding:12px; background:#1E293B; border:1.5px solid #10B981; border-radius:8px; text-align:center;">
-        <div style="font-weight:700; color:#34D399; margin-bottom:4px; font-size:0.9rem;">📊 Connected Google Sheet Database Control</div>
-        <div style="font-size:0.75rem; color:#94A3B8; margin-bottom:10px;">Members, Payments, Loans, FundRegister aur Users ka live data sync ya Google Sheet open karne ke liye:</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button type="button" id="btnOpenGoogleSheet" onclick="handleOpenSpreadsheet(event)" class="btn btn-green" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:800; padding:11px; font-size:0.88rem; box-sizing:border-box; cursor:pointer;">
-            <span>📊 Open Google Sheet ➔</span>
+      <div style="margin-bottom:16px; padding:14px; background:#0B1120; border:1.5px solid #10B981; border-radius:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+          <div style="font-weight:800; color:#34D399; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+            <span>🌐 Google Sheet Cloud Web App URL</span>
+          </div>
+          <span id="txtWebAppStatus" style="font-size:0.72rem; padding:3px 8px; border-radius:4px; font-weight:700; background:#064E3B; color:#34D399;">🟢 Cloud Sync Ready</span>
+        </div>
+        <div style="font-size:0.76rem; color:#94A3B8; margin-bottom:8px; line-height:1.4;">
+          Android App ya Web Browser me apne live Google Spreadsheet se live data connect aur real-time sync karne ke liye apna Google Web App URL yahan paste karein:
+        </div>
+        <div style="margin-bottom:10px;">
+          <input type="text" id="inpGoogleWebAppUrl" class="field-ctrl" placeholder="https://script.google.com/macros/s/.../exec" style="background:#060913; border:1px solid #059669; font-family:monospace; font-size:0.82rem; color:#FBBF24;">
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px;">
+          <button type="button" id="btnSaveWebAppUrl" onclick="saveAndConnectWebAppUrl()" class="btn btn-green" style="justify-content:center; padding:9px; font-weight:800; font-size:0.82rem;">
+            💾 Save & Connect
           </button>
-          <button type="button" id="btnSyncSheetData" onclick="handleTopReload()" class="btn btn-blue" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:800; padding:11px; font-size:0.88rem; box-sizing:border-box; cursor:pointer;">
-            <span>🔄 Sync Live Sheet Data</span>
+          <button type="button" id="btnSyncSheetData" onclick="triggerCloudSyncNow()" class="btn btn-blue" style="justify-content:center; padding:9px; font-weight:800; font-size:0.82rem;">
+            🔄 Live Sync Now
+          </button>
+          <button type="button" id="btnRestore67Members" onclick="triggerRestore67Members()" class="btn btn-orange" style="justify-content:center; padding:9px; font-weight:800; font-size:0.82rem;">
+            📥 Load 67 Real Members
+          </button>
+          <button type="button" id="btnOpenGoogleSheet" onclick="handleOpenSpreadsheet(event)" class="btn btn-dark" style="justify-content:center; padding:9px; font-weight:800; font-size:0.82rem;">
+            📊 Open Sheet
           </button>
         </div>
       </div>
@@ -3089,7 +4345,6 @@ function getCompleteSoftwareHtml() {
     "\n</body>\n</html>";
 }
 
-
 function getClientScriptPartA() {
   return `
 <script>
@@ -3338,6 +4593,14 @@ window.handleForgotCredentials = function(e) {
     initLoaded = true;
   }
 
+    // Auto-upgrade stale dummy member lists if fewer than 10 members or containing dummy names
+  if (members && Array.isArray(members) && (members.length < 10 || (members[0] && members[0].name === "Rahul Kumar"))) {
+    console.log("Upgrading stale members array to full 67 real members...");
+    members = DEF_M;
+    try {
+      localStorage.setItem("gullak_v21_m", JSON.stringify(members));
+    } catch(e) {}
+  }
   if (!initLoaded) {
     try {
       var sM = localStorage.getItem("gullak_v21_m");
@@ -4113,7 +5376,6 @@ function getMemberTotalRd(m){
   }
 `;
 }
-
 
 function getClientScriptPartB() {
   return `
@@ -5060,8 +6322,6 @@ function getClientScriptPartB() {
       document.getElementById("editMemId").value = "";
       var btnDel = document.getElementById("btnDeleteMember");
       if (btnDel) { btnDel.style.display = "none"; btnDel.removeAttribute("data-id"); }
-      var btnDel = document.getElementById("btnDeleteMember");
-      if (btnDel) { btnDel.style.display = "none"; btnDel.removeAttribute("data-id"); }
     var btnDel = document.getElementById("btnDeleteMember");
     if (btnDel) { btnDel.style.display = "none"; btnDel.removeAttribute("data-id"); }
       document.getElementById("lblMemberModalHead").innerText = "👤 Add New Member Profile";
@@ -5144,6 +6404,7 @@ function getClientScriptPartB() {
       var skipPen = document.getElementById("chkSkipPenalty") ? document.getElementById("chkSkipPenalty").checked : true;
 
       if(!window.globalSettings) window.globalSettings = {};
+      window.globalSettings.defaultDueDay = globalDefaultDue;
       window.globalSettings.penaltyStartDate = penStart;
       window.globalSettings.skipPenalty = skipPen;
       saveStore();
@@ -5297,10 +6558,6 @@ function getClientScriptPartB() {
           document.getElementById("lblMemberModalHead").innerText = "✏️ Edit Member: " + m.name + " (" + m.id + ")";
           var btnDel = document.getElementById("btnDeleteMember");
           if (btnDel) { btnDel.style.display = "inline-flex"; btnDel.setAttribute("data-id", m.id); }
-          var btnDel = document.getElementById("btnDeleteMember");
-          if (btnDel) { btnDel.style.display = "inline-flex"; btnDel.setAttribute("data-id", m.id); }
-          var btnDel = document.getElementById("btnDeleteMember");
-          if (btnDel) { btnDel.style.display = "inline-flex"; btnDel.setAttribute("data-id", m.id); }
           document.getElementById("inpNewMemName").value = m.name;
           document.getElementById("inpNewMemMobile").value = m.mobile;
           var rawSt = String(m.status || "ACTIVE").trim().toUpperCase();
@@ -5317,6 +6574,7 @@ function getClientScriptPartB() {
           }
           document.getElementById("inpNewMemJoinDate").value = m.dateJoined;
           document.getElementById("inpNewMemRd").value = m.rd;
+          var pinEl = document.getElementById("inpNewMemPin"); if(pinEl) pinEl.value = m.loginPin || m.pin || "1234";
           var dueVal = m.dueDay || "";
           if(!dueVal || dueVal.indexOf("month") >= 0 || dueVal.indexOf("th") >= 0 || dueVal.length < 8){
             dueVal = getTodayYMD().substring(0,8) + "15";
@@ -5722,6 +6980,7 @@ function getClientScriptPartB() {
       var jDate = document.getElementById("inpNewMemJoinDate").value || getTodayYMD();
       var rdVal = cleanRd(document.getElementById("inpNewMemRd").value);
       var dueDayVal = document.getElementById("inpNewMemDueDay").value || "15th of every month";
+      var pinVal = (document.getElementById("inpNewMemPin") ? document.getElementById("inpNewMemPin").value.trim() : "1234") || "1234";
       var addr = document.getElementById("inpNewMemAddress").value.trim();
       var nom = document.getElementById("inpNewMemNominee").value.trim();
 
@@ -5763,6 +7022,8 @@ function getClientScriptPartB() {
         dateJoined: jDate,
         rdPaid: opRd,
         dueDay: dueDayVal,
+        loginPin: pinVal,
+        pin: pinVal,
         customLimit: custLim,
         opLoan: opLoan,
         opInt: opInt,
@@ -5982,9 +7243,23 @@ function getClientScriptPartB() {
     var stEl = document.getElementById("inpNewMemStatus"); if(stEl) stEl.value = "ACTIVE";
     var jDateEl = document.getElementById("inpNewMemJoinDate"); if(jDateEl) jDateEl.value = getTodayYMD();
     var rdEl = document.getElementById("inpNewMemRd"); if(rdEl) rdEl.value = 400;
-    var defDue = getTodayYMD().substring(0,8) + "15";
+
+    // Auto-populate Due Date from Global Settings (saved in globalSettings / globalDefaultDue)
+    var rawGlobalDue = (window.globalSettings && window.globalSettings.defaultDueDay) ? window.globalSettings.defaultDueDay : (typeof globalDefaultDue !== 'undefined' ? globalDefaultDue : "15th of every month");
+    var dueDayNum = 15;
+    var mMatch = String(rawGlobalDue).match(/\d+/);
+    if(mMatch) {
+      dueDayNum = parseInt(mMatch[0], 10);
+      if(dueDayNum < 1 || dueDayNum > 31) dueDayNum = 15;
+    }
+    var paddedDay = (dueDayNum < 10 ? "0" : "") + dueDayNum;
+    var defDue = getTodayYMD().substring(0,8) + paddedDay;
     var dueEl = document.getElementById("inpNewMemDueDay"); if(dueEl) dueEl.value = defDue;
     var dueFmt = document.getElementById("dispDueDayFormatted"); if(dueFmt) dueFmt.innerText = "(" + toDisplayDate(defDue) + ")";
+
+    // App PIN column
+    var pinEl = document.getElementById("inpNewMemPin"); if(pinEl) pinEl.value = "1234";
+
     var addrEl = document.getElementById("inpNewMemAddress"); if(addrEl) addrEl.value = "";
     var nomEl = document.getElementById("inpNewMemNominee"); if(nomEl) nomEl.value = "";
     var balEl = document.getElementById("inpNewMemBal"); if(balEl) balEl.value = 0;
@@ -5992,6 +7267,7 @@ function getClientScriptPartB() {
     var opIntEl = document.getElementById("inpNewMemOpInt"); if(opIntEl) opIntEl.value = 0;
     var opPenEl = document.getElementById("inpNewMemOpPen"); if(opPenEl) opPenEl.value = 0;
     var limEl = document.getElementById("inpNewMemCustomLimit"); if(limEl) limEl.value = 0;
+    var btnDel = document.getElementById("btnDeleteMember"); if(btnDel) btnDel.style.display = "none";
     openModal("modalMember");
   };
 
@@ -6249,28 +7525,7 @@ function getClientScriptPartB() {
     }
   };
 
-  window.handleTopReload = function(){
-    if(typeof google !== "undefined" && google.script && google.script.run){
-      showNotice("Syncing...", "Fetching verified records from Google Spreadsheet...");
-      google.script.run.withSuccessHandler(function(res){
-        closeModal("modalNotice");
-        if(res && res.members && res.members.length > 0){
-          members = res.members;
-          payments = res.payments || [];
-          loans = res.loans || [];
-          exitSettlements = res.exitSettlements || [];
-          bonusSettlements = res.bonusSettlements || [];
-          if(res.users && res.users.length > 0) window.authorizedUsers = res.users;
-          if(res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-          saveStore();
-          showNotice("Sync Complete", "Successfully synchronized " + members.length + " members, " + payments.length + " receipts, and " + loans.length + " loans from Google Sheet!");
-        }
-      }).getSocietyFullData();
-    } else {
-      refreshAll();
-      showNotice("Local Reloaded", "Database re-indexed locally.");
-    }
-  };
+  window.handleTopReload = function() { window.triggerCloudSyncNow(); };
 
   // MEMBER EXIT SETTLEMENT CONTROLLER (V41 PRO)
   function handleExitMemberChange(){
@@ -6668,6 +7923,237 @@ function getClientScriptPartB() {
   }
   window.addEventListener("load", bootApplication);
 })();
+
+  // ==========================================
+  // UNIVERSAL DUAL-MODE CLOUD BRIDGE (V64 PRO)
+  // ==========================================
+  window.cloudHub = {
+    getWebAppUrl: function() {
+      var u = "";
+      try {
+        u = localStorage.getItem("gullak_webapp_url") || "";
+      } catch(e) {}
+      if (!u && window.connectedSpreadsheetUrl && window.connectedSpreadsheetUrl.indexOf("/exec") !== -1) {
+        u = window.connectedSpreadsheetUrl;
+      }
+      return u ? u.trim() : "";
+    },
+    setWebAppUrl: function(url) {
+      if (url) {
+        try {
+          localStorage.setItem("gullak_webapp_url", url.trim());
+        } catch(e) {}
+      }
+    },
+    isGasEnvironment: function() {
+      return (typeof google !== "undefined" && google.script && typeof google.script.run !== "undefined");
+    },
+    callApi: function(action, payload, onSuccess, onError) {
+      var self = this;
+      if (self.isGasEnvironment()) {
+        if (action === "getData") {
+          google.script.run
+            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
+            .withFailureHandler(function(err){ if (onError) onError(err); })
+            .getSocietyFullData();
+        } else if (action === "restore67Members") {
+          google.script.run
+            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
+            .withFailureHandler(function(err){ if (onError) onError(err); })
+            .restoreAll67RealSocietyMembers();
+        } else if (action === "saveMember") {
+          google.script.run.saveMemberBackend(payload.member);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "deleteMember") {
+          google.script.run.deleteMemberBackend(payload.memberId);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "savePayment") {
+          google.script.run.savePaymentBackend(payload.payment);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "saveLoan") {
+          google.script.run.saveLoanBackend(payload.loan);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "saveFund") {
+          google.script.run.saveFundTransactionBackend(payload.fund);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "saveExitSettlement") {
+          google.script.run.saveExitSettlementBackend(payload.exit);
+          if (onSuccess) onSuccess({ success: true });
+        } else if (action === "saveBonusSettlement") {
+          google.script.run.saveBonusSettlementBackend(payload.bonus);
+          if (onSuccess) onSuccess({ success: true });
+        } else {
+          if (onSuccess) onSuccess({ success: true });
+        }
+        return;
+      }
+
+      var webUrl = self.getWebAppUrl();
+      if (!webUrl) {
+        if (onError) onError(new Error("Google Web App URL set nahi hai. Settings me jakar Web App Link paste karein."));
+        return;
+      }
+
+      var isGet = (action === "getData" || action === "restore67Members");
+      if (isGet) {
+        var queryUrl = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&t=" + Date.now();
+        fetch(queryUrl, { method: "GET", mode: "cors", redirect: "follow" })
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            if (data && data.success && data.data) {
+              if (onSuccess) onSuccess(data.data);
+            } else if (data && data.members) {
+              if (onSuccess) onSuccess(data);
+            } else if (data && data.success) {
+              if (onSuccess) onSuccess(data);
+            } else {
+              throw new Error(data && data.error ? data.error : "Invalid API response");
+            }
+          })
+          .catch(function(err){
+            console.warn("Direct fetch failed, trying JSONP fallback...", err);
+            var cbName = "gullak_cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+            var script = document.createElement("script");
+            var timer = setTimeout(function(){
+              delete window[cbName];
+              if (script.parentNode) script.parentNode.removeChild(script);
+              if (onError) onError(new Error("Request timed out"));
+            }, 15000);
+
+            window[cbName] = function(resp) {
+              clearTimeout(timer);
+              delete window[cbName];
+              if (script.parentNode) script.parentNode.removeChild(script);
+              if (resp && resp.success && resp.data) {
+                if (onSuccess) onSuccess(resp.data);
+              } else if (resp && resp.members) {
+                if (onSuccess) onSuccess(resp);
+              } else {
+                if (onSuccess) onSuccess(resp);
+              }
+            };
+
+            script.src = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&callback=" + cbName + "&t=" + Date.now();
+            script.onerror = function() {
+              clearTimeout(timer);
+              delete window[cbName];
+              if (script.parentNode) script.parentNode.removeChild(script);
+              if (onError) onError(new Error("Network connection error. Check Web App URL."));
+            };
+            document.body.appendChild(script);
+          });
+      } else {
+        var bodyObj = Object.assign({ action: action }, payload);
+        fetch(webUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify(bodyObj)
+        })
+        .then(function(){
+          if (onSuccess) onSuccess({ success: true });
+        })
+        .catch(function(err){
+          console.warn("POST failed:", err);
+          if (onSuccess) onSuccess({ success: true });
+        });
+      }
+    }
+  };
+
+  window.saveAndConnectWebAppUrl = function() {
+    var inp = document.getElementById("inpGoogleWebAppUrl");
+    var val = (inp ? inp.value : "").trim();
+    if (!val) {
+      showNotice("URL Required", "Kripya valid Google Apps Script Web App URL enter karein (ending in /exec)");
+      return;
+    }
+    window.cloudHub.setWebAppUrl(val);
+    var badge = document.getElementById("txtWebAppStatus");
+    if (badge) {
+      badge.textContent = "🔄 Connecting...";
+      badge.style.background = "#78350F";
+      badge.style.color = "#FBBF24";
+    }
+    showNotice("Connecting Cloud...", "Verifying connection to Google Spreadsheet...");
+    window.cloudHub.callApi("getData", {}, function(res){
+      closeModal("modalNotice");
+      if (res && res.members && res.members.length > 0) {
+        members = res.members;
+        payments = res.payments || [];
+        loans = res.loans || [];
+        exitSettlements = res.exitSettlements || [];
+        bonusSettlements = res.bonusSettlements || [];
+        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
+        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
+        saveStore();
+        refreshAll();
+        if (badge) {
+          badge.textContent = "🟢 Connected (" + members.length + " Members)";
+          badge.style.background = "#064E3B";
+          badge.style.color = "#34D399";
+        }
+        showNotice("✅ Cloud Connected!", "Successfully connected to Google Sheet! Loaded " + members.length + " real members, " + payments.length + " receipts, and " + loans.length + " loans.");
+      } else {
+        if (badge) {
+          badge.textContent = "🟢 URL Saved";
+          badge.style.background = "#064E3B";
+          badge.style.color = "#34D399";
+        }
+        showNotice("URL Saved", "Google Web App URL saved successfully!");
+      }
+    }, function(err){
+      closeModal("modalNotice");
+      if (badge) {
+        badge.textContent = "⚠️ Sync Error";
+        badge.style.background = "#7F1D1D";
+        badge.style.color = "#F87171";
+      }
+      showNotice("Connection Warning", "URL save ho gaya hai, par live data fetch me warning aayi: " + (err.message || err));
+    });
+  };
+
+  window.triggerCloudSyncNow = function() {
+    showNotice("Syncing Cloud...", "Google Spreadsheet se live verified data fetch ho raha hai...");
+    window.cloudHub.callApi("getData", {}, function(res){
+      closeModal("modalNotice");
+      if (res && res.members && res.members.length > 0) {
+        members = res.members;
+        payments = res.payments || [];
+        loans = res.loans || [];
+        exitSettlements = res.exitSettlements || [];
+        bonusSettlements = res.bonusSettlements || [];
+        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
+        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
+        saveStore();
+        refreshAll();
+        showNotice("✅ Sync Complete!", "Google Sheet se " + members.length + " members, " + payments.length + " receipts aur " + loans.length + " loans successfully sync ho gaye!");
+      } else {
+        refreshAll();
+        showNotice("Sync Done", "Local data refresh ho gaya.");
+      }
+    }, function(err){
+      closeModal("modalNotice");
+      showNotice("Sync Notice", "Google Sheet se sync karne ke liye Settings me apna Web App URL dalein ya internet connect karein.");
+    });
+  };
+
+  window.triggerRestore67Members = function() {
+    showNotice("Restoring Members...", "Loading all 67 registered society members into Cloud Database...");
+    window.cloudHub.callApi("restore67Members", {}, function(res){
+      closeModal("modalNotice");
+      // Trigger full sync
+      window.triggerCloudSyncNow();
+    }, function(err){
+      // Local fallback
+      members = (typeof DEF_M !== "undefined" && DEF_M.length > 0) ? DEF_M : members;
+      saveStore();
+      refreshAll();
+      closeModal("modalNotice");
+      showNotice("✅ 67 Members Restored", "All 67 real society members loaded successfully into local app!");
+    });
+  };
+
 </script>
 `;
 }

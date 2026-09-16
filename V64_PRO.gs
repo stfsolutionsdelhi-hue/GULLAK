@@ -1,4 +1,4 @@
-/**\n * 🏦 GULLAK CO-OPERATIVE SOCIETY - BACKEND CONTROLLER (V64 PRO MASTER)\n * Standardized Sheets + Dual-Mode Cloud Sync Engine + 67 Real Members + Strict Sheet Protection\n */\n\n/**
+/**
  * 🏦 GULLAK CO-OPERATIVE SOCIETY - BACKEND CONTROLLER (V41 PRO MASTER)
  * Standardized Sheets + Auto-Cleanup + Strict ID Formats + Sheet Protection ('Password') + Users Auth
  */
@@ -933,7 +933,9 @@ function getSocietyFullDataWithoutFinSync() {
           customLimit: Math.round(Number(getValByHeader(r, mMap, ["custom loan limit (₹)", "custom limit"], 10, 0))) || 0,
           opLoan: Math.round(Number(getValByHeader(r, mMap, ["opening loan (₹)", "op loan"], 11, 0))) || 0,
           opInt: Math.round(Number(getValByHeader(r, mMap, ["opening int (₹)", "op int"], 12, 0))) || 0,
-          opPen: Math.round(Number(getValByHeader(r, mMap, ["opening pen (₹)", "op pen"], 13, 0))) || 0
+          opPen: Math.round(Number(getValByHeader(r, mMap, ["opening pen (₹)", "op pen"], 13, 0))) || 0,
+          loginPin: String(getValByHeader(r, mMap, ["app pin", "login pin", "pin"], 14, "1234")).trim() || "1234",
+          pin: String(getValByHeader(r, mMap, ["app pin", "login pin", "pin"], 14, "1234")).trim() || "1234"
         };
 
         var existingIdx = -1;
@@ -1198,8 +1200,8 @@ function saveMemberBackend(m) {
     var ss = SpreadsheetApp.getActiveSpreadsheet(); if (!ss) return { success: true };
     var sheet = ss.getSheetByName("Members"); if (!sheet) { installAndRunDatabase(); sheet = ss.getSheetByName("Members"); }
     
-    // Ensure sufficient columns
-    var reqCols = 14;
+    // Ensure sufficient columns (15 columns for App PIN)
+    var reqCols = 15;
     if (sheet.getMaxColumns() < reqCols) {
       sheet.insertColumnsAfter(sheet.getMaxColumns(), reqCols - sheet.getMaxColumns());
     }
@@ -1209,6 +1211,7 @@ function saveMemberBackend(m) {
     var safeOpRd = Math.round(Number(m.rdPaid)) || 0;
     var rawSt = String(m.status || "ACTIVE").trim().toUpperCase();
     var safeStatus = (rawSt === "INACTIVE" || rawSt === "IN-ACTIVE" || rawSt === "DEACTIVE" || rawSt === "DEACTIVATED") ? "INACTIVE" : "ACTIVE";
+    var safePin = String(m.loginPin || m.pin || "1234").trim() || "1234";
 
     var rowVals = [
       String(m.id || "").trim(),
@@ -1224,7 +1227,8 @@ function saveMemberBackend(m) {
       Math.round(Number(m.customLimit)) || 0,
       Math.round(Number(m.opLoan)) || 0,
       Math.round(Number(m.opInt)) || 0,
-      Math.round(Number(m.opPen)) || 0
+      Math.round(Number(m.opPen)) || 0,
+      safePin
     ];
 
     var updated = false;
@@ -1233,7 +1237,7 @@ function saveMemberBackend(m) {
     var cleanTargetMobile = String(m.mobile || "").trim();
 
     if (lastRow > 1) {
-      var lastCol = Math.max(sheet.getLastColumn(), 14);
+      var lastCol = Math.max(sheet.getLastColumn(), 15);
       var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
       var mMap = buildHeaderMap(sheet);
       
@@ -1258,7 +1262,7 @@ function saveMemberBackend(m) {
 
         if (isMatch) {
           var targetRowNum = i + 2;
-          sheet.getRange(targetRowNum, 1, 1, 14).setValues([rowVals]);
+          sheet.getRange(targetRowNum, 1, 1, 15).setValues([rowVals]);
           sheet.getRange(targetRowNum, statusColIdx + 1).setValue(safeStatus);
           updated = true;
         }
@@ -1272,6 +1276,44 @@ function saveMemberBackend(m) {
     SpreadsheetApp.flush();
     return { success: true, member: m };
   } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+function updateMemberPinBackend(memberId, pin) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); if (!ss) return { success: false, error: "Spreadsheet not found" };
+    var sheet = ss.getSheetByName("Members"); if (!sheet) return { success: false, error: "Members sheet not found" };
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return { success: false, error: "No members in sheet" };
+
+    var safePin = String(pin || "1234").trim() || "1234";
+    var cleanTargetId = String(memberId || "").trim().toUpperCase();
+    var lastCol = Math.max(sheet.getLastColumn(), 15);
+    var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var mMap = buildHeaderMap(sheet);
+    var idColIdx = (mMap.hasOwnProperty("member id") ? mMap["member id"] : (mMap.hasOwnProperty("id") ? mMap["id"] : 0));
+    var mobColIdx = (mMap.hasOwnProperty("mobile number") ? mMap["mobile number"] : (mMap.hasOwnProperty("mobile") ? mMap["mobile"] : 2));
+    var pinColIdx = (mMap.hasOwnProperty("app pin") ? mMap["app pin"] : (mMap.hasOwnProperty("login pin") ? mMap["login pin"] : (mMap.hasOwnProperty("pin") ? mMap["pin"] : 14)));
+
+    if (sheet.getMaxColumns() < pinColIdx + 1) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), (pinColIdx + 1) - sheet.getMaxColumns());
+    }
+
+    var updated = false;
+    for (var i = 0; i < allData.length; i++) {
+      var rowId = String(allData[i][idColIdx] || "").trim().toUpperCase();
+      var rowMob = String(allData[i][mobColIdx] || "").trim();
+      if ((cleanTargetId && rowId === cleanTargetId) || (cleanTargetId && rowMob === cleanTargetId)) {
+        sheet.getRange(i + 2, pinColIdx + 1).setValue(safePin);
+        sheet.getRange(i + 2, pinColIdx + 1).setNumberFormat('@');
+        updated = true;
+        break;
+      }
+    }
+    SpreadsheetApp.flush();
+    return { success: true, updated: updated, memberId: memberId, pin: safePin };
+  } catch(e) {
     return { success: false, error: e.toString() };
   }
 }
@@ -1423,6 +1465,10 @@ function handleApiRequest(params, postData) {
     } else if (action === 'deleteMember') {
       var memId = (postData && postData.memberId) || (params && params.memberId);
       result = deleteMemberBackend(memId);
+    } else if (action === 'updatePin' || action === 'updateMemberPin') {
+      var mId = (postData && (postData.id || postData.memberId)) || (params && (params.id || params.memberId));
+      var mPin = (postData && (postData.pin || postData.loginPin)) || (params && (params.pin || params.loginPin));
+      result = updateMemberPinBackend(mId, mPin);
     } else if (action === 'savePayment') {
       var payObj = (postData && postData.payment) || (params && params.payment ? JSON.parse(params.payment) : null);
       result = savePaymentBackend(payObj);
@@ -2672,11 +2718,6 @@ function getMasterSheetPassword() {
 /**
  * 🔄 CASCADE MEMBER NAME UPDATE ACROSS ALL LINKED SHEETS
  */
-
-
-/**
- * 🔄 CASCADE MEMBER NAME UPDATE ACROSS ALL LINKED SHEETS
- */
 function cascadeMemberRenameAcrossSheets(ss, memberId, newName) {
   if (!ss || !memberId || !newName) return;
   var targetId = String(memberId).trim().toUpperCase();
@@ -2846,7 +2887,8 @@ function deleteMemberBackend(memberIdOrName) {
 function deleteLedgerBackend(ledgerNameOrId) {
   return deleteMemberBackend(ledgerNameOrId);
 }
-\n\nfunction getCompleteSoftwareHtmlContent() {
+
+function getCompleteSoftwareHtmlContent() {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3747,10 +3789,17 @@ function deleteLedgerBackend(ledgerNameOrId) {
       <div><label class="field-label">Joining Date</label><input type="date" id="inpNewMemJoinDate" class="field-ctrl" value="2026-01-01"></div>
       <div><label class="field-label">Monthly RD (₹) *</label><input type="number" step="1" id="inpNewMemRd" class="field-ctrl" value="400"></div>
     </div>
-    <div class="field-box">
-      <label class="field-label">Due Date (Every Month - Calendar Based) *</label>
-      <input type="date" id="inpNewMemDueDay" class="field-ctrl">
-      <small id="dispDueDayFormatted" style="color:#38BDF8; font-weight:600; margin-top:2px; display:block;"></small>
+    <div class="two-cols field-box">
+      <div>
+        <label class="field-label">Due Date (Every Month) *</label>
+        <input type="date" id="inpNewMemDueDay" class="field-ctrl">
+        <small id="dispDueDayFormatted" style="color:#38BDF8; font-weight:600; margin-top:2px; display:block;"></small>
+      </div>
+      <div>
+        <label class="field-label">App PIN (Live Sync) *</label>
+        <input type="text" id="inpNewMemPin" class="field-ctrl" maxlength="6" value="1234" placeholder="1234" style="font-weight:700; color:#FBBF24; letter-spacing:2px;">
+        <small style="color:#94A3B8; font-size:0.68rem; display:block; margin-top:2px;">Default 1234 (Editable & Synced)</small>
+      </div>
     </div>
     <div class="field-box">
       <label class="field-label">Address *</label>
@@ -4295,7 +4344,8 @@ function getCompleteSoftwareHtml() {
     getCompleteSoftwareClientScript() +
     "\n</body>\n</html>";
 }
-\n\nfunction getClientScriptPartA() {
+
+function getClientScriptPartA() {
   return `
 <script>
 // INITIAL AUTHENTICATION & LOGIN LOGIC
@@ -5326,7 +5376,8 @@ function getMemberTotalRd(m){
   }
 `;
 }
-\n\nfunction getClientScriptPartB() {
+
+function getClientScriptPartB() {
   return `
   // TAB 4: ANNUAL BONUS REGISTER WITH DYNAMIC SUBTOTALS
   function renderBonusTab(){
@@ -6271,8 +6322,6 @@ function getMemberTotalRd(m){
       document.getElementById("editMemId").value = "";
       var btnDel = document.getElementById("btnDeleteMember");
       if (btnDel) { btnDel.style.display = "none"; btnDel.removeAttribute("data-id"); }
-      var btnDel = document.getElementById("btnDeleteMember");
-      if (btnDel) { btnDel.style.display = "none"; btnDel.removeAttribute("data-id"); }
     var btnDel = document.getElementById("btnDeleteMember");
     if (btnDel) { btnDel.style.display = "none"; btnDel.removeAttribute("data-id"); }
       document.getElementById("lblMemberModalHead").innerText = "👤 Add New Member Profile";
@@ -6355,6 +6404,7 @@ function getMemberTotalRd(m){
       var skipPen = document.getElementById("chkSkipPenalty") ? document.getElementById("chkSkipPenalty").checked : true;
 
       if(!window.globalSettings) window.globalSettings = {};
+      window.globalSettings.defaultDueDay = globalDefaultDue;
       window.globalSettings.penaltyStartDate = penStart;
       window.globalSettings.skipPenalty = skipPen;
       saveStore();
@@ -6508,10 +6558,6 @@ function getMemberTotalRd(m){
           document.getElementById("lblMemberModalHead").innerText = "✏️ Edit Member: " + m.name + " (" + m.id + ")";
           var btnDel = document.getElementById("btnDeleteMember");
           if (btnDel) { btnDel.style.display = "inline-flex"; btnDel.setAttribute("data-id", m.id); }
-          var btnDel = document.getElementById("btnDeleteMember");
-          if (btnDel) { btnDel.style.display = "inline-flex"; btnDel.setAttribute("data-id", m.id); }
-          var btnDel = document.getElementById("btnDeleteMember");
-          if (btnDel) { btnDel.style.display = "inline-flex"; btnDel.setAttribute("data-id", m.id); }
           document.getElementById("inpNewMemName").value = m.name;
           document.getElementById("inpNewMemMobile").value = m.mobile;
           var rawSt = String(m.status || "ACTIVE").trim().toUpperCase();
@@ -6528,6 +6574,7 @@ function getMemberTotalRd(m){
           }
           document.getElementById("inpNewMemJoinDate").value = m.dateJoined;
           document.getElementById("inpNewMemRd").value = m.rd;
+          var pinEl = document.getElementById("inpNewMemPin"); if(pinEl) pinEl.value = m.loginPin || m.pin || "1234";
           var dueVal = m.dueDay || "";
           if(!dueVal || dueVal.indexOf("month") >= 0 || dueVal.indexOf("th") >= 0 || dueVal.length < 8){
             dueVal = getTodayYMD().substring(0,8) + "15";
@@ -6933,6 +6980,7 @@ function getMemberTotalRd(m){
       var jDate = document.getElementById("inpNewMemJoinDate").value || getTodayYMD();
       var rdVal = cleanRd(document.getElementById("inpNewMemRd").value);
       var dueDayVal = document.getElementById("inpNewMemDueDay").value || "15th of every month";
+      var pinVal = (document.getElementById("inpNewMemPin") ? document.getElementById("inpNewMemPin").value.trim() : "1234") || "1234";
       var addr = document.getElementById("inpNewMemAddress").value.trim();
       var nom = document.getElementById("inpNewMemNominee").value.trim();
 
@@ -6974,6 +7022,8 @@ function getMemberTotalRd(m){
         dateJoined: jDate,
         rdPaid: opRd,
         dueDay: dueDayVal,
+        loginPin: pinVal,
+        pin: pinVal,
         customLimit: custLim,
         opLoan: opLoan,
         opInt: opInt,
@@ -7193,9 +7243,23 @@ function getMemberTotalRd(m){
     var stEl = document.getElementById("inpNewMemStatus"); if(stEl) stEl.value = "ACTIVE";
     var jDateEl = document.getElementById("inpNewMemJoinDate"); if(jDateEl) jDateEl.value = getTodayYMD();
     var rdEl = document.getElementById("inpNewMemRd"); if(rdEl) rdEl.value = 400;
-    var defDue = getTodayYMD().substring(0,8) + "15";
+
+    // Auto-populate Due Date from Global Settings (saved in globalSettings / globalDefaultDue)
+    var rawGlobalDue = (window.globalSettings && window.globalSettings.defaultDueDay) ? window.globalSettings.defaultDueDay : (typeof globalDefaultDue !== 'undefined' ? globalDefaultDue : "15th of every month");
+    var dueDayNum = 15;
+    var mMatch = String(rawGlobalDue).match(/\d+/);
+    if(mMatch) {
+      dueDayNum = parseInt(mMatch[0], 10);
+      if(dueDayNum < 1 || dueDayNum > 31) dueDayNum = 15;
+    }
+    var paddedDay = (dueDayNum < 10 ? "0" : "") + dueDayNum;
+    var defDue = getTodayYMD().substring(0,8) + paddedDay;
     var dueEl = document.getElementById("inpNewMemDueDay"); if(dueEl) dueEl.value = defDue;
     var dueFmt = document.getElementById("dispDueDayFormatted"); if(dueFmt) dueFmt.innerText = "(" + toDisplayDate(defDue) + ")";
+
+    // App PIN column
+    var pinEl = document.getElementById("inpNewMemPin"); if(pinEl) pinEl.value = "1234";
+
     var addrEl = document.getElementById("inpNewMemAddress"); if(addrEl) addrEl.value = "";
     var nomEl = document.getElementById("inpNewMemNominee"); if(nomEl) nomEl.value = "";
     var balEl = document.getElementById("inpNewMemBal"); if(balEl) balEl.value = 0;
@@ -7203,6 +7267,7 @@ function getMemberTotalRd(m){
     var opIntEl = document.getElementById("inpNewMemOpInt"); if(opIntEl) opIntEl.value = 0;
     var opPenEl = document.getElementById("inpNewMemOpPen"); if(opPenEl) opPenEl.value = 0;
     var limEl = document.getElementById("inpNewMemCustomLimit"); if(limEl) limEl.value = 0;
+    var btnDel = document.getElementById("btnDeleteMember"); if(btnDel) btnDel.style.display = "none";
     openModal("modalMember");
   };
 
@@ -8089,699 +8154,6 @@ function getMemberTotalRd(m){
     });
   };
 
-
-  // ==========================================
-  // UNIVERSAL DUAL-MODE CLOUD BRIDGE (V64 PRO)
-  // ==========================================
-  window.cloudHub = {
-    getWebAppUrl: function() {
-      var u = "";
-      try {
-        u = localStorage.getItem("gullak_webapp_url") || "";
-      } catch(e) {}
-      if (!u && window.connectedSpreadsheetUrl && window.connectedSpreadsheetUrl.indexOf("/exec") !== -1) {
-        u = window.connectedSpreadsheetUrl;
-      }
-      return u ? u.trim() : "";
-    },
-    setWebAppUrl: function(url) {
-      if (url) {
-        try {
-          localStorage.setItem("gullak_webapp_url", url.trim());
-        } catch(e) {}
-      }
-    },
-    isGasEnvironment: function() {
-      return (typeof google !== "undefined" && google.script && typeof google.script.run !== "undefined");
-    },
-    callApi: function(action, payload, onSuccess, onError) {
-      var self = this;
-      if (self.isGasEnvironment()) {
-        if (action === "getData") {
-          google.script.run
-            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
-            .withFailureHandler(function(err){ if (onError) onError(err); })
-            .getSocietyFullData();
-        } else if (action === "restore67Members") {
-          google.script.run
-            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
-            .withFailureHandler(function(err){ if (onError) onError(err); })
-            .restoreAll67RealSocietyMembers();
-        } else if (action === "saveMember") {
-          google.script.run.saveMemberBackend(payload.member);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "deleteMember") {
-          google.script.run.deleteMemberBackend(payload.memberId);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "savePayment") {
-          google.script.run.savePaymentBackend(payload.payment);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveLoan") {
-          google.script.run.saveLoanBackend(payload.loan);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveFund") {
-          google.script.run.saveFundTransactionBackend(payload.fund);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveExitSettlement") {
-          google.script.run.saveExitSettlementBackend(payload.exit);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveBonusSettlement") {
-          google.script.run.saveBonusSettlementBackend(payload.bonus);
-          if (onSuccess) onSuccess({ success: true });
-        } else {
-          if (onSuccess) onSuccess({ success: true });
-        }
-        return;
-      }
-
-      var webUrl = self.getWebAppUrl();
-      if (!webUrl) {
-        if (onError) onError(new Error("Google Web App URL set nahi hai. Settings me jakar Web App Link paste karein."));
-        return;
-      }
-
-      var isGet = (action === "getData" || action === "restore67Members");
-      if (isGet) {
-        var queryUrl = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&t=" + Date.now();
-        fetch(queryUrl, { method: "GET", mode: "cors", redirect: "follow" })
-          .then(function(r){ return r.json(); })
-          .then(function(data){
-            if (data && data.success && data.data) {
-              if (onSuccess) onSuccess(data.data);
-            } else if (data && data.members) {
-              if (onSuccess) onSuccess(data);
-            } else if (data && data.success) {
-              if (onSuccess) onSuccess(data);
-            } else {
-              throw new Error(data && data.error ? data.error : "Invalid API response");
-            }
-          })
-          .catch(function(err){
-            console.warn("Direct fetch failed, trying JSONP fallback...", err);
-            var cbName = "gullak_cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-            var script = document.createElement("script");
-            var timer = setTimeout(function(){
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (onError) onError(new Error("Request timed out"));
-            }, 15000);
-
-            window[cbName] = function(resp) {
-              clearTimeout(timer);
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (resp && resp.success && resp.data) {
-                if (onSuccess) onSuccess(resp.data);
-              } else if (resp && resp.members) {
-                if (onSuccess) onSuccess(resp);
-              } else {
-                if (onSuccess) onSuccess(resp);
-              }
-            };
-
-            script.src = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&callback=" + cbName + "&t=" + Date.now();
-            script.onerror = function() {
-              clearTimeout(timer);
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (onError) onError(new Error("Network connection error. Check Web App URL."));
-            };
-            document.body.appendChild(script);
-          });
-      } else {
-        var bodyObj = Object.assign({ action: action }, payload);
-        fetch(webUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify(bodyObj)
-        })
-        .then(function(){
-          if (onSuccess) onSuccess({ success: true });
-        })
-        .catch(function(err){
-          console.warn("POST failed:", err);
-          if (onSuccess) onSuccess({ success: true });
-        });
-      }
-    }
-  };
-
-  window.saveAndConnectWebAppUrl = function() {
-    var inp = document.getElementById("inpGoogleWebAppUrl");
-    var val = (inp ? inp.value : "").trim();
-    if (!val) {
-      showNotice("URL Required", "Kripya valid Google Apps Script Web App URL enter karein (ending in /exec)");
-      return;
-    }
-    window.cloudHub.setWebAppUrl(val);
-    var badge = document.getElementById("txtWebAppStatus");
-    if (badge) {
-      badge.textContent = "🔄 Connecting...";
-      badge.style.background = "#78350F";
-      badge.style.color = "#FBBF24";
-    }
-    showNotice("Connecting Cloud...", "Verifying connection to Google Spreadsheet...");
-    window.cloudHub.callApi("getData", {}, function(res){
-      closeModal("modalNotice");
-      if (res && res.members && res.members.length > 0) {
-        members = res.members;
-        payments = res.payments || [];
-        loans = res.loans || [];
-        exitSettlements = res.exitSettlements || [];
-        bonusSettlements = res.bonusSettlements || [];
-        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
-        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-        saveStore();
-        refreshAll();
-        if (badge) {
-          badge.textContent = "🟢 Connected (" + members.length + " Members)";
-          badge.style.background = "#064E3B";
-          badge.style.color = "#34D399";
-        }
-        showNotice("✅ Cloud Connected!", "Successfully connected to Google Sheet! Loaded " + members.length + " real members, " + payments.length + " receipts, and " + loans.length + " loans.");
-      } else {
-        if (badge) {
-          badge.textContent = "🟢 URL Saved";
-          badge.style.background = "#064E3B";
-          badge.style.color = "#34D399";
-        }
-        showNotice("URL Saved", "Google Web App URL saved successfully!");
-      }
-    }, function(err){
-      closeModal("modalNotice");
-      if (badge) {
-        badge.textContent = "⚠️ Sync Error";
-        badge.style.background = "#7F1D1D";
-        badge.style.color = "#F87171";
-      }
-      showNotice("Connection Warning", "URL save ho gaya hai, par live data fetch me warning aayi: " + (err.message || err));
-    });
-  };
-
-  window.triggerCloudSyncNow = function() {
-    showNotice("Syncing Cloud...", "Google Spreadsheet se live verified data fetch ho raha hai...");
-    window.cloudHub.callApi("getData", {}, function(res){
-      closeModal("modalNotice");
-      if (res && res.members && res.members.length > 0) {
-        members = res.members;
-        payments = res.payments || [];
-        loans = res.loans || [];
-        exitSettlements = res.exitSettlements || [];
-        bonusSettlements = res.bonusSettlements || [];
-        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
-        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-        saveStore();
-        refreshAll();
-        showNotice("✅ Sync Complete!", "Google Sheet se " + members.length + " members, " + payments.length + " receipts aur " + loans.length + " loans successfully sync ho gaye!");
-      } else {
-        refreshAll();
-        showNotice("Sync Done", "Local data refresh ho gaya.");
-      }
-    }, function(err){
-      closeModal("modalNotice");
-      showNotice("Sync Notice", "Google Sheet se sync karne ke liye Settings me apna Web App URL dalein ya internet connect karein.");
-    });
-  };
-
-  window.triggerRestore67Members = function() {
-    showNotice("Restoring Members...", "Loading all 67 registered society members into Cloud Database...");
-    window.cloudHub.callApi("restore67Members", {}, function(res){
-      closeModal("modalNotice");
-      // Trigger full sync
-      window.triggerCloudSyncNow();
-    }, function(err){
-      // Local fallback
-      members = (typeof DEF_M !== "undefined" && DEF_M.length > 0) ? DEF_M : members;
-      saveStore();
-      refreshAll();
-      closeModal("modalNotice");
-      showNotice("✅ 67 Members Restored", "All 67 real society members loaded successfully into local app!");
-    });
-  };
-
-
-  // ==========================================
-  // UNIVERSAL DUAL-MODE CLOUD BRIDGE (V64 PRO)
-  // ==========================================
-  window.cloudHub = {
-    getWebAppUrl: function() {
-      var u = "";
-      try {
-        u = localStorage.getItem("gullak_webapp_url") || "";
-      } catch(e) {}
-      if (!u && window.connectedSpreadsheetUrl && window.connectedSpreadsheetUrl.indexOf("/exec") !== -1) {
-        u = window.connectedSpreadsheetUrl;
-      }
-      return u ? u.trim() : "";
-    },
-    setWebAppUrl: function(url) {
-      if (url) {
-        try {
-          localStorage.setItem("gullak_webapp_url", url.trim());
-        } catch(e) {}
-      }
-    },
-    isGasEnvironment: function() {
-      return (typeof google !== "undefined" && google.script && typeof google.script.run !== "undefined");
-    },
-    callApi: function(action, payload, onSuccess, onError) {
-      var self = this;
-      if (self.isGasEnvironment()) {
-        if (action === "getData") {
-          google.script.run
-            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
-            .withFailureHandler(function(err){ if (onError) onError(err); })
-            .getSocietyFullData();
-        } else if (action === "restore67Members") {
-          google.script.run
-            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
-            .withFailureHandler(function(err){ if (onError) onError(err); })
-            .restoreAll67RealSocietyMembers();
-        } else if (action === "saveMember") {
-          google.script.run.saveMemberBackend(payload.member);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "deleteMember") {
-          google.script.run.deleteMemberBackend(payload.memberId);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "savePayment") {
-          google.script.run.savePaymentBackend(payload.payment);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveLoan") {
-          google.script.run.saveLoanBackend(payload.loan);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveFund") {
-          google.script.run.saveFundTransactionBackend(payload.fund);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveExitSettlement") {
-          google.script.run.saveExitSettlementBackend(payload.exit);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveBonusSettlement") {
-          google.script.run.saveBonusSettlementBackend(payload.bonus);
-          if (onSuccess) onSuccess({ success: true });
-        } else {
-          if (onSuccess) onSuccess({ success: true });
-        }
-        return;
-      }
-
-      var webUrl = self.getWebAppUrl();
-      if (!webUrl) {
-        if (onError) onError(new Error("Google Web App URL set nahi hai. Settings me jakar Web App Link paste karein."));
-        return;
-      }
-
-      var isGet = (action === "getData" || action === "restore67Members");
-      if (isGet) {
-        var queryUrl = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&t=" + Date.now();
-        fetch(queryUrl, { method: "GET", mode: "cors", redirect: "follow" })
-          .then(function(r){ return r.json(); })
-          .then(function(data){
-            if (data && data.success && data.data) {
-              if (onSuccess) onSuccess(data.data);
-            } else if (data && data.members) {
-              if (onSuccess) onSuccess(data);
-            } else if (data && data.success) {
-              if (onSuccess) onSuccess(data);
-            } else {
-              throw new Error(data && data.error ? data.error : "Invalid API response");
-            }
-          })
-          .catch(function(err){
-            console.warn("Direct fetch failed, trying JSONP fallback...", err);
-            var cbName = "gullak_cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-            var script = document.createElement("script");
-            var timer = setTimeout(function(){
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (onError) onError(new Error("Request timed out"));
-            }, 15000);
-
-            window[cbName] = function(resp) {
-              clearTimeout(timer);
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (resp && resp.success && resp.data) {
-                if (onSuccess) onSuccess(resp.data);
-              } else if (resp && resp.members) {
-                if (onSuccess) onSuccess(resp);
-              } else {
-                if (onSuccess) onSuccess(resp);
-              }
-            };
-
-            script.src = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&callback=" + cbName + "&t=" + Date.now();
-            script.onerror = function() {
-              clearTimeout(timer);
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (onError) onError(new Error("Network connection error. Check Web App URL."));
-            };
-            document.body.appendChild(script);
-          });
-      } else {
-        var bodyObj = Object.assign({ action: action }, payload);
-        fetch(webUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify(bodyObj)
-        })
-        .then(function(){
-          if (onSuccess) onSuccess({ success: true });
-        })
-        .catch(function(err){
-          console.warn("POST failed:", err);
-          if (onSuccess) onSuccess({ success: true });
-        });
-      }
-    }
-  };
-
-  window.saveAndConnectWebAppUrl = function() {
-    var inp = document.getElementById("inpGoogleWebAppUrl");
-    var val = (inp ? inp.value : "").trim();
-    if (!val) {
-      showNotice("URL Required", "Kripya valid Google Apps Script Web App URL enter karein (ending in /exec)");
-      return;
-    }
-    window.cloudHub.setWebAppUrl(val);
-    var badge = document.getElementById("txtWebAppStatus");
-    if (badge) {
-      badge.textContent = "🔄 Connecting...";
-      badge.style.background = "#78350F";
-      badge.style.color = "#FBBF24";
-    }
-    showNotice("Connecting Cloud...", "Verifying connection to Google Spreadsheet...");
-    window.cloudHub.callApi("getData", {}, function(res){
-      closeModal("modalNotice");
-      if (res && res.members && res.members.length > 0) {
-        members = res.members;
-        payments = res.payments || [];
-        loans = res.loans || [];
-        exitSettlements = res.exitSettlements || [];
-        bonusSettlements = res.bonusSettlements || [];
-        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
-        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-        saveStore();
-        refreshAll();
-        if (badge) {
-          badge.textContent = "🟢 Connected (" + members.length + " Members)";
-          badge.style.background = "#064E3B";
-          badge.style.color = "#34D399";
-        }
-        showNotice("✅ Cloud Connected!", "Successfully connected to Google Sheet! Loaded " + members.length + " real members, " + payments.length + " receipts, and " + loans.length + " loans.");
-      } else {
-        if (badge) {
-          badge.textContent = "🟢 URL Saved";
-          badge.style.background = "#064E3B";
-          badge.style.color = "#34D399";
-        }
-        showNotice("URL Saved", "Google Web App URL saved successfully!");
-      }
-    }, function(err){
-      closeModal("modalNotice");
-      if (badge) {
-        badge.textContent = "⚠️ Sync Error";
-        badge.style.background = "#7F1D1D";
-        badge.style.color = "#F87171";
-      }
-      showNotice("Connection Warning", "URL save ho gaya hai, par live data fetch me warning aayi: " + (err.message || err));
-    });
-  };
-
-  window.triggerCloudSyncNow = function() {
-    showNotice("Syncing Cloud...", "Google Spreadsheet se live verified data fetch ho raha hai...");
-    window.cloudHub.callApi("getData", {}, function(res){
-      closeModal("modalNotice");
-      if (res && res.members && res.members.length > 0) {
-        members = res.members;
-        payments = res.payments || [];
-        loans = res.loans || [];
-        exitSettlements = res.exitSettlements || [];
-        bonusSettlements = res.bonusSettlements || [];
-        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
-        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-        saveStore();
-        refreshAll();
-        showNotice("✅ Sync Complete!", "Google Sheet se " + members.length + " members, " + payments.length + " receipts aur " + loans.length + " loans successfully sync ho gaye!");
-      } else {
-        refreshAll();
-        showNotice("Sync Done", "Local data refresh ho gaya.");
-      }
-    }, function(err){
-      closeModal("modalNotice");
-      showNotice("Sync Notice", "Google Sheet se sync karne ke liye Settings me apna Web App URL dalein ya internet connect karein.");
-    });
-  };
-
-  window.triggerRestore67Members = function() {
-    showNotice("Restoring Members...", "Loading all 67 registered society members into Cloud Database...");
-    window.cloudHub.callApi("restore67Members", {}, function(res){
-      closeModal("modalNotice");
-      // Trigger full sync
-      window.triggerCloudSyncNow();
-    }, function(err){
-      // Local fallback
-      members = (typeof DEF_M !== "undefined" && DEF_M.length > 0) ? DEF_M : members;
-      saveStore();
-      refreshAll();
-      closeModal("modalNotice");
-      showNotice("✅ 67 Members Restored", "All 67 real society members loaded successfully into local app!");
-    });
-  };
-
-
-  // ==========================================
-  // UNIVERSAL DUAL-MODE CLOUD BRIDGE (V64 PRO)
-  // ==========================================
-  window.cloudHub = {
-    getWebAppUrl: function() {
-      var u = "";
-      try {
-        u = localStorage.getItem("gullak_webapp_url") || "";
-      } catch(e) {}
-      if (!u && window.connectedSpreadsheetUrl && window.connectedSpreadsheetUrl.indexOf("/exec") !== -1) {
-        u = window.connectedSpreadsheetUrl;
-      }
-      return u ? u.trim() : "";
-    },
-    setWebAppUrl: function(url) {
-      if (url) {
-        try {
-          localStorage.setItem("gullak_webapp_url", url.trim());
-        } catch(e) {}
-      }
-    },
-    isGasEnvironment: function() {
-      return (typeof google !== "undefined" && google.script && typeof google.script.run !== "undefined");
-    },
-    callApi: function(action, payload, onSuccess, onError) {
-      var self = this;
-      if (self.isGasEnvironment()) {
-        if (action === "getData") {
-          google.script.run
-            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
-            .withFailureHandler(function(err){ if (onError) onError(err); })
-            .getSocietyFullData();
-        } else if (action === "restore67Members") {
-          google.script.run
-            .withSuccessHandler(function(res){ if (onSuccess) onSuccess(res); })
-            .withFailureHandler(function(err){ if (onError) onError(err); })
-            .restoreAll67RealSocietyMembers();
-        } else if (action === "saveMember") {
-          google.script.run.saveMemberBackend(payload.member);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "deleteMember") {
-          google.script.run.deleteMemberBackend(payload.memberId);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "savePayment") {
-          google.script.run.savePaymentBackend(payload.payment);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveLoan") {
-          google.script.run.saveLoanBackend(payload.loan);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveFund") {
-          google.script.run.saveFundTransactionBackend(payload.fund);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveExitSettlement") {
-          google.script.run.saveExitSettlementBackend(payload.exit);
-          if (onSuccess) onSuccess({ success: true });
-        } else if (action === "saveBonusSettlement") {
-          google.script.run.saveBonusSettlementBackend(payload.bonus);
-          if (onSuccess) onSuccess({ success: true });
-        } else {
-          if (onSuccess) onSuccess({ success: true });
-        }
-        return;
-      }
-
-      var webUrl = self.getWebAppUrl();
-      if (!webUrl) {
-        if (onError) onError(new Error("Google Web App URL set nahi hai. Settings me jakar Web App Link paste karein."));
-        return;
-      }
-
-      var isGet = (action === "getData" || action === "restore67Members");
-      if (isGet) {
-        var queryUrl = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&t=" + Date.now();
-        fetch(queryUrl, { method: "GET", mode: "cors", redirect: "follow" })
-          .then(function(r){ return r.json(); })
-          .then(function(data){
-            if (data && data.success && data.data) {
-              if (onSuccess) onSuccess(data.data);
-            } else if (data && data.members) {
-              if (onSuccess) onSuccess(data);
-            } else if (data && data.success) {
-              if (onSuccess) onSuccess(data);
-            } else {
-              throw new Error(data && data.error ? data.error : "Invalid API response");
-            }
-          })
-          .catch(function(err){
-            console.warn("Direct fetch failed, trying JSONP fallback...", err);
-            var cbName = "gullak_cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-            var script = document.createElement("script");
-            var timer = setTimeout(function(){
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (onError) onError(new Error("Request timed out"));
-            }, 15000);
-
-            window[cbName] = function(resp) {
-              clearTimeout(timer);
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (resp && resp.success && resp.data) {
-                if (onSuccess) onSuccess(resp.data);
-              } else if (resp && resp.members) {
-                if (onSuccess) onSuccess(resp);
-              } else {
-                if (onSuccess) onSuccess(resp);
-              }
-            };
-
-            script.src = webUrl + (webUrl.indexOf("?") === -1 ? "?" : "&") + "action=" + action + "&callback=" + cbName + "&t=" + Date.now();
-            script.onerror = function() {
-              clearTimeout(timer);
-              delete window[cbName];
-              if (script.parentNode) script.parentNode.removeChild(script);
-              if (onError) onError(new Error("Network connection error. Check Web App URL."));
-            };
-            document.body.appendChild(script);
-          });
-      } else {
-        var bodyObj = Object.assign({ action: action }, payload);
-        fetch(webUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify(bodyObj)
-        })
-        .then(function(){
-          if (onSuccess) onSuccess({ success: true });
-        })
-        .catch(function(err){
-          console.warn("POST failed:", err);
-          if (onSuccess) onSuccess({ success: true });
-        });
-      }
-    }
-  };
-
-  window.saveAndConnectWebAppUrl = function() {
-    var inp = document.getElementById("inpGoogleWebAppUrl");
-    var val = (inp ? inp.value : "").trim();
-    if (!val) {
-      showNotice("URL Required", "Kripya valid Google Apps Script Web App URL enter karein (ending in /exec)");
-      return;
-    }
-    window.cloudHub.setWebAppUrl(val);
-    var badge = document.getElementById("txtWebAppStatus");
-    if (badge) {
-      badge.textContent = "🔄 Connecting...";
-      badge.style.background = "#78350F";
-      badge.style.color = "#FBBF24";
-    }
-    showNotice("Connecting Cloud...", "Verifying connection to Google Spreadsheet...");
-    window.cloudHub.callApi("getData", {}, function(res){
-      closeModal("modalNotice");
-      if (res && res.members && res.members.length > 0) {
-        members = res.members;
-        payments = res.payments || [];
-        loans = res.loans || [];
-        exitSettlements = res.exitSettlements || [];
-        bonusSettlements = res.bonusSettlements || [];
-        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
-        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-        saveStore();
-        refreshAll();
-        if (badge) {
-          badge.textContent = "🟢 Connected (" + members.length + " Members)";
-          badge.style.background = "#064E3B";
-          badge.style.color = "#34D399";
-        }
-        showNotice("✅ Cloud Connected!", "Successfully connected to Google Sheet! Loaded " + members.length + " real members, " + payments.length + " receipts, and " + loans.length + " loans.");
-      } else {
-        if (badge) {
-          badge.textContent = "🟢 URL Saved";
-          badge.style.background = "#064E3B";
-          badge.style.color = "#34D399";
-        }
-        showNotice("URL Saved", "Google Web App URL saved successfully!");
-      }
-    }, function(err){
-      closeModal("modalNotice");
-      if (badge) {
-        badge.textContent = "⚠️ Sync Error";
-        badge.style.background = "#7F1D1D";
-        badge.style.color = "#F87171";
-      }
-      showNotice("Connection Warning", "URL save ho gaya hai, par live data fetch me warning aayi: " + (err.message || err));
-    });
-  };
-
-  window.triggerCloudSyncNow = function() {
-    showNotice("Syncing Cloud...", "Google Spreadsheet se live verified data fetch ho raha hai...");
-    window.cloudHub.callApi("getData", {}, function(res){
-      closeModal("modalNotice");
-      if (res && res.members && res.members.length > 0) {
-        members = res.members;
-        payments = res.payments || [];
-        loans = res.loans || [];
-        exitSettlements = res.exitSettlements || [];
-        bonusSettlements = res.bonusSettlements || [];
-        if (res.users && res.users.length > 0) window.authorizedUsers = res.users;
-        if (res.spreadsheetUrl) window.connectedSpreadsheetUrl = res.spreadsheetUrl;
-        saveStore();
-        refreshAll();
-        showNotice("✅ Sync Complete!", "Google Sheet se " + members.length + " members, " + payments.length + " receipts aur " + loans.length + " loans successfully sync ho gaye!");
-      } else {
-        refreshAll();
-        showNotice("Sync Done", "Local data refresh ho gaya.");
-      }
-    }, function(err){
-      closeModal("modalNotice");
-      showNotice("Sync Notice", "Google Sheet se sync karne ke liye Settings me apna Web App URL dalein ya internet connect karein.");
-    });
-  };
-
-  window.triggerRestore67Members = function() {
-    showNotice("Restoring Members...", "Loading all 67 registered society members into Cloud Database...");
-    window.cloudHub.callApi("restore67Members", {}, function(res){
-      closeModal("modalNotice");
-      // Trigger full sync
-      window.triggerCloudSyncNow();
-    }, function(err){
-      // Local fallback
-      members = (typeof DEF_M !== "undefined" && DEF_M.length > 0) ? DEF_M : members;
-      saveStore();
-      refreshAll();
-      closeModal("modalNotice");
-      showNotice("✅ 67 Members Restored", "All 67 real society members loaded successfully into local app!");
-    });
-  };
-
 </script>
 `;
 }
@@ -8789,4 +8161,3 @@ function getMemberTotalRd(m){
 function getCompleteSoftwareClientScript() {
   return getClientScriptPartA() + getClientScriptPartB();
 }
-\n\nfunction getCompleteSoftwareHtml() {\n  return getCompleteSoftwareHtmlContent() + getClientScriptPartA() + getClientScriptPartB();\n}\n

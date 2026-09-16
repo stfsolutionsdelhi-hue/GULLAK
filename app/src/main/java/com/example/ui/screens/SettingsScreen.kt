@@ -59,6 +59,7 @@ fun SettingsScreen(
     val appDownloadUrl by repository.appDownloadUrl.collectAsState()
     var isUrlEditUnlocked by remember { mutableStateOf(false) }
     var isAppDownloadUrlUnlocked by remember { mutableStateOf(false) }
+    var isAppDownloadSectionVisible by remember { mutableStateOf(false) }
     var inputAppDownloadUrl by remember(appDownloadUrl) { mutableStateOf(appDownloadUrl) }
 
     var inputUrl by remember(webAppUrl) { mutableStateOf(webAppUrl) }
@@ -463,68 +464,6 @@ fun SettingsScreen(
                                     Text("Save URL (2-Step Confirm)", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                 }
                             }
-                        }
-                    }
-
-                    // App Download URL (Protected)
-                    if (!isAppDownloadUrlUnlocked) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgDark,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("App Download URL (For Invite SMS)", color = TextSecondary, fontSize = 10.sp)
-                                    Text(inputAppDownloadUrl.ifEmpty { "https://gullaksociety.in/download" }, color = TextPrimary, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                }
-                                IconButton(
-                                    onClick = { isAppDownloadUrlUnlocked = true },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Edit Download URL", tint = AccentGold, modifier = Modifier.size(15.dp))
-                                }
-                            }
-                        }
-                    } else {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("App Download URL (For Invite SMS)", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                TextButton(onClick = { isAppDownloadUrlUnlocked = false }) {
-                                    Text("Done 🔒", color = PrimaryGreen, fontSize = 10.sp)
-                                }
-                            }
-                            OutlinedTextField(
-                                value = inputAppDownloadUrl,
-                                onValueChange = { 
-                                    inputAppDownloadUrl = it
-                                    repository.updateAppDownloadUrl(it)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("https://gullaksociety.in/download", color = TextMuted, fontSize = 11.sp) },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = PrimaryGreen,
-                                    unfocusedBorderColor = CardBorder,
-                                    focusedTextColor = AccentGold,
-                                    unfocusedTextColor = TextPrimary,
-                                    focusedContainerColor = BgDark,
-                                    unfocusedContainerColor = BgDark
-                                ),
-                                singleLine = true,
-                                shape = RoundedCornerShape(6.dp)
-                            )
                         }
                     }
 
@@ -1328,6 +1267,194 @@ fun SettingsScreen(
                             color = TextMuted,
                             fontSize = 9.sp
                         )
+                    }
+                }
+            }
+        }
+
+        // ================== CARD 6: APP DOWNLOAD & SHARE LINK (BOTTOM OF SETTINGS WITH SHOW/HIDE TOGGLE) ==================
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, CardBorder, RoundedCornerShape(10.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Download Link",
+                                tint = AccentGold,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "📲 App Download & Install Link",
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Used in Member SMS & WhatsApp Invites",
+                                    color = TextSecondary,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+
+                        // Show / Hide Toggle Button
+                        Surface(
+                            onClick = { isAppDownloadSectionVisible = !isAppDownloadSectionVisible },
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isAppDownloadSectionVisible) PrimaryGreenDark else Color(0xFF1E293B),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isAppDownloadSectionVisible) PrimaryGreen else CardBorder)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isAppDownloadSectionVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = "Toggle Visibility",
+                                    tint = if (isAppDownloadSectionVisible) PrimaryGreen else TextSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = if (isAppDownloadSectionVisible) "Hide 👁️" else "Show 👁️",
+                                    color = if (isAppDownloadSectionVisible) PrimaryGreen else TextSecondary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+
+                    if (isAppDownloadSectionVisible) {
+                        HorizontalDivider(color = CardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+                        if (!isAppDownloadUrlUnlocked) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgDark,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Current Download URL:", color = TextSecondary, fontSize = 10.sp)
+                                        Text(
+                                            text = inputAppDownloadUrl.ifEmpty { "https://gullaksociety.in/download" },
+                                            color = AccentGold,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { isAppDownloadUrlUnlocked = true },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Edit Download URL", tint = AccentGold, modifier = Modifier.size(15.dp))
+                                    }
+                                }
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Edit App Download URL", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    TextButton(onClick = { isAppDownloadUrlUnlocked = false }) {
+                                        Text("Done 🔒", color = PrimaryGreen, fontSize = 10.sp)
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = inputAppDownloadUrl,
+                                    onValueChange = {
+                                        inputAppDownloadUrl = it
+                                        repository.updateAppDownloadUrl(it)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    placeholder = { Text("https://gullaksociety.in/download", color = TextMuted, fontSize = 11.sp) },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = PrimaryGreen,
+                                        unfocusedBorderColor = CardBorder,
+                                        focusedTextColor = AccentGold,
+                                        unfocusedTextColor = TextPrimary,
+                                        focusedContainerColor = BgDark,
+                                        unfocusedContainerColor = BgDark
+                                    ),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(6.dp)
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = android.content.ClipData.newPlainText("App Download URL", inputAppDownloadUrl)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "App Download Link Copied! 📋", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f).height(34.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextPrimary, modifier = Modifier.size(13.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Copy Link", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    try {
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, "Download Gullak Society Android App: $inputAppDownloadUrl")
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share App Download Link"))
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Unable to share: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).height(34.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreenDark),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = "Share", tint = PrimaryGreen, modifier = Modifier.size(13.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Share Link 📲", color = PrimaryGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }

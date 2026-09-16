@@ -933,7 +933,9 @@ function getSocietyFullDataWithoutFinSync() {
           customLimit: Math.round(Number(getValByHeader(r, mMap, ["custom loan limit (₹)", "custom limit"], 10, 0))) || 0,
           opLoan: Math.round(Number(getValByHeader(r, mMap, ["opening loan (₹)", "op loan"], 11, 0))) || 0,
           opInt: Math.round(Number(getValByHeader(r, mMap, ["opening int (₹)", "op int"], 12, 0))) || 0,
-          opPen: Math.round(Number(getValByHeader(r, mMap, ["opening pen (₹)", "op pen"], 13, 0))) || 0
+          opPen: Math.round(Number(getValByHeader(r, mMap, ["opening pen (₹)", "op pen"], 13, 0))) || 0,
+          loginPin: String(getValByHeader(r, mMap, ["app pin", "login pin", "pin"], 14, "1234")).trim() || "1234",
+          pin: String(getValByHeader(r, mMap, ["app pin", "login pin", "pin"], 14, "1234")).trim() || "1234"
         };
 
         var existingIdx = -1;
@@ -1198,8 +1200,8 @@ function saveMemberBackend(m) {
     var ss = SpreadsheetApp.getActiveSpreadsheet(); if (!ss) return { success: true };
     var sheet = ss.getSheetByName("Members"); if (!sheet) { installAndRunDatabase(); sheet = ss.getSheetByName("Members"); }
     
-    // Ensure sufficient columns
-    var reqCols = 14;
+    // Ensure sufficient columns (15 columns for App PIN)
+    var reqCols = 15;
     if (sheet.getMaxColumns() < reqCols) {
       sheet.insertColumnsAfter(sheet.getMaxColumns(), reqCols - sheet.getMaxColumns());
     }
@@ -1209,6 +1211,7 @@ function saveMemberBackend(m) {
     var safeOpRd = Math.round(Number(m.rdPaid)) || 0;
     var rawSt = String(m.status || "ACTIVE").trim().toUpperCase();
     var safeStatus = (rawSt === "INACTIVE" || rawSt === "IN-ACTIVE" || rawSt === "DEACTIVE" || rawSt === "DEACTIVATED") ? "INACTIVE" : "ACTIVE";
+    var safePin = String(m.loginPin || m.pin || "1234").trim() || "1234";
 
     var rowVals = [
       String(m.id || "").trim(),
@@ -1224,7 +1227,8 @@ function saveMemberBackend(m) {
       Math.round(Number(m.customLimit)) || 0,
       Math.round(Number(m.opLoan)) || 0,
       Math.round(Number(m.opInt)) || 0,
-      Math.round(Number(m.opPen)) || 0
+      Math.round(Number(m.opPen)) || 0,
+      safePin
     ];
 
     var updated = false;
@@ -1233,7 +1237,7 @@ function saveMemberBackend(m) {
     var cleanTargetMobile = String(m.mobile || "").trim();
 
     if (lastRow > 1) {
-      var lastCol = Math.max(sheet.getLastColumn(), 14);
+      var lastCol = Math.max(sheet.getLastColumn(), 15);
       var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
       var mMap = buildHeaderMap(sheet);
       
@@ -1258,7 +1262,7 @@ function saveMemberBackend(m) {
 
         if (isMatch) {
           var targetRowNum = i + 2;
-          sheet.getRange(targetRowNum, 1, 1, 14).setValues([rowVals]);
+          sheet.getRange(targetRowNum, 1, 1, 15).setValues([rowVals]);
           sheet.getRange(targetRowNum, statusColIdx + 1).setValue(safeStatus);
           updated = true;
         }
@@ -1272,6 +1276,44 @@ function saveMemberBackend(m) {
     SpreadsheetApp.flush();
     return { success: true, member: m };
   } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+function updateMemberPinBackend(memberId, pin) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(); if (!ss) return { success: false, error: "Spreadsheet not found" };
+    var sheet = ss.getSheetByName("Members"); if (!sheet) return { success: false, error: "Members sheet not found" };
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return { success: false, error: "No members in sheet" };
+
+    var safePin = String(pin || "1234").trim() || "1234";
+    var cleanTargetId = String(memberId || "").trim().toUpperCase();
+    var lastCol = Math.max(sheet.getLastColumn(), 15);
+    var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var mMap = buildHeaderMap(sheet);
+    var idColIdx = (mMap.hasOwnProperty("member id") ? mMap["member id"] : (mMap.hasOwnProperty("id") ? mMap["id"] : 0));
+    var mobColIdx = (mMap.hasOwnProperty("mobile number") ? mMap["mobile number"] : (mMap.hasOwnProperty("mobile") ? mMap["mobile"] : 2));
+    var pinColIdx = (mMap.hasOwnProperty("app pin") ? mMap["app pin"] : (mMap.hasOwnProperty("login pin") ? mMap["login pin"] : (mMap.hasOwnProperty("pin") ? mMap["pin"] : 14)));
+
+    if (sheet.getMaxColumns() < pinColIdx + 1) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), (pinColIdx + 1) - sheet.getMaxColumns());
+    }
+
+    var updated = false;
+    for (var i = 0; i < allData.length; i++) {
+      var rowId = String(allData[i][idColIdx] || "").trim().toUpperCase();
+      var rowMob = String(allData[i][mobColIdx] || "").trim();
+      if ((cleanTargetId && rowId === cleanTargetId) || (cleanTargetId && rowMob === cleanTargetId)) {
+        sheet.getRange(i + 2, pinColIdx + 1).setValue(safePin);
+        sheet.getRange(i + 2, pinColIdx + 1).setNumberFormat('@');
+        updated = true;
+        break;
+      }
+    }
+    SpreadsheetApp.flush();
+    return { success: true, updated: updated, memberId: memberId, pin: safePin };
+  } catch(e) {
     return { success: false, error: e.toString() };
   }
 }
@@ -1423,6 +1465,10 @@ function handleApiRequest(params, postData) {
     } else if (action === 'deleteMember') {
       var memId = (postData && postData.memberId) || (params && params.memberId);
       result = deleteMemberBackend(memId);
+    } else if (action === 'updatePin' || action === 'updateMemberPin') {
+      var mId = (postData && (postData.id || postData.memberId)) || (params && (params.id || params.memberId));
+      var mPin = (postData && (postData.pin || postData.loginPin)) || (params && (params.pin || params.loginPin));
+      result = updateMemberPinBackend(mId, mPin);
     } else if (action === 'savePayment') {
       var payObj = (postData && postData.payment) || (params && params.payment ? JSON.parse(params.payment) : null);
       result = savePaymentBackend(payObj);
@@ -3743,10 +3789,17 @@ function getCompleteSoftwareHtmlContent() {
       <div><label class="field-label">Joining Date</label><input type="date" id="inpNewMemJoinDate" class="field-ctrl" value="2026-01-01"></div>
       <div><label class="field-label">Monthly RD (₹) *</label><input type="number" step="1" id="inpNewMemRd" class="field-ctrl" value="400"></div>
     </div>
-    <div class="field-box">
-      <label class="field-label">Due Date (Every Month - Calendar Based) *</label>
-      <input type="date" id="inpNewMemDueDay" class="field-ctrl">
-      <small id="dispDueDayFormatted" style="color:#38BDF8; font-weight:600; margin-top:2px; display:block;"></small>
+    <div class="two-cols field-box">
+      <div>
+        <label class="field-label">Due Date (Every Month) *</label>
+        <input type="date" id="inpNewMemDueDay" class="field-ctrl">
+        <small id="dispDueDayFormatted" style="color:#38BDF8; font-weight:600; margin-top:2px; display:block;"></small>
+      </div>
+      <div>
+        <label class="field-label">App PIN (Live Sync) *</label>
+        <input type="text" id="inpNewMemPin" class="field-ctrl" maxlength="6" value="1234" placeholder="1234" style="font-weight:700; color:#FBBF24; letter-spacing:2px;">
+        <small style="color:#94A3B8; font-size:0.68rem; display:block; margin-top:2px;">Default 1234 (Editable & Synced)</small>
+      </div>
     </div>
     <div class="field-box">
       <label class="field-label">Address *</label>
@@ -6351,6 +6404,7 @@ function getClientScriptPartB() {
       var skipPen = document.getElementById("chkSkipPenalty") ? document.getElementById("chkSkipPenalty").checked : true;
 
       if(!window.globalSettings) window.globalSettings = {};
+      window.globalSettings.defaultDueDay = globalDefaultDue;
       window.globalSettings.penaltyStartDate = penStart;
       window.globalSettings.skipPenalty = skipPen;
       saveStore();
@@ -6520,6 +6574,7 @@ function getClientScriptPartB() {
           }
           document.getElementById("inpNewMemJoinDate").value = m.dateJoined;
           document.getElementById("inpNewMemRd").value = m.rd;
+          var pinEl = document.getElementById("inpNewMemPin"); if(pinEl) pinEl.value = m.loginPin || m.pin || "1234";
           var dueVal = m.dueDay || "";
           if(!dueVal || dueVal.indexOf("month") >= 0 || dueVal.indexOf("th") >= 0 || dueVal.length < 8){
             dueVal = getTodayYMD().substring(0,8) + "15";
@@ -6925,6 +6980,7 @@ function getClientScriptPartB() {
       var jDate = document.getElementById("inpNewMemJoinDate").value || getTodayYMD();
       var rdVal = cleanRd(document.getElementById("inpNewMemRd").value);
       var dueDayVal = document.getElementById("inpNewMemDueDay").value || "15th of every month";
+      var pinVal = (document.getElementById("inpNewMemPin") ? document.getElementById("inpNewMemPin").value.trim() : "1234") || "1234";
       var addr = document.getElementById("inpNewMemAddress").value.trim();
       var nom = document.getElementById("inpNewMemNominee").value.trim();
 
@@ -6966,6 +7022,8 @@ function getClientScriptPartB() {
         dateJoined: jDate,
         rdPaid: opRd,
         dueDay: dueDayVal,
+        loginPin: pinVal,
+        pin: pinVal,
         customLimit: custLim,
         opLoan: opLoan,
         opInt: opInt,
@@ -7185,9 +7243,23 @@ function getClientScriptPartB() {
     var stEl = document.getElementById("inpNewMemStatus"); if(stEl) stEl.value = "ACTIVE";
     var jDateEl = document.getElementById("inpNewMemJoinDate"); if(jDateEl) jDateEl.value = getTodayYMD();
     var rdEl = document.getElementById("inpNewMemRd"); if(rdEl) rdEl.value = 400;
-    var defDue = getTodayYMD().substring(0,8) + "15";
+
+    // Auto-populate Due Date from Global Settings (saved in globalSettings / globalDefaultDue)
+    var rawGlobalDue = (window.globalSettings && window.globalSettings.defaultDueDay) ? window.globalSettings.defaultDueDay : (typeof globalDefaultDue !== 'undefined' ? globalDefaultDue : "15th of every month");
+    var dueDayNum = 15;
+    var mMatch = String(rawGlobalDue).match(/\d+/);
+    if(mMatch) {
+      dueDayNum = parseInt(mMatch[0], 10);
+      if(dueDayNum < 1 || dueDayNum > 31) dueDayNum = 15;
+    }
+    var paddedDay = (dueDayNum < 10 ? "0" : "") + dueDayNum;
+    var defDue = getTodayYMD().substring(0,8) + paddedDay;
     var dueEl = document.getElementById("inpNewMemDueDay"); if(dueEl) dueEl.value = defDue;
     var dueFmt = document.getElementById("dispDueDayFormatted"); if(dueFmt) dueFmt.innerText = "(" + toDisplayDate(defDue) + ")";
+
+    // App PIN column
+    var pinEl = document.getElementById("inpNewMemPin"); if(pinEl) pinEl.value = "1234";
+
     var addrEl = document.getElementById("inpNewMemAddress"); if(addrEl) addrEl.value = "";
     var nomEl = document.getElementById("inpNewMemNominee"); if(nomEl) nomEl.value = "";
     var balEl = document.getElementById("inpNewMemBal"); if(balEl) balEl.value = 0;
@@ -7195,6 +7267,7 @@ function getClientScriptPartB() {
     var opIntEl = document.getElementById("inpNewMemOpInt"); if(opIntEl) opIntEl.value = 0;
     var opPenEl = document.getElementById("inpNewMemOpPen"); if(opPenEl) opPenEl.value = 0;
     var limEl = document.getElementById("inpNewMemCustomLimit"); if(limEl) limEl.value = 0;
+    var btnDel = document.getElementById("btnDeleteMember"); if(btnDel) btnDel.style.display = "none";
     openModal("modalMember");
   };
 

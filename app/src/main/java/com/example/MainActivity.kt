@@ -9,10 +9,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.example.data.SocietyRepository
 import com.example.ui.screens.MainScreen
 import com.example.ui.theme.GullakSocietyTheme
 import com.example.util.NotificationHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -31,6 +34,15 @@ class MainActivity : ComponentActivity() {
         }
 
         repository = SocietyRepository(applicationContext)
+
+        // User Request: App khulte hi live sync automatically ho jana chahiye
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                if (repository.isLiveSyncActive.value) {
+                    repository.syncWithGoogleSheet()
+                }
+            } catch (_: Exception) {}
+        }
 
         setContent {
             GullakSocietyTheme {

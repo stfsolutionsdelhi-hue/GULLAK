@@ -281,4 +281,41 @@ object DefaultData {
         Member(id = "MEM0101202667", name = "Arvind Kumar Rekha Kumari 012026", mobile = "9350743408", address = "Gazhiabad", nominee = "Arvind Kumar", monthlyRd = 400, status = "ACTIVE", joinDate = "2026-01-31", openingRd = 0, dueDay = "15th of every month", gullakLoan = 0, emergencyLoan = 0, pendingDues = 400, loanLimit = 40000, loginPin = "1234", isAppInstalled = false, penaltyApplicable = 0),
         Member(id = "MEM0101202668", name = "Rakhi Madam Ref Shila Ji 012026", mobile = "9311633238", address = "Delhi", nominee = "Shila Ji", monthlyRd = 400, status = "ACTIVE", joinDate = "2026-01-01", openingRd = 0, dueDay = "15th of every month", gullakLoan = 0, emergencyLoan = 0, pendingDues = 400, loanLimit = 40000, loginPin = "1234", isAppInstalled = false, penaltyApplicable = 0)
     )
+
+    val INITIAL_PAYMENTS = listOf(
+        Payment(
+            txnId = "TXN-88401",
+            date = "12-09-2026",
+            memberId = "MEM010120263",
+            memberName = "Amit S/O Sunil (Omwati Aunti Ji ) 102022",
+            mobile = "8287127921",
+            rdAmount = 400,
+            interestAmount = 180,
+            penaltyAmount = 0,
+            loanRepayAmount = 1000,
+            waiverAmount = 0,
+            totalAmount = 1580,
+            mode = "ONLINE / UPI",
+            remarks = "Monthly RD + Interest + Loan repayment",
+            utrNumber = "UPI/412398457612",
+            isEdited = false
+        ),
+        Payment(
+            txnId = "TXN-88402",
+            date = "11-09-2026",
+            memberId = "MEM010120266",
+            memberName = "Ashish Aswal Ashu Vikas Vihar 022022",
+            mobile = "9899801307",
+            rdAmount = 400,
+            interestAmount = 90,
+            penaltyAmount = 0,
+            loanRepayAmount = 500,
+            waiverAmount = 0,
+            totalAmount = 990,
+            mode = "CASH",
+            remarks = "Cash Deposit",
+            utrNumber = "",
+            isEdited = false
+        )
+    )
 }

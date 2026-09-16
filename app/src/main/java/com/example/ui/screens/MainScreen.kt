@@ -38,6 +38,13 @@ fun MainScreen(
     val isSessionLocked by repository.isSessionLocked.collectAsState()
     val loggedInMemberId by repository.loggedInMemberId.collectAsState()
 
+    // User Request: App open hone par live sync automatically run kare
+    LaunchedEffect(Unit) {
+        if (repository.isLiveSyncActive.value) {
+            repository.syncWithGoogleSheet()
+        }
+    }
+
     var showAccountSummaryDialog by remember { mutableStateOf(false) }
     var showLoanSummaryDialog by remember { mutableStateOf(false) }
     var showDrawerLogoutDialog by remember { mutableStateOf(false) }

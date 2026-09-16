@@ -3,26 +3,158 @@ package com.example.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.util.NotificationHelper
+import com.example.util.NotificationTarget
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class SocietyRepository(private val context: Context) {
 
+    companion object {
+        const val DEFAULT_WEB_APP_URL =
+            "https://script.google.com/macros/s/AKfycbycqoHn2MDGhW36kd3fLNdTpzs_kO7rxm-Qvn6RLnLYvVuGoCjc5Xxgk23D05ZD2LtOmQ/exec"
+
+        fun sanitizeDueDay(raw: String): String {
+            val clean = raw.trim()
+            if (clean.isEmpty() || clean.equals("null", ignoreCase = true)) {
+                return "15th of every month"
+            }
+            if (clean.equals("15th of every month", ignoreCase = true) ||
+                clean.equals("15th of every Month", ignoreCase = true)
+            ) {
+                return "15th of every month"
+            }
+
+            // If it's a date string like "Tue Sep 15 2026 00:00:00 GMT+0530 (India Standard Time)" or ISO timestamp
+            if (clean.contains("GMT", ignoreCase = true) ||
+                clean.contains("Time", ignoreCase = true) ||
+                clean.contains("T00:00") ||
+                clean.contains("00:00:00")
+            ) {
+                val stripped = clean.replace(Regex("\\s*\\([^)]*\\)"), "").trim()
+                val patterns = listOf(
+                    "EEE MMM dd yyyy HH:mm:ss 'GMT'Z",
+                    "EEE MMM dd yyyy HH:mm:ss",
+                    "EEE MMM dd yyyy",
+                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss",
+                    "yyyy-MM-dd",
+                    "dd-MM-yyyy",
+                    "dd/MM/yyyy"
+                )
+                for (p in patterns) {
+                    try {
+                        val sdf = SimpleDateFormat(p, Locale.ENGLISH)
+                        val d = sdf.parse(stripped)
+                        if (d != null) {
+                            val cal = Calendar.getInstance().apply { time = d }
+                            val day = cal.get(Calendar.DAY_OF_MONTH)
+                            return formatDayOrdinal(day)
+                        }
+                    } catch (_: Exception) {}
+                }
+                if (clean.contains(" 15 ") || clean.contains("-15") || clean.contains("/15")) {
+                    return "15th of every month"
+                }
+            }
+
+            // Check if string matches simple ISO date "2026-09-15"
+            if (clean.matches(Regex("^\\d{4}-\\d{2}-\\d{2}.*"))) {
+                try {
+                    val day = clean.substring(8, 10).toInt()
+                    return formatDayOrdinal(day)
+                } catch (_: Exception) {}
+            }
+
+            // Check if string matches "15/09/2026" or "15-09-2026"
+            if (clean.matches(Regex("^\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}$"))) {
+                try {
+                    val day = clean.split(Regex("[/-]"))[0].toInt()
+                    return formatDayOrdinal(day)
+                } catch (_: Exception) {}
+            }
+
+            // Check if plain number like "15"
+            if (clean.all { it.isDigit() }) {
+                val d = clean.toIntOrNull() ?: 15
+                return formatDayOrdinal(d)
+            }
+
+            // If it already ends with "of every month"
+            if (clean.contains("of every month", ignoreCase = true)) {
+                return clean
+            }
+
+            return clean
+        }
+
+        private fun formatDayOrdinal(day: Int): String {
+            val suffix = when {
+                day in 11..13 -> "th"
+                day % 10 == 1 -> "st"
+                day % 10 == 2 -> "nd"
+                day % 10 == 3 -> "rd"
+                else -> "th"
+            }
+            return "${day}${suffix} of every month"
+        }
+
+        fun sanitizeJoinDate(raw: String): String {
+            val clean = raw.trim()
+            if (clean.isEmpty() || clean.equals("null", ignoreCase = true)) {
+                return "2026-01-01"
+            }
+            if (clean.contains("GMT", ignoreCase = true) ||
+                clean.contains("Time", ignoreCase = true) ||
+                clean.contains("00:00:00") ||
+                clean.contains("T")
+            ) {
+                val stripped = clean.replace(Regex("\\s*\\([^)]*\\)"), "").trim()
+                val patterns = listOf(
+                    "EEE MMM dd yyyy HH:mm:ss 'GMT'Z",
+                    "EEE MMM dd yyyy HH:mm:ss",
+                    "EEE MMM dd yyyy",
+                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss",
+                    "yyyy-MM-dd"
+                )
+                for (p in patterns) {
+                    try {
+                        val sdf = SimpleDateFormat(p, Locale.ENGLISH)
+                        val d = sdf.parse(stripped)
+                        if (d != null) {
+                            return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(d)
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+            return clean
+        }
+    }
+
     private val prefs: SharedPreferences = context.getSharedPreferences("gullak_app_prefs", Context.MODE_PRIVATE)
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
     private val _members = MutableStateFlow<List<Member>>(emptyList())
@@ -58,7 +190,7 @@ class SocietyRepository(private val context: Context) {
     private val _auditLogs = MutableStateFlow<List<AuditLog>>(emptyList())
     val auditLogs: StateFlow<List<AuditLog>> = _auditLogs.asStateFlow()
 
-    private val _webAppUrl = MutableStateFlow("https://script.google.com/macros/s/AKfycbz_gullak_society_master_sync_v64/exec")
+    private val _webAppUrl = MutableStateFlow(DEFAULT_WEB_APP_URL)
     val webAppUrl: StateFlow<String> = _webAppUrl.asStateFlow()
 
     private val _societySettings = MutableStateFlow(
@@ -113,6 +245,28 @@ class SocietyRepository(private val context: Context) {
         prefs.edit().putString("reminder_templates_cache", arr.toString()).apply()
     }
 
+    private fun loadReminderTemplatesFromLocal(): List<ReminderTemplate> {
+        val json = prefs.getString("reminder_templates_cache", null) ?: return DEFAULT_REMINDER_TEMPLATES
+        return try {
+            val arr = JSONArray(json)
+            val list = mutableListOf<ReminderTemplate>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    ReminderTemplate(
+                        id = obj.getString("id"),
+                        name = obj.getString("name"),
+                        notificationTitle = obj.getString("notificationTitle"),
+                        body = obj.getString("body")
+                    )
+                )
+            }
+            if (list.isNotEmpty()) list else DEFAULT_REMINDER_TEMPLATES
+        } catch (_: Exception) {
+            DEFAULT_REMINDER_TEMPLATES
+        }
+    }
+
     private val _rulesAndRegulations = MutableStateFlow<List<String>>(emptyList())
     val rulesAndRegulations: StateFlow<List<String>> = _rulesAndRegulations.asStateFlow()
 
@@ -123,13 +277,20 @@ class SocietyRepository(private val context: Context) {
     }
 
     init {
+        NotificationHelper.currentRoleProvider = {
+            Pair(!_isSessionLocked.value, _loggedInMemberId.value)
+        }
         loadLocalData()
     }
 
     private fun loadLocalData() {
-        val defaultUrl = "https://script.google.com/macros/s/AKfycbz_gullak_society_master_sync_v64/exec"
-        val savedUrl = prefs.getString("web_app_url", defaultUrl) ?: defaultUrl
-        _webAppUrl.value = if (savedUrl.isNotBlank()) savedUrl else defaultUrl
+        val savedUrl = prefs.getString("web_app_url", null)
+        if (savedUrl.isNullOrBlank() || savedUrl.contains("AKfycbz_gullak_society_master_sync_v64")) {
+            _webAppUrl.value = DEFAULT_WEB_APP_URL
+            prefs.edit().putString("web_app_url", DEFAULT_WEB_APP_URL).apply()
+        } else {
+            _webAppUrl.value = savedUrl
+        }
 
         val socName = prefs.getString("society_name", "GULLAK CO OPRATIVE SOCIETY") ?: "GULLAK CO OPRATIVE SOCIETY"
         val defRd = prefs.getInt("society_default_rd", 400)
@@ -168,36 +329,17 @@ class SocietyRepository(private val context: Context) {
         }
 
         val isAutoRemEnabled = prefs.getBoolean("auto_rem_enabled", true)
-        val remFreq = prefs.getString("auto_rem_freq", "Every 2 Days") ?: "Every 2 Days"
-        val remTime = prefs.getString("auto_rem_time", "10:00 AM") ?: "10:00 AM"
-        val remTmpl = prefs.getString("auto_rem_tmpl", "Namaste [Member_Name] Ji, Gullak Society ki monthly RD (₹[Amount]) aur loan kist ka reminder hai. Kripya samay par jama karein. - Gullak Society") ?: ""
-        _autoReminderConfig.value = AutoReminderConfig(isAutoRemEnabled, remFreq, remTime, remTmpl)
+        val autoRemFreq = prefs.getString("auto_rem_freq", "1st to 15th Daily") ?: "1st to 15th Daily"
+        val autoRemTime = prefs.getString("auto_rem_time", "09:00 AM") ?: "09:00 AM"
+        val autoRemTmpl = prefs.getString("auto_rem_tmpl", "Dear member, aapki Gullak RD deposit ki tareekh 15 hai. Kripya apna anshdan samay par jama karein.") ?: ""
+        _autoReminderConfig.value = AutoReminderConfig(
+            isEnabled = isAutoRemEnabled,
+            frequency = autoRemFreq,
+            preferredTime = autoRemTime,
+            customTemplate = autoRemTmpl
+        )
 
-        val tmplsJson = prefs.getString("reminder_templates_cache", null)
-        if (!tmplsJson.isNullOrEmpty()) {
-            try {
-                val arr = JSONArray(tmplsJson)
-                val list = mutableListOf<ReminderTemplate>()
-                for (i in 0 until arr.length()) {
-                    val obj = arr.getJSONObject(i)
-                    list.add(
-                        ReminderTemplate(
-                            id = obj.getString("id"),
-                            name = obj.getString("name"),
-                            notificationTitle = obj.getString("notificationTitle"),
-                            body = obj.getString("body")
-                        )
-                    )
-                }
-                if (list.isNotEmpty()) {
-                    _reminderTemplates.value = list
-                }
-            } catch (e: Exception) {
-                _reminderTemplates.value = DEFAULT_REMINDER_TEMPLATES
-            }
-        } else {
-            _reminderTemplates.value = DEFAULT_REMINDER_TEMPLATES
-        }
+        _reminderTemplates.value = loadReminderTemplatesFromLocal()
 
         val memJson = prefs.getString("members_cache", null)
         if (memJson.isNullOrEmpty()) {
@@ -218,30 +360,34 @@ class SocietyRepository(private val context: Context) {
         }
 
         val payJson = prefs.getString("payments_cache", null)
-        if (!payJson.isNullOrEmpty()) {
+        if (payJson.isNullOrEmpty()) {
+            _payments.value = DefaultData.INITIAL_PAYMENTS
+            savePaymentsToLocal(DefaultData.INITIAL_PAYMENTS)
+        } else {
             try {
-                _payments.value = parsePaymentsJson(payJson)
+                val list = parsePaymentsJson(payJson)
+                _payments.value = if (list.isNotEmpty()) list else DefaultData.INITIAL_PAYMENTS
             } catch (e: Exception) {
-                _payments.value = emptyList()
+                _payments.value = DefaultData.INITIAL_PAYMENTS
             }
         }
 
-        val approvalJson = prefs.getString("approvals_cache", null)
-        if (!approvalJson.isNullOrEmpty()) {
-            try {
-                _pendingApprovals.value = parseApprovalsJson(approvalJson)
-            } catch (e: Exception) {
-                _pendingApprovals.value = DefaultData.SAMPLE_APPROVALS
-            }
-        } else {
+        val appJson = prefs.getString("approvals_cache", null)
+        if (appJson.isNullOrEmpty()) {
             _pendingApprovals.value = DefaultData.SAMPLE_APPROVALS
             saveApprovalsToLocal(DefaultData.SAMPLE_APPROVALS)
+        } else {
+            try {
+                val list = parseApprovalsJson(appJson)
+                _pendingApprovals.value = list
+            } catch (e: Exception) {
+                _pendingApprovals.value = emptyList()
+            }
         }
 
-        val logTime = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
-        _auditLogs.value = listOf(
-            AuditLog("LOG-001", logTime, "SYSTEM READY", "Gullak Society Core Loaded (${_members.value.size} Members Database).")
-        )
+        val auditList = mutableListOf<AuditLog>()
+        auditList.add(AuditLog("LOG-001", "01-09-2026 10:00", "SYSTEM INITIALIZED", "Gullak Society App loaded securely."))
+        _auditLogs.value = auditList
     }
 
     fun updateAutoReminderConfig(config: AutoReminderConfig) {
@@ -296,12 +442,33 @@ class SocietyRepository(private val context: Context) {
     }
 
     fun updateMemberPin(memberId: String, newPin: String) {
+        val cleanPin = newPin.trim().ifEmpty { "1234" }
         val updated = _members.value.map { m ->
-            if (m.id == memberId) m.copy(loginPin = newPin) else m
+            if (m.id == memberId) m.copy(loginPin = cleanPin) else m
         }
         _members.value = updated
         saveMembersToLocal(updated)
-        addAuditLog("MEMBER PIN UPDATED", "PIN updated for Member ID: $memberId")
+        addAuditLog("MEMBER PIN UPDATED", "PIN updated to $cleanPin for Member ID: $memberId")
+
+        // Async sync to Web App / Google Sheet if configured
+        val url = _webAppUrl.value.trim()
+        if (url.isNotBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val cleanUrl = if (url.startsWith("https://script.google.com/") && !url.endsWith("/exec")) {
+                        if (url.endsWith("/")) "${url}exec" else "$url/exec"
+                    } else url
+                    val encodedId = URLEncoder.encode(memberId, "UTF-8")
+                    val encodedPin = URLEncoder.encode(cleanPin, "UTF-8")
+                    val queryUrl = if (cleanUrl.contains("?")) "$cleanUrl&action=updatePin&id=$encodedId&pin=$encodedPin"
+                                   else "$cleanUrl?action=updatePin&id=$encodedId&pin=$encodedPin"
+                    val req = Request.Builder().url(queryUrl).get().build()
+                    client.newCall(req).execute()
+                } catch (e: Exception) {
+                    // Local save remains secure
+                }
+            }
+        }
     }
 
     fun updateMemberLoanLimit(memberId: String, newLimit: Int) {
@@ -334,9 +501,10 @@ class SocietyRepository(private val context: Context) {
         val stateText = if (newState) "LIVE SYNC ACTIVE" else "LIVE SYNC PAUSED"
         addAuditLog("SYNC STATUS CHANGED", "Admin set sync mode: $stateText")
         NotificationHelper.sendPushNotification(
-            context,
-            "Gullak Sync Status",
-            "Society Live Sync is now: $stateText"
+            context = context,
+            title = "GULLAK SYNC STATUS",
+            message = "Society Live Sync is now: $stateText",
+            target = NotificationTarget.ADMIN_ONLY
         )
         return newState
     }
@@ -382,6 +550,9 @@ class SocietyRepository(private val context: Context) {
             } else {
                 clean += "/exec"
             }
+        }
+        if (clean.isBlank()) {
+            clean = DEFAULT_WEB_APP_URL
         }
         _webAppUrl.value = clean
         prefs.edit().putString("web_app_url", clean).apply()
@@ -436,7 +607,6 @@ class SocietyRepository(private val context: Context) {
         _payments.value = updatedList
         savePaymentsToLocal(updatedList)
 
-        // Adjust member balances
         val memberId = oldPayment.memberId
         val rdDiff = newRd - oldPayment.rdAmount
         val loanRepayDiff = newLoanRepay - oldPayment.loanRepayAmount
@@ -452,63 +622,70 @@ class SocietyRepository(private val context: Context) {
         _members.value = currentMemberList
         saveMembersToLocal(currentMemberList)
 
-        addAuditLog("PAYMENT EDITED", "Txn $txnId edited for ${oldPayment.memberName}. New Total: ₹$finalTotal")
-        NotificationHelper.sendPushNotification(
-            context,
-            "Payment Receipt Edited ✏️",
-            "Receipt $txnId updated for ${oldPayment.memberName} (Total: ₹$finalTotal)"
+        addAuditLog(
+            "PAYMENT EDITED (PASSBOOK MARKUP)",
+            "Txn $txnId edited. RD: ₹$newRd, Int: ₹$newInterest, Pen: ₹$newPenalty, Repay: ₹$newLoanRepay, Total: ₹$finalTotal"
         )
     }
 
     fun deletePayment(txnId: String) {
-        val currentPayments = _payments.value
-        val oldPayment = currentPayments.find { it.txnId == txnId } ?: return
+        val payment = _payments.value.find { it.txnId == txnId } ?: return
+        val updatedPayments = _payments.value.filter { it.txnId != txnId }
+        _payments.value = updatedPayments
+        savePaymentsToLocal(updatedPayments)
 
-        val updatedList = currentPayments.filter { it.txnId != txnId }
-        _payments.value = updatedList
-        savePaymentsToLocal(updatedList)
-
-        // Restore member balances
-        val memberId = oldPayment.memberId
-        val currentMemberList = _members.value.map { m ->
+        val memberId = payment.memberId
+        val updatedMembers = _members.value.map { m ->
             if (m.id == memberId) {
-                val restoredLoan = m.gullakLoan + oldPayment.loanRepayAmount
-                val restoredDues = m.pendingDues + oldPayment.rdAmount
-                m.copy(gullakLoan = restoredLoan, pendingDues = restoredDues)
-            } else {
-                m
-            }
+                m.copy(
+                    gullakLoan = m.gullakLoan + payment.loanRepayAmount,
+                    pendingDues = m.pendingDues + payment.rdAmount,
+                    openingRd = (m.openingRd - payment.rdAmount).coerceAtLeast(0)
+                )
+            } else m
         }
-        _members.value = currentMemberList
-        saveMembersToLocal(currentMemberList)
-
-        addAuditLog("PAYMENT DELETED", "Txn $txnId (₹${oldPayment.totalAmount}) deleted for ${oldPayment.memberName}")
-        NotificationHelper.sendPushNotification(
-            context,
-            "Payment Receipt Deleted 🗑️",
-            "Receipt $txnId for ${oldPayment.memberName} was deleted."
-        )
+        _members.value = updatedMembers
+        saveMembersToLocal(updatedMembers)
+        addAuditLog("PAYMENT DELETED", "Deleted receipt $txnId of ₹${payment.totalAmount} for ${payment.memberName}")
     }
 
     fun refreshAllMembersFromDatabase() {
-        // Dynamically loads all members (supports growing from 67 to 200+ members seamlessly)
-        val memJson = prefs.getString("members_cache", null)
-        if (!memJson.isNullOrEmpty()) {
-            val list = parseMembersJson(memJson)
-            if (list.isNotEmpty()) {
-                _members.value = list
-            } else {
-                _members.value = DefaultData.INITIAL_SOCIETY_MEMBERS
-            }
-        } else {
-            _members.value = DefaultData.INITIAL_SOCIETY_MEMBERS
-        }
-        addAuditLog("REFRESH MEMBERS", "Refreshed ${_members.value.size} society members from database.")
-        NotificationHelper.sendPushNotification(
-            context,
-            "Members Database Refreshed",
-            "Refreshed ${_members.value.size} society members in local cache."
+        _members.value = DefaultData.INITIAL_SOCIETY_MEMBERS
+        saveMembersToLocal(DefaultData.INITIAL_SOCIETY_MEMBERS)
+        addAuditLog("DATABASE REFRESH", "Restored society members directory.")
+    }
+
+    fun addMember(member: Member) {
+        val sanitized = member.copy(
+            dueDay = sanitizeDueDay(member.dueDay),
+            joinDate = sanitizeJoinDate(member.joinDate)
         )
+        val current = _members.value
+        val updated = current + sanitized
+        _members.value = updated
+        saveMembersToLocal(updated)
+        addAuditLog("MEMBER ADDED", "Added member: ${sanitized.name} (${sanitized.id})")
+    }
+
+    fun updateMember(member: Member) {
+        val sanitized = member.copy(
+            dueDay = sanitizeDueDay(member.dueDay),
+            joinDate = sanitizeJoinDate(member.joinDate)
+        )
+        val current = _members.value
+        val updated = current.map { if (it.id == sanitized.id) sanitized else it }
+        _members.value = updated
+        saveMembersToLocal(updated)
+        addAuditLog("MEMBER UPDATED", "Updated profile: ${sanitized.name} (${sanitized.id})")
+    }
+
+    fun deleteMember(memberId: String) {
+        val current = _members.value
+        val m = current.find { it.id == memberId }
+        val updated = current.filter { it.id != memberId }
+        _members.value = updated
+        saveMembersToLocal(updated)
+        addAuditLog("MEMBER DELETED", "Deleted member: ${m?.name ?: memberId}")
     }
 
     fun recordPayment(
@@ -521,13 +698,13 @@ class SocietyRepository(private val context: Context) {
         loanRepayAmount: Int,
         waiverAmount: Int,
         mode: String,
-        remarks: String,
+        remarks: String = "",
         utrNumber: String = ""
-    ) {
-        val dateStr = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
-        val txnId = "TXN-${System.currentTimeMillis() % 100000}"
+    ): Payment {
         val total = (rdAmount + interestAmount + penaltyAmount + loanRepayAmount) - waiverAmount
         val finalTotal = if (total < 0) 0 else total
+        val dateStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+        val txnId = "TXN-${System.currentTimeMillis() % 100000}"
 
         val payment = Payment(
             txnId = txnId,
@@ -543,136 +720,101 @@ class SocietyRepository(private val context: Context) {
             totalAmount = finalTotal,
             mode = mode,
             remarks = remarks,
-            utrNumber = utrNumber
+            utrNumber = utrNumber,
+            isEdited = false
         )
 
         val updatedPayments = listOf(payment) + _payments.value
         _payments.value = updatedPayments
         savePaymentsToLocal(updatedPayments)
 
-        // Adjust member loan / dues
-        val currentMemberList = _members.value.map { m ->
+        val updatedMembers = _members.value.map { m ->
             if (m.id == memberId) {
                 val newGullakLoan = (m.gullakLoan - loanRepayAmount).coerceAtLeast(0)
                 val newPendingDues = (m.pendingDues - rdAmount).coerceAtLeast(0)
-                m.copy(gullakLoan = newGullakLoan, pendingDues = newPendingDues, penaltyApplicable = 0)
+                val newOpeningRd = m.openingRd + rdAmount
+                m.copy(
+                    gullakLoan = newGullakLoan,
+                    pendingDues = newPendingDues,
+                    openingRd = newOpeningRd,
+                    penaltyApplicable = 0
+                )
             } else {
                 m
             }
         }
-        _members.value = currentMemberList
-        saveMembersToLocal(currentMemberList)
+        _members.value = updatedMembers
+        saveMembersToLocal(updatedMembers)
 
-        addAuditLog("PAYMENT RECEIVED", "₹$finalTotal received from $memberName ($mode)")
+        addAuditLog(
+            "PAYMENT RECORDED",
+            "Payment of ₹$finalTotal ($mode) for $memberName. RD: ₹$rdAmount, Int: ₹$interestAmount, Loan: ₹$loanRepayAmount"
+        )
 
         NotificationHelper.sendPushNotification(
-            context,
-            "Payment Received: ₹$finalTotal 💰",
-            "Receipt recorded for $memberName (RD: ₹$rdAmount, Int: ₹$interestAmount, Mode: $mode)"
-        )
-    }
-
-    fun approvePayment(
-        approvalId: String,
-        customizedRd: Int? = null,
-        customizedIntr: Int? = null,
-        customizedPen: Int? = null,
-        customizedLoanRepay: Int? = null,
-        customizedWaiver: Int? = null
-    ) {
-        val item = _pendingApprovals.value.find { it.id == approvalId } ?: return
-
-        val rd = customizedRd ?: item.requestedRd
-        val intr = customizedIntr ?: item.requestedInterest
-        val pen = customizedPen ?: item.requestedPenalty
-        val loanRepay = customizedLoanRepay ?: item.requestedLoanRepay
-        val waiver = customizedWaiver ?: item.waiver
-
-        val total = (rd + intr + pen + loanRepay) - waiver
-        val finalTotal = if (total < 0) 0 else total
-
-        val dateStr = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
-        val txnId = "TXN-APP-${System.currentTimeMillis() % 100000}"
-        val payment = Payment(
-            txnId = txnId,
-            date = dateStr,
-            memberId = item.memberId,
-            memberName = item.memberName,
-            mobile = item.mobile,
-            rdAmount = rd,
-            interestAmount = intr,
-            penaltyAmount = pen,
-            loanRepayAmount = loanRepay,
-            waiverAmount = waiver,
-            totalAmount = finalTotal,
-            mode = item.mode,
-            remarks = "Approved by Admin (UTR: ${item.utrNumber})",
-            utrNumber = item.utrNumber
+            context = context,
+            title = "PAYMENT CONFIRMED",
+            message = "Receipt generated for $memberName: ₹$finalTotal received via $mode.",
+            target = NotificationTarget.MEMBER_ONLY,
+            targetMemberId = memberId
         )
 
-        val updatedPayments = listOf(payment) + _payments.value
-        _payments.value = updatedPayments
-        savePaymentsToLocal(updatedPayments)
-
-        // Clear dues for this member so they don't receive auto reminders
-        val currentMemberList = _members.value.map { m ->
-            if (m.id == item.memberId) {
-                val newGullakLoan = (m.gullakLoan - loanRepay).coerceAtLeast(0)
-                val newPendingDues = (m.pendingDues - rd).coerceAtLeast(0)
-                m.copy(gullakLoan = newGullakLoan, pendingDues = newPendingDues, penaltyApplicable = 0)
-            } else {
-                m
-            }
-        }
-        _members.value = currentMemberList
-        saveMembersToLocal(currentMemberList)
-
-        val updatedApprovals = _pendingApprovals.value.filter { it.id != approvalId }
-        _pendingApprovals.value = updatedApprovals
-        saveApprovalsToLocal(updatedApprovals)
-
-        addAuditLog("PAYMENT APPROVED", "Approved ₹$finalTotal for ${item.memberName} (UTR: ${item.utrNumber})")
-
-        NotificationHelper.sendPushNotification(
-            context,
-            "Payment Approved ✅",
-            "₹$finalTotal approved for ${item.memberName}. Account credited successfully!"
-        )
-    }
-
-    fun rejectPayment(approvalId: String, reason: String) {
-        val item = _pendingApprovals.value.find { it.id == approvalId } ?: return
-        val updatedApprovals = _pendingApprovals.value.filter { it.id != approvalId }
-        _pendingApprovals.value = updatedApprovals
-        saveApprovalsToLocal(updatedApprovals)
-
-        addAuditLog("PAYMENT REJECTED", "Rejected receipt for ${item.memberName}. Reason: $reason")
-
-        NotificationHelper.sendPushNotification(
-            context,
-            "Payment Rejected ❌",
-            "Payment from ${item.memberName} was rejected: $reason"
-        )
+        return payment
     }
 
     fun submitPaymentForApproval(approval: PaymentApproval) {
-        val updated = listOf(approval) + _pendingApprovals.value
-        _pendingApprovals.value = updated
-        saveApprovalsToLocal(updated)
-        addAuditLog("PAYMENT SUBMITTED", "Member ${approval.memberName} submitted ₹${approval.totalAmount} for approval")
+        val updatedList = listOf(approval) + _pendingApprovals.value
+        _pendingApprovals.value = updatedList
+        saveApprovalsToLocal(updatedList)
+
+        addAuditLog(
+            "APPROVAL SUBMITTED",
+            "Member ${approval.memberName} submitted ₹${approval.totalAmount} (${approval.mode}) for Admin Approval. Ref: ${approval.utrNumber}"
+        )
+
         NotificationHelper.sendPushNotification(
-            context,
-            "New Payment Submission 📥",
-            "${approval.memberName} submitted ₹${approval.totalAmount} (UTR: ${approval.utrNumber})"
+            context = context,
+            title = "NEW PAYMENT APPROVAL NEEDED",
+            message = "${approval.memberName} submitted ₹${approval.totalAmount} payment (${approval.mode}). Tap to review and approve.",
+            target = NotificationTarget.ADMIN_ONLY
         )
     }
 
-    fun approvePaymentRequest(approvalId: String) {
-        approvePayment(approvalId)
-    }
+    fun submitPaymentForApproval(
+        memberId: String,
+        memberName: String,
+        mobile: String,
+        requestedRd: Int,
+        requestedInterest: Int,
+        requestedPenalty: Int,
+        requestedLoanRepay: Int,
+        mode: String,
+        utrNumber: String = "",
+        remarks: String = ""
+    ) {
+        val total = (requestedRd + requestedInterest + requestedPenalty + requestedLoanRepay)
+        val finalTotal = if (total < 0) 0 else total
+        val dateStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+        val approvalId = "APP-${System.currentTimeMillis() % 100000}"
 
-    fun rejectPaymentRequest(approvalId: String, reason: String = "Declined by Admin") {
-        rejectPayment(approvalId, reason)
+        val approval = PaymentApproval(
+            id = approvalId,
+            memberId = memberId,
+            memberName = memberName,
+            mobile = mobile,
+            requestedRd = requestedRd,
+            requestedInterest = requestedInterest,
+            requestedPenalty = requestedPenalty,
+            requestedLoanRepay = requestedLoanRepay,
+            waiver = 0,
+            totalAmount = finalTotal,
+            mode = mode,
+            utrNumber = utrNumber,
+            remarks = remarks,
+            date = dateStr,
+            status = "PENDING"
+        )
+        submitPaymentForApproval(approval)
     }
 
     fun submitMemberPayment(
@@ -683,18 +825,14 @@ class SocietyRepository(private val context: Context) {
         interest: Int,
         penalty: Int,
         loanRepay: Int,
-        waiver: Int,
-        mode: String,
-        utr: String,
+        waiver: Int = 0,
+        mode: String = "ONLINE / UPI",
+        utr: String = "",
         remarks: String = ""
     ) {
         val total = (rd + interest + penalty + loanRepay) - waiver
-        val finalTotal = if (total < 0) 0 else total
-        val dateStr = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
-        val reqId = "REQ-${System.currentTimeMillis() % 10000}"
-
         val approval = PaymentApproval(
-            id = reqId,
+            id = "APP-${System.currentTimeMillis() % 100000}",
             memberId = memberId,
             memberName = memberName,
             mobile = mobile,
@@ -703,25 +841,166 @@ class SocietyRepository(private val context: Context) {
             requestedPenalty = penalty,
             requestedLoanRepay = loanRepay,
             waiver = waiver,
-            totalAmount = finalTotal,
+            totalAmount = if (total < 0) 0 else total,
             mode = mode,
             utrNumber = utr,
             remarks = remarks,
-            date = dateStr,
+            date = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date()),
             status = "PENDING"
         )
+        submitPaymentForApproval(approval)
+    }
 
-        val updated = listOf(approval) + _pendingApprovals.value
+    fun approvePayment(
+        approvalId: String,
+        customizedRd: Int? = null,
+        customizedIntr: Int? = null,
+        customizedPen: Int? = null,
+        customizedLoanRepay: Int? = null,
+        customizedWaiver: Int? = null,
+        adminRemarks: String = ""
+    ): Boolean {
+        val approval = _pendingApprovals.value.find { it.id == approvalId } ?: return false
+        val finalRd = customizedRd ?: approval.requestedRd
+        val finalIntr = customizedIntr ?: approval.requestedInterest
+        val finalPen = customizedPen ?: approval.requestedPenalty
+        val finalLoan = customizedLoanRepay ?: approval.requestedLoanRepay
+        val finalWaiver = customizedWaiver ?: approval.waiver
+        return approvePaymentRequest(approvalId, finalRd, finalIntr, finalPen, finalLoan, finalWaiver, adminRemarks)
+    }
+
+    fun approvePaymentRequest(approvalId: String): Boolean {
+        val approval = _pendingApprovals.value.find { it.id == approvalId } ?: return false
+        return approvePaymentRequest(
+            approvalId = approval.id,
+            editedRd = approval.requestedRd,
+            editedInterest = approval.requestedInterest,
+            editedPenalty = approval.requestedPenalty,
+            editedLoanRepay = approval.requestedLoanRepay,
+            waiver = approval.waiver,
+            adminRemarks = ""
+        )
+    }
+
+    fun approvePaymentRequest(
+        approvalId: String,
+        editedRd: Int,
+        editedInterest: Int,
+        editedPenalty: Int,
+        editedLoanRepay: Int,
+        waiver: Int,
+        adminRemarks: String = ""
+    ): Boolean {
+        val currentApprovals = _pendingApprovals.value
+        val approval = currentApprovals.find { it.id == approvalId } ?: return false
+
+        val isEdited = (editedRd != approval.requestedRd ||
+                editedInterest != approval.requestedInterest ||
+                editedPenalty != approval.requestedPenalty ||
+                editedLoanRepay != approval.requestedLoanRepay ||
+                waiver > 0)
+
+        val total = (editedRd + editedInterest + editedPenalty + editedLoanRepay) - waiver
+        val finalTotal = if (total < 0) 0 else total
+        val dateStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+        val txnId = "TXN-${System.currentTimeMillis() % 100000}"
+
+        val remarksText = if (isEdited) {
+            "${approval.remarks} | Admin Approved (Modified: $adminRemarks)".trim()
+        } else {
+            if (adminRemarks.isNotEmpty()) "${approval.remarks} | $adminRemarks" else approval.remarks
+        }
+
+        val payment = Payment(
+            txnId = txnId,
+            date = dateStr,
+            memberId = approval.memberId,
+            memberName = approval.memberName,
+            mobile = approval.mobile,
+            rdAmount = editedRd,
+            interestAmount = editedInterest,
+            penaltyAmount = editedPenalty,
+            loanRepayAmount = editedLoanRepay,
+            waiverAmount = waiver,
+            totalAmount = finalTotal,
+            mode = approval.mode,
+            remarks = remarksText,
+            utrNumber = approval.utrNumber,
+            isEdited = isEdited
+        )
+
+        val updatedPayments = listOf(payment) + _payments.value
+        _payments.value = updatedPayments
+        savePaymentsToLocal(updatedPayments)
+
+        val updatedMembers = _members.value.map { m ->
+            if (m.id == approval.memberId) {
+                val newGullakLoan = (m.gullakLoan - editedLoanRepay).coerceAtLeast(0)
+                val newPendingDues = (m.pendingDues - editedRd).coerceAtLeast(0)
+                val newOpeningRd = m.openingRd + editedRd
+                m.copy(
+                    gullakLoan = newGullakLoan,
+                    pendingDues = newPendingDues,
+                    openingRd = newOpeningRd,
+                    penaltyApplicable = 0
+                )
+            } else {
+                m
+            }
+        }
+        _members.value = updatedMembers
+        saveMembersToLocal(updatedMembers)
+
+        val updatedApprovals = currentApprovals.map {
+            if (it.id == approvalId) it.copy(status = if (isEdited) "APPROVED WITH EDITED" else "APPROVED") else it
+        }
+        _pendingApprovals.value = updatedApprovals
+        saveApprovalsToLocal(updatedApprovals)
+
+        addAuditLog(
+            if (isEdited) "APPROVAL ACCEPTED WITH EDITS" else "APPROVAL ACCEPTED",
+            "Payment request for ${approval.memberName} approved. Final Total: ₹$finalTotal"
+        )
+
+        NotificationHelper.sendPushNotification(
+            context = context,
+            title = "PAYMENT APPROVED",
+            message = "Your ₹$finalTotal payment has been approved and added to your Passbook.",
+            target = NotificationTarget.MEMBER_ONLY,
+            targetMemberId = approval.memberId
+        )
+
+        return true
+    }
+
+    fun rejectPayment(approvalId: String, reason: String = "Rejected by Admin"): Boolean {
+        return rejectPaymentRequest(approvalId, reason)
+    }
+
+    fun rejectPaymentRequest(approvalId: String, reason: String = "Rejected by Admin"): Boolean {
+        val current = _pendingApprovals.value
+        val item = current.find { it.id == approvalId } ?: return false
+
+        val updated = current.map {
+            if (it.id == approvalId) it.copy(status = "REJECTED", rejectionReason = reason) else it
+        }
         _pendingApprovals.value = updated
         saveApprovalsToLocal(updated)
 
-        addAuditLog("MEMBER PAYMENT SUBMISSION", "Member $memberName submitted ₹$finalTotal for approval (Remarks: $remarks)")
+        addAuditLog(
+            "APPROVAL REJECTED",
+            "Payment request of ₹${item.totalAmount} for ${item.memberName} was rejected. Reason: $reason"
+        )
 
         NotificationHelper.sendPushNotification(
-            context,
-            "New Payment Approval Needed 🔔",
-            "$memberName submitted ₹$finalTotal payment ($mode). Tap to review and approve."
+            context = context,
+            title = "PAYMENT VERIFICATION FAILED",
+            message = "Payment of ₹${item.totalAmount} was rejected: $reason",
+            target = NotificationTarget.MEMBER_ONLY,
+            targetMemberId = item.memberId
         )
+
+        return true
     }
 
     fun addAuditLog(title: String, details: String) {
@@ -732,18 +1011,20 @@ class SocietyRepository(private val context: Context) {
 
     suspend fun syncWithGoogleSheet(): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         if (!_isLiveSyncActive.value) {
-            return@withContext Pair(false, "Live Sync is currently PAUSED by Admin. Enable Live Sync to synchronize.")
+            return@withContext Pair(false, "Live Sync is currently PAUSED by Admin. Tap Live toggle to resume.")
         }
         var url = _webAppUrl.value.trim()
+        if (url.isBlank() || url.contains("AKfycbz_gullak_society_master_sync_v64")) {
+            url = DEFAULT_WEB_APP_URL
+            _webAppUrl.value = DEFAULT_WEB_APP_URL
+            prefs.edit().putString("web_app_url", DEFAULT_WEB_APP_URL).apply()
+        }
         if (url.startsWith("https://script.google.com/") && !url.endsWith("/exec")) {
             if (url.endsWith("/")) {
                 url += "exec"
             } else {
                 url += "/exec"
             }
-        }
-        if (url.isEmpty()) {
-            return@withContext Pair(false, "Web App URL not configured in Settings.")
         }
         _isSyncing.value = true
         _syncStatus.value = "Connecting to Google Sheet & Web App Database..."
@@ -759,7 +1040,7 @@ class SocietyRepository(private val context: Context) {
             if (!response.isSuccessful || body.isNullOrEmpty()) {
                 _isSyncing.value = false
                 _syncStatus.value = "Failed: HTTP ${response.code}"
-                return@withContext Pair(false, "Failed to connect: HTTP ${response.code}")
+                return@withContext Pair(false, "Failed to connect: HTTP ${response.code}. Please verify Web App URL.")
             }
 
             val json = JSONObject(body)
@@ -770,6 +1051,9 @@ class SocietyRepository(private val context: Context) {
                 for (i in 0 until memArray.length()) {
                     val m = memArray.getJSONObject(i)
                     val rawPhone = m.optString("mobile", "")
+                    val rawDue = m.optString("dueDay", "15th of every month")
+                    val rawJoin = m.optString("joinDate", m.optString("dateJoined", "2026-01-01"))
+
                     parsedMembers.add(
                         Member(
                             id = m.optString("id", "MEM$i"),
@@ -779,9 +1063,9 @@ class SocietyRepository(private val context: Context) {
                             nominee = m.optString("nominee", ""),
                             monthlyRd = m.optInt("monthlyRd", m.optInt("rd", 400)),
                             status = m.optString("status", "ACTIVE"),
-                            joinDate = m.optString("joinDate", m.optString("dateJoined", "2026-01-01")),
+                            joinDate = sanitizeJoinDate(rawJoin),
                             openingRd = m.optInt("openingRd", m.optInt("rdPaid", 4800)),
-                            dueDay = m.optString("dueDay", "15th of every month"),
+                            dueDay = sanitizeDueDay(rawDue),
                             gullakLoan = m.optInt("gullakLoan", m.optInt("opLoan", 0)),
                             emergencyLoan = m.optInt("emergencyLoan", 0),
                             pendingDues = m.optInt("pendingDues", 0),
@@ -805,9 +1089,10 @@ class SocietyRepository(private val context: Context) {
             _syncStatus.value = "Synced successfully with Web App Database!"
             addAuditLog("CLOUD SYNC SUCCESS", "Synced ${_members.value.size} society members directly from Google Sheets.")
             NotificationHelper.sendPushNotification(
-                context,
-                "Cloud Sync Completed 🔄",
-                "Successfully synchronized ${_members.value.size} society members with Google Sheets."
+                context = context,
+                title = "CLOUD SYNC COMPLETED",
+                message = "Successfully synchronized ${_members.value.size} society members with Google Sheets.",
+                target = NotificationTarget.ADMIN_ONLY
             )
             return@withContext Pair(true, "Successfully synced ${_members.value.size} members from Google Sheet!")
         } catch (e: Exception) {
@@ -828,9 +1113,9 @@ class SocietyRepository(private val context: Context) {
             obj.put("nominee", m.nominee)
             obj.put("monthlyRd", m.monthlyRd)
             obj.put("status", m.status)
-            obj.put("joinDate", m.joinDate)
+            obj.put("joinDate", sanitizeJoinDate(m.joinDate))
             obj.put("openingRd", m.openingRd)
-            obj.put("dueDay", m.dueDay)
+            obj.put("dueDay", sanitizeDueDay(m.dueDay))
             obj.put("gullakLoan", m.gullakLoan)
             obj.put("emergencyLoan", m.emergencyLoan)
             obj.put("pendingDues", m.pendingDues)
@@ -901,6 +1186,9 @@ class SocietyRepository(private val context: Context) {
         for (i in 0 until arr.length()) {
             val m = arr.getJSONObject(i)
             val rawPhone = m.optString("mobile", "")
+            val rawDue = m.optString("dueDay", "15th of every month")
+            val rawJoin = m.optString("joinDate", "2026-01-01")
+
             list.add(
                 Member(
                     id = m.optString("id"),
@@ -910,14 +1198,14 @@ class SocietyRepository(private val context: Context) {
                     nominee = m.optString("nominee"),
                     monthlyRd = m.optInt("monthlyRd", 400),
                     status = m.optString("status", "ACTIVE"),
-                    joinDate = m.optString("joinDate", "2026-01-01"),
+                    joinDate = sanitizeJoinDate(rawJoin),
                     openingRd = m.optInt("openingRd", 4800),
-                    dueDay = m.optString("dueDay", "15th of every month"),
+                    dueDay = sanitizeDueDay(rawDue),
                     gullakLoan = m.optInt("gullakLoan", 0),
                     emergencyLoan = m.optInt("emergencyLoan", 0),
                     pendingDues = m.optInt("pendingDues", 0),
                     npaLoss = m.optInt("npaLoss", 0),
-                    loanLimit = m.optInt("loanLimit", 50000),
+                    loanLimit = m.optInt("loanLimit", 0),
                     loginPin = m.optString("loginPin", "1234"),
                     notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                     isAppInstalled = m.optBoolean("isAppInstalled", false),

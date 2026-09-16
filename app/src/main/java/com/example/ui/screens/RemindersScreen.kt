@@ -28,6 +28,7 @@ import com.example.data.ReminderTemplate
 import com.example.data.SocietyRepository
 import com.example.ui.theme.*
 import com.example.util.NotificationHelper
+import com.example.util.NotificationTarget
 import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -398,13 +399,15 @@ fun RemindersScreen(
                                 NotificationHelper.sendPushNotification(
                                     context = context,
                                     title = cleanTitle,
-                                    message = formattedMessage
+                                    message = formattedMessage,
+                                    target = NotificationTarget.MEMBER_ONLY,
+                                    targetMemberId = if (count == 1) targetRecipients.first().id else null
                                 )
                                 repository.addAuditLog(
                                     "PUSH REMINDER DISPATCHED",
                                     "Dispatched '$cleanTitle' for $count recipients (${selectedAudience} list)."
                                 )
-                                Toast.makeText(context, "Push Alert sent to $count recipients!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "✅ Push Alert dispatched to $count members!", Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
