@@ -490,21 +490,27 @@ class SocietyRepository(private val context: Context) {
     }
 
     fun updateMemberPin(memberId: String, newPin: String) {
-        val cleanPin = newPin.trim().ifEmpty { "1234" }
+        val cleanPin = newPin.trim()
         val updated = _members.value.map { m ->
             if (m.id == memberId) m.copy(loginPin = cleanPin) else m
         }
         _members.value = updated
         saveMembersToLocal(updated)
-        addAuditLog("MEMBER PIN UPDATED", "PIN updated to $cleanPin for Member ID: $memberId")
+        addAuditLog("MEMBER PIN UPDATED", "PIN updated for Member ID: $memberId")
+
+        // Requirement 6: Force logout member session immediately on PIN change
+        if (_loggedInMemberId.value == memberId) {
+            logoutMember()
+        }
 
         // 1. Notify the Member immediately about the PIN change
         NotificationHelper.sendPushNotification(
             context = context,
             title = "SECURITY UPDATE: PIN CHANGED",
-            message = "Your Member Passbook login PIN has been updated to: $cleanPin.",
+            message = "Your Member Passbook login PIN has been updated. Please login with your new PIN.",
             target = NotificationTarget.MEMBER_ONLY,
-            targetMemberId = memberId
+            targetMemberId = memberId,
+            forceShow = true
         )
 
         // 2. Post immediately to Google Sheet backend
@@ -874,7 +880,8 @@ class SocietyRepository(private val context: Context) {
             title = "PAYMENT CONFIRMED",
             message = "Receipt generated for $memberName: ₹$finalTotal received via $mode.",
             target = NotificationTarget.MEMBER_ONLY,
-            targetMemberId = memberId
+            targetMemberId = memberId,
+            forceShow = true
         )
 
         // Live Sync to Google Sheet immediately
@@ -1235,7 +1242,10 @@ class SocietyRepository(private val context: Context) {
                             npaLoss = m.optInt("npaLoss", 0),
                             loanLimit = rawLimit,
                             customLimit = rawCustom,
-                            loginPin = m.optString("loginPin", "1234"),
+                            loginPin = run {
+                                val p = m.optString("loginPin", m.optString("pin", m.optString("appPin", ""))).trim()
+                                if (p == "0" || p == "null") "" else p
+                            },
                             notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                             isAppInstalled = m.optBoolean("isAppInstalled", false),
                             penaltyApplicable = m.optInt("penaltyApplicable", m.optInt("penalty", m.optInt("opPen", 0))),
@@ -1372,7 +1382,10 @@ class SocietyRepository(private val context: Context) {
                     npaLoss = m.optInt("npaLoss", 0),
                     loanLimit = m.optInt("loanLimit", 0),
                     customLimit = m.optInt("customLimit", 0),
-                    loginPin = m.optString("loginPin", "1234"),
+                    loginPin = run {
+                        val p = m.optString("loginPin", m.optString("pin", m.optString("appPin", ""))).trim()
+                        if (p == "0" || p == "null") "" else p
+                    },
                     notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                     isAppInstalled = m.optBoolean("isAppInstalled", false),
                     penaltyApplicable = m.optInt("penaltyApplicable", m.optInt("penalty", 0)),

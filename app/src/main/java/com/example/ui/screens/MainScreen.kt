@@ -489,6 +489,7 @@ fun MainScreen(
                         Button(
                             onClick = {
                                 if (repository.unlockSession(unlockPasscode)) {
+                                    selectedTab = 0 // User Request 1: Open Tasks tab upon admin login
                                     Toast.makeText(context, "Welcome Admin! Session Unlocked.", Toast.LENGTH_SHORT).show()
                                     unlockPasscode = ""
                                 } else {

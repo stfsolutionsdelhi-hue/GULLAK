@@ -40,7 +40,7 @@ data class Member(
     val npaLoss: Int = 0,
     val loanLimit: Int = 50000,
     val customLimit: Int = 0,
-    val loginPin: String = "1234",
+    val loginPin: String = "",
     val notificationsEnabled: Boolean = true,
     val isAppInstalled: Boolean = false,
     val penaltyApplicable: Int = 0,

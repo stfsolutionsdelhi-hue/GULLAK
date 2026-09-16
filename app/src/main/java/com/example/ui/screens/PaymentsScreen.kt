@@ -409,23 +409,17 @@ fun PaymentsScreen(
         }
     }
 
-    // ================== COLLECT PAYMENT DIALOG (User Request 3) ==================
+    // ================== COLLECT PAYMENT DIALOG (User Request 3 & 7) ==================
     if (showCollectDialog) {
-        var selectedMember by remember { mutableStateOf(members.firstOrNull()) }
+        var selectedMember by remember { mutableStateOf<Member?>(null) }
         var showMemberPhoneBookPicker by remember { mutableStateOf(false) }
         var memberSearchQuery by remember { mutableStateOf("") }
 
-        // Form Fields
-        var rdText by remember { mutableStateOf(selectedMember?.monthlyRd?.toString() ?: "400") }
-        var interestText by remember {
-            val m = selectedMember
-            val activeLoan = if (m != null) m.gullakLoan + m.emergencyLoan else 0
-            val autoIntr = if (activeLoan > 0) (activeLoan * 0.01).toInt() else 0
-            mutableStateOf(autoIntr.toString())
-        }
-        // User Requirement 4 & 5: Penalty only auto-fills if applicable in Web App data, NO local counting!
-        var penaltyText by remember { mutableStateOf(selectedMember?.penaltyApplicable?.toString() ?: "0") }
-        var loanRepayText by remember { mutableStateOf("0") } // Left editable/empty as requested!
+        // Form Fields (Blank / 0 until a member is chosen)
+        var rdText by remember { mutableStateOf("0") }
+        var interestText by remember { mutableStateOf("0") }
+        var penaltyText by remember { mutableStateOf("0") }
+        var loanRepayText by remember { mutableStateOf("0") }
         var waiverText by remember { mutableStateOf("0") }
         var paymentMode by remember { mutableStateOf("CASH") }
         var remarksText by remember { mutableStateOf("") }
@@ -452,7 +446,7 @@ fun PaymentsScreen(
             ((r + i + p + l) - w).coerceAtLeast(0)
         }
 
-        // ================= PHONE BOOK MEMBER SEARCH PICKER DIALOG =================
+        // ================= MEMBER BOOK SEARCH PICKER DIALOG (User Request 2) =================
         if (showMemberPhoneBookPicker) {
             val filteredPhoneBook = remember(members, memberSearchQuery) {
                 if (memberSearchQuery.isBlank()) {
@@ -473,8 +467,8 @@ fun PaymentsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Contacts, contentDescription = "Phone Book", tint = AccentGold)
-                        Text("Member Phone Book 📇", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Icon(Icons.Default.Contacts, contentDescription = "Member Book", tint = AccentGold)
+                        Text("Member Book 📇", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 },
                 text = {
@@ -653,7 +647,12 @@ fun PaymentsScreen(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(Icons.Default.Contacts, contentDescription = "Search", tint = AccentGold, modifier = Modifier.size(14.dp))
-                                    Text("Change 📇", color = AccentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = if (selectedMember == null) "Select 📇" else "Change 📇",
+                                        color = AccentGold,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
@@ -816,6 +815,8 @@ fun PaymentsScreen(
                             )
                             Toast.makeText(context, "Payment of ₹$totalCalculated received for ${m.name}!", Toast.LENGTH_SHORT).show()
                             showCollectDialog = false
+                        } else {
+                            Toast.makeText(context, "Please select a member first from Member Book.", Toast.LENGTH_SHORT).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)

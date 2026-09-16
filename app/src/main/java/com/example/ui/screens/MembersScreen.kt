@@ -751,9 +751,9 @@ fun MembersScreen(
     // DIALOG 3: MEMBER APP PIN & ADMIN CONTROLS
     // =========================================================================
     pinDialogMember?.let { m ->
-        var editablePin by remember { mutableStateOf(m.loginPin) }
-        var editableLoanLimit by remember { mutableStateOf(if (m.customLimit > 0) m.customLimit.toString() else m.loanLimit.toString()) }
-        var notifEnabled by remember { mutableStateOf(m.notificationsEnabled) }
+        var editablePin by remember(m.id) { mutableStateOf(m.loginPin) }
+        var editableLoanLimit by remember(m.id) { mutableStateOf(if (m.customLimit > 0) m.customLimit.toString() else m.loanLimit.toString()) }
+        var notifEnabled by remember(m.id) { mutableStateOf(m.notificationsEnabled) }
 
         AlertDialog(
             onDismissRequest = { pinDialogMember = null },
@@ -780,7 +780,8 @@ fun MembersScreen(
                         OutlinedTextField(
                             value = editablePin,
                             onValueChange = { if (it.length <= 6) editablePin = it },
-                            label = { Text("PIN (Default: 1234)") },
+                            label = { Text("4-Digit Login PIN") },
+                            placeholder = { Text("Set 4-digit PIN", color = TextMuted) },
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )

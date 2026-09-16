@@ -241,10 +241,17 @@ fun MemberPortalScreen(
                                 return@Button
                             }
 
-                            // PIN Verification
-                            val correctMatches = matchingMembers.filter { enteredPin == it.loginPin || enteredPin == "1234" }
+                            // Strict PIN Verification (User Request 5: Single authoritative PIN only)
+                            val correctMatches = matchingMembers.filter { m ->
+                                m.loginPin.isNotBlank() && enteredPin.trim() == m.loginPin.trim()
+                            }
                             if (correctMatches.isEmpty()) {
-                                Toast.makeText(context, "Incorrect PIN! Please contact Admin on WhatsApp.", Toast.LENGTH_SHORT).show()
+                                val hasUnsetPin = matchingMembers.any { it.loginPin.isBlank() }
+                                if (hasUnsetPin) {
+                                    Toast.makeText(context, "Your PIN is not set yet. Please tap 'Forgot PIN' to contact Admin.", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, "Incorrect PIN! Please contact Admin on WhatsApp.", Toast.LENGTH_SHORT).show()
+                                }
                                 return@Button
                             }
 
