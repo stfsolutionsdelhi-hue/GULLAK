@@ -39,12 +39,35 @@ data class Member(
     val pendingDues: Int = 0,
     val npaLoss: Int = 0,
     val loanLimit: Int = 50000,
+    val customLimit: Int = 0,
     val loginPin: String = "1234",
     val notificationsEnabled: Boolean = true,
     val isAppInstalled: Boolean = false,
     val penaltyApplicable: Int = 0,
     val estimatedBonus: Int = 0
 )
+
+fun Member.getTotalRdDeposited(payments: List<Payment> = emptyList()): Int {
+    return openingRd + payments.filter { it.memberId == id }.sumOf { it.rdAmount }
+}
+
+fun Member.getEffectiveLoanLimit(payments: List<Payment> = emptyList()): Int {
+    if (status.equals("INACTIVE", ignoreCase = true)) return 0
+    val activeLoan = gullakLoan + emergencyLoan
+    if (activeLoan > 0) return 0
+    if (customLimit > 0) return customLimit
+    if (loanLimit > 0 && loanLimit != 50000 && loanLimit != 40000 && loanLimit != 60000) return loanLimit
+    val totalRd = getTotalRdDeposited(payments)
+    return totalRd * 2
+}
+
+fun Member.getLoanLimitDisplay(payments: List<Payment> = emptyList()): String {
+    if (status.equals("INACTIVE", ignoreCase = true)) return "₹0 (INACTIVE)"
+    val activeLoan = gullakLoan + emergencyLoan
+    if (activeLoan > 0) return "₹0 (Active Loan)"
+    val limit = getEffectiveLoanLimit(payments)
+    return "₹%,d".format(java.util.Locale.ENGLISH, limit)
+}
 
 data class Payment(
     val txnId: String,

@@ -98,33 +98,37 @@ object NotificationHelper {
         message: String,
         target: NotificationTarget = NotificationTarget.ALL,
         targetMemberId: String? = null,
-        notificationId: Int = (System.currentTimeMillis() % 10000).toInt()
+        notificationId: Int = (System.currentTimeMillis() % 10000).toInt(),
+        forceShow: Boolean = false
     ) {
         // Smart Role Routing:
-        // Admin phone gets Admin notifications (e.g., approval requests, sync alerts)
-        // Member phone gets Member notifications (e.g., reminders, receipts)
-        // When Admin sends a reminder/alert to members, Admin's phone will NOT ring or show the member notification.
-        val roleInfo = currentRoleProvider?.invoke()
-        if (roleInfo != null) {
-            val (isAdminLoggedIn, currentMemberId) = roleInfo
-            when (target) {
-                NotificationTarget.ADMIN_ONLY -> {
-                    // Only show alert & sound if Admin is logged in on this device
-                    if (!isAdminLoggedIn) return
-                }
-                NotificationTarget.MEMBER_ONLY -> {
-                    // If Admin is logged in, MUTE member notification sound/banner on Admin's phone
-                    if (isAdminLoggedIn) return
-
-                    // If targeted to a specific member, only show if this phone is logged into that member portal
-                    if (targetMemberId != null && currentMemberId != null &&
-                        !currentMemberId.equals(targetMemberId, ignoreCase = true)
-                    ) {
-                        return
+        // Admin device receives Admin alerts (approvals, sync status, dispatch confirmation)
+        // Member device receives Member alerts (receipts, PIN changes, due reminders)
+        if (!forceShow) {
+            val roleInfo = currentRoleProvider?.invoke()
+            if (roleInfo != null) {
+                val (isAdminLoggedIn, currentMemberId) = roleInfo
+                when (target) {
+                    NotificationTarget.ADMIN_ONLY -> {
+                        // Only show if Admin is logged in or app is in Admin mode
+                        if (!isAdminLoggedIn) return
                     }
-                }
-                NotificationTarget.ALL -> {
-                    // System wide alerts
+                    NotificationTarget.MEMBER_ONLY -> {
+                        // If Admin is actively logged in, avoid member-specific background noise unless targeted
+                        if (isAdminLoggedIn && targetMemberId != null) {
+                            // If admin is in admin panel, don't play sound for a single member's reminder
+                            return
+                        }
+                        // If targeted to a specific member ID, check if matching or broadcast
+                        if (targetMemberId != null && currentMemberId != null &&
+                            !currentMemberId.equals(targetMemberId, ignoreCase = true)
+                        ) {
+                            return
+                        }
+                    }
+                    NotificationTarget.ALL -> {
+                        // System-wide broadcast alerts shown on all devices
+                    }
                 }
             }
         }

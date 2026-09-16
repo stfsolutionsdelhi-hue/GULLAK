@@ -6,13 +6,18 @@ import com.example.util.NotificationHelper
 import com.example.util.NotificationTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
@@ -23,6 +28,8 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class SocietyRepository(private val context: Context) {
+
+    private val repoScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
         const val DEFAULT_WEB_APP_URL =
@@ -281,6 +288,47 @@ class SocietyRepository(private val context: Context) {
             Pair(!_isSessionLocked.value, _loggedInMemberId.value)
         }
         loadLocalData()
+        startPeriodicAutoSync()
+    }
+
+    private fun startPeriodicAutoSync() {
+        repoScope.launch {
+            while (isActive) {
+                delay(20_000) // Poll every 20 seconds for cross-device updates
+                if (_isLiveSyncActive.value) {
+                    try {
+                        syncWithGoogleSheet()
+                    } catch (_: Exception) {
+                        // Silent retry next cycle
+                    }
+                }
+            }
+        }
+    }
+
+    fun postToGoogleSheetBackend(payload: JSONObject) {
+        if (!_isLiveSyncActive.value) return
+        val url = _webAppUrl.value.trim()
+        if (url.isBlank() || (!url.startsWith("http://") && !url.startsWith("https://"))) return
+
+        repoScope.launch(Dispatchers.IO) {
+            try {
+                val cleanUrl = if (url.startsWith("https://script.google.com/") && !url.endsWith("/exec")) {
+                    if (url.endsWith("/")) "${url}exec" else "$url/exec"
+                } else url
+
+                val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+                val requestBody = payload.toString().toRequestBody(mediaType)
+                val request = Request.Builder()
+                    .url(cleanUrl)
+                    .post(requestBody)
+                    .build()
+                val response = client.newCall(request).execute()
+                response.close()
+            } catch (e: Exception) {
+                // If POST failed, silent local persistence remains reliable
+            }
+        }
     }
 
     private fun loadLocalData() {
@@ -450,25 +498,22 @@ class SocietyRepository(private val context: Context) {
         saveMembersToLocal(updated)
         addAuditLog("MEMBER PIN UPDATED", "PIN updated to $cleanPin for Member ID: $memberId")
 
-        // Async sync to Web App / Google Sheet if configured
-        val url = _webAppUrl.value.trim()
-        if (url.isNotBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val cleanUrl = if (url.startsWith("https://script.google.com/") && !url.endsWith("/exec")) {
-                        if (url.endsWith("/")) "${url}exec" else "$url/exec"
-                    } else url
-                    val encodedId = URLEncoder.encode(memberId, "UTF-8")
-                    val encodedPin = URLEncoder.encode(cleanPin, "UTF-8")
-                    val queryUrl = if (cleanUrl.contains("?")) "$cleanUrl&action=updatePin&id=$encodedId&pin=$encodedPin"
-                                   else "$cleanUrl?action=updatePin&id=$encodedId&pin=$encodedPin"
-                    val req = Request.Builder().url(queryUrl).get().build()
-                    client.newCall(req).execute()
-                } catch (e: Exception) {
-                    // Local save remains secure
-                }
-            }
+        // 1. Notify the Member immediately about the PIN change
+        NotificationHelper.sendPushNotification(
+            context = context,
+            title = "SECURITY UPDATE: PIN CHANGED",
+            message = "Your Member Passbook login PIN has been updated to: $cleanPin.",
+            target = NotificationTarget.MEMBER_ONLY,
+            targetMemberId = memberId
+        )
+
+        // 2. Post immediately to Google Sheet backend
+        val postPayload = JSONObject().apply {
+            put("action", "updatePin")
+            put("id", memberId)
+            put("pin", cleanPin)
         }
+        postToGoogleSheetBackend(postPayload)
     }
 
     fun updateMemberLoanLimit(memberId: String, newLimit: Int) {
@@ -626,6 +671,27 @@ class SocietyRepository(private val context: Context) {
             "PAYMENT EDITED (PASSBOOK MARKUP)",
             "Txn $txnId edited. RD: ₹$newRd, Int: ₹$newInterest, Pen: ₹$newPenalty, Repay: ₹$newLoanRepay, Total: ₹$finalTotal"
         )
+
+        // Live Sync to Google Sheet
+        val payObj = JSONObject().apply {
+            put("receiptNo", updatedPayment.txnId)
+            put("date", updatedPayment.date)
+            put("memberId", updatedPayment.memberId)
+            put("name", updatedPayment.memberName)
+            put("rd", updatedPayment.rdAmount)
+            put("interest", updatedPayment.interestAmount)
+            put("penalty", updatedPayment.penaltyAmount)
+            put("loanRepay", updatedPayment.loanRepayAmount)
+            put("waiver", updatedPayment.waiverAmount)
+            put("total", updatedPayment.totalAmount)
+            put("mode", updatedPayment.mode)
+            put("narration", updatedPayment.remarks)
+            put("utrNumber", updatedPayment.utrNumber)
+        }
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "savePayment")
+            put("payment", payObj)
+        })
     }
 
     fun deletePayment(txnId: String) {
@@ -647,6 +713,12 @@ class SocietyRepository(private val context: Context) {
         _members.value = updatedMembers
         saveMembersToLocal(updatedMembers)
         addAuditLog("PAYMENT DELETED", "Deleted receipt $txnId of ₹${payment.totalAmount} for ${payment.memberName}")
+
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "deletePayment")
+            put("txnId", txnId)
+            put("receiptNo", txnId)
+        })
     }
 
     fun refreshAllMembersFromDatabase() {
@@ -665,6 +737,26 @@ class SocietyRepository(private val context: Context) {
         _members.value = updated
         saveMembersToLocal(updated)
         addAuditLog("MEMBER ADDED", "Added member: ${sanitized.name} (${sanitized.id})")
+
+        val memObj = JSONObject().apply {
+            put("id", sanitized.id)
+            put("name", sanitized.name)
+            put("mobile", sanitized.mobile)
+            put("address", sanitized.address)
+            put("nominee", sanitized.nominee)
+            put("monthlyRd", sanitized.monthlyRd)
+            put("status", sanitized.status)
+            put("joinDate", sanitized.joinDate)
+            put("openingRd", sanitized.openingRd)
+            put("dueDay", sanitized.dueDay)
+            put("customLimit", sanitized.customLimit)
+            put("gullakLoan", sanitized.gullakLoan)
+            put("loginPin", sanitized.loginPin)
+        }
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "saveMember")
+            put("member", memObj)
+        })
     }
 
     fun updateMember(member: Member) {
@@ -677,6 +769,26 @@ class SocietyRepository(private val context: Context) {
         _members.value = updated
         saveMembersToLocal(updated)
         addAuditLog("MEMBER UPDATED", "Updated profile: ${sanitized.name} (${sanitized.id})")
+
+        val memObj = JSONObject().apply {
+            put("id", sanitized.id)
+            put("name", sanitized.name)
+            put("mobile", sanitized.mobile)
+            put("address", sanitized.address)
+            put("nominee", sanitized.nominee)
+            put("monthlyRd", sanitized.monthlyRd)
+            put("status", sanitized.status)
+            put("joinDate", sanitized.joinDate)
+            put("openingRd", sanitized.openingRd)
+            put("dueDay", sanitized.dueDay)
+            put("customLimit", sanitized.customLimit)
+            put("gullakLoan", sanitized.gullakLoan)
+            put("loginPin", sanitized.loginPin)
+        }
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "saveMember")
+            put("member", memObj)
+        })
     }
 
     fun deleteMember(memberId: String) {
@@ -686,6 +798,12 @@ class SocietyRepository(private val context: Context) {
         _members.value = updated
         saveMembersToLocal(updated)
         addAuditLog("MEMBER DELETED", "Deleted member: ${m?.name ?: memberId}")
+
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "deleteMember")
+            put("memberId", memberId)
+            put("id", memberId)
+        })
     }
 
     fun recordPayment(
@@ -758,6 +876,27 @@ class SocietyRepository(private val context: Context) {
             target = NotificationTarget.MEMBER_ONLY,
             targetMemberId = memberId
         )
+
+        // Live Sync to Google Sheet immediately
+        val payObj = JSONObject().apply {
+            put("receiptNo", payment.txnId)
+            put("date", payment.date)
+            put("memberId", payment.memberId)
+            put("name", payment.memberName)
+            put("rd", payment.rdAmount)
+            put("interest", payment.interestAmount)
+            put("penalty", payment.penaltyAmount)
+            put("loanRepay", payment.loanRepayAmount)
+            put("waiver", payment.waiverAmount)
+            put("total", payment.totalAmount)
+            put("mode", payment.mode)
+            put("narration", payment.remarks)
+            put("utrNumber", payment.utrNumber)
+        }
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "savePayment")
+            put("payment", payObj)
+        })
 
         return payment
     }
@@ -970,6 +1109,27 @@ class SocietyRepository(private val context: Context) {
             targetMemberId = approval.memberId
         )
 
+        // Live Sync to Google Sheet immediately
+        val payObj = JSONObject().apply {
+            put("receiptNo", payment.txnId)
+            put("date", payment.date)
+            put("memberId", payment.memberId)
+            put("name", payment.memberName)
+            put("rd", payment.rdAmount)
+            put("interest", payment.interestAmount)
+            put("penalty", payment.penaltyAmount)
+            put("loanRepay", payment.loanRepayAmount)
+            put("waiver", payment.waiverAmount)
+            put("total", payment.totalAmount)
+            put("mode", payment.mode)
+            put("narration", payment.remarks)
+            put("utrNumber", payment.utrNumber)
+        }
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "savePayment")
+            put("payment", payObj)
+        })
+
         return true
     }
 
@@ -1054,6 +1214,9 @@ class SocietyRepository(private val context: Context) {
                     val rawDue = m.optString("dueDay", "15th of every month")
                     val rawJoin = m.optString("joinDate", m.optString("dateJoined", "2026-01-01"))
 
+                    val rawCustom = m.optInt("customLimit", m.optInt("custom loan limit (₹)", m.optInt("custom limit", 0)))
+                    val rawLimit = m.optInt("loanLimit", rawCustom)
+
                     parsedMembers.add(
                         Member(
                             id = m.optString("id", "MEM$i"),
@@ -1070,7 +1233,8 @@ class SocietyRepository(private val context: Context) {
                             emergencyLoan = m.optInt("emergencyLoan", 0),
                             pendingDues = m.optInt("pendingDues", 0),
                             npaLoss = m.optInt("npaLoss", 0),
-                            loanLimit = m.optInt("loanLimit", m.optInt("customLimit", 0)),
+                            loanLimit = rawLimit,
+                            customLimit = rawCustom,
                             loginPin = m.optString("loginPin", "1234"),
                             notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                             isAppInstalled = m.optBoolean("isAppInstalled", false),
@@ -1121,6 +1285,7 @@ class SocietyRepository(private val context: Context) {
             obj.put("pendingDues", m.pendingDues)
             obj.put("npaLoss", m.npaLoss)
             obj.put("loanLimit", m.loanLimit)
+            obj.put("customLimit", m.customLimit)
             obj.put("loginPin", m.loginPin)
             obj.put("notificationsEnabled", m.notificationsEnabled)
             obj.put("isAppInstalled", m.isAppInstalled)
@@ -1206,6 +1371,7 @@ class SocietyRepository(private val context: Context) {
                     pendingDues = m.optInt("pendingDues", 0),
                     npaLoss = m.optInt("npaLoss", 0),
                     loanLimit = m.optInt("loanLimit", 0),
+                    customLimit = m.optInt("customLimit", 0),
                     loginPin = m.optString("loginPin", "1234"),
                     notificationsEnabled = m.optBoolean("notificationsEnabled", true),
                     isAppInstalled = m.optBoolean("isAppInstalled", false),

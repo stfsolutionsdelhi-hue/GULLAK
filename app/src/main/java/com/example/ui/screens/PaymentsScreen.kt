@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -27,16 +28,31 @@ import com.example.ui.theme.*
 @Composable
 fun PaymentsScreen(
     repository: SocietyRepository,
+    highlightTxnId: String? = null,
+    onClearHighlight: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val members by repository.members.collectAsState()
     val payments by repository.payments.collectAsState()
-    val approvals by repository.pendingApprovals.collectAsState()
+    val allApprovals by repository.pendingApprovals.collectAsState()
+    val approvals = remember(allApprovals) {
+        allApprovals.filter { it.status.equals("PENDING", ignoreCase = true) }
+    }
 
     var showCollectDialog by remember { mutableStateOf(false) }
     var editingPayment by remember { mutableStateOf<com.example.data.Payment?>(null) }
     var deletingPayment by remember { mutableStateOf<com.example.data.Payment?>(null) }
+
+    LaunchedEffect(highlightTxnId, payments) {
+        if (highlightTxnId != null) {
+            val target = payments.find { it.txnId == highlightTxnId }
+            if (target != null) {
+                editingPayment = target
+            }
+            onClearHighlight()
+        }
+    }
 
     // Calculation Totals
     val totalCollectedThisMonth = payments.sumOf { it.totalAmount }
@@ -396,7 +412,8 @@ fun PaymentsScreen(
     // ================== COLLECT PAYMENT DIALOG (User Request 3) ==================
     if (showCollectDialog) {
         var selectedMember by remember { mutableStateOf(members.firstOrNull()) }
-        var isMemberDropdownOpen by remember { mutableStateOf(false) }
+        var showMemberPhoneBookPicker by remember { mutableStateOf(false) }
+        var memberSearchQuery by remember { mutableStateOf("") }
 
         // Form Fields
         var rdText by remember { mutableStateOf(selectedMember?.monthlyRd?.toString() ?: "400") }
@@ -435,6 +452,148 @@ fun PaymentsScreen(
             ((r + i + p + l) - w).coerceAtLeast(0)
         }
 
+        // ================= PHONE BOOK MEMBER SEARCH PICKER DIALOG =================
+        if (showMemberPhoneBookPicker) {
+            val filteredPhoneBook = remember(members, memberSearchQuery) {
+                if (memberSearchQuery.isBlank()) {
+                    members.sortedBy { it.name.lowercase() }
+                } else {
+                    members.filter {
+                        it.name.contains(memberSearchQuery, ignoreCase = true) ||
+                        it.mobile.contains(memberSearchQuery) ||
+                        it.id.contains(memberSearchQuery, ignoreCase = true)
+                    }.sortedBy { it.name.lowercase() }
+                }
+            }
+
+            AlertDialog(
+                onDismissRequest = { showMemberPhoneBookPicker = false },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Contacts, contentDescription = "Phone Book", tint = AccentGold)
+                        Text("Member Phone Book 📇", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = memberSearchQuery,
+                            onValueChange = { memberSearchQuery = it },
+                            placeholder = { Text("Search name, mobile, or ID...", color = TextMuted, fontSize = 12.sp) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = AccentGold, modifier = Modifier.size(18.dp)) },
+                            trailingIcon = {
+                                if (memberSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { memberSearchQuery = "" }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextSecondary, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentGold,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        Text(
+                            "Total ${filteredPhoneBook.size} members found • Tap to select:",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(filteredPhoneBook, key = { it.id }) { m ->
+                                val initials = m.name.trim().split(" ")
+                                    .take(2)
+                                    .mapNotNull { it.firstOrNull()?.toString() }
+                                    .joinToString("")
+                                    .uppercase()
+
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            updateMemberSelection(m)
+                                            showMemberPhoneBookPicker = false
+                                        },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (selectedMember?.id == m.id) Color(0xFF1E293B) else Color(0xFF0F172A)
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (selectedMember?.id == m.id) PrimaryGreen else CardBorder
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // Phonebook Avatar Circle
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(if (selectedMember?.id == m.id) PrimaryGreen else Color(0xFF334155)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = initials.ifEmpty { "G" },
+                                                color = if (selectedMember?.id == m.id) Color(0xFF064E3B) else TextPrimary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
+                                        }
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(m.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Text("📱 ${m.mobile} • ID: ${m.id}", color = TextSecondary, fontSize = 11.sp)
+                                        }
+
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text("RD: ₹${m.monthlyRd}", color = PrimaryGreen, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                            val activeLoan = m.gullakLoan + m.emergencyLoan
+                                            if (activeLoan > 0) {
+                                                Text("Loan: ₹$activeLoan", color = AccentRed, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showMemberPhoneBookPicker = false }) {
+                        Text("Close", color = TextSecondary)
+                    }
+                },
+                containerColor = CardDark,
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+
         AlertDialog(
             onDismissRequest = { showCollectDialog = false },
             title = {
@@ -446,40 +605,56 @@ fun PaymentsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Select Society Member:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Box {
-                        OutlinedButton(
-                            onClick = { isMemberDropdownOpen = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = selectedMember?.name ?: "Select Member",
-                                color = TextPrimary,
-                                fontSize = 12.sp,
-                                maxLines = 1
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = isMemberDropdownOpen,
-                            onDismissRequest = { isMemberDropdownOpen = false },
+
+                    // Phone Book Selection Card (Phone book style search button)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                memberSearchQuery = ""
+                                showMemberPhoneBookPicker = true
+                            },
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
                             modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .heightIn(max = 300.dp)
-                                .background(CardDark)
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            members.forEach { m ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text(m.name, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                            Text("RD: ₹${m.monthlyRd} • Loans: ₹${m.gullakLoan + m.emergencyLoan}", color = TextSecondary, fontSize = 10.sp)
-                                        }
-                                    },
-                                    onClick = {
-                                        updateMemberSelection(m)
-                                        isMemberDropdownOpen = false
-                                    }
-                                )
+                            if (selectedMember != null) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = selectedMember!!.name,
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        text = "📱 ${selectedMember!!.mobile} • ID: ${selectedMember!!.id}",
+                                        color = TextSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            } else {
+                                Text("Choose Member...", color = TextMuted, fontSize = 12.sp)
+                            }
+
+                            Surface(
+                                color = Color(0xFF1E293B),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Contacts, contentDescription = "Search", tint = AccentGold, modifier = Modifier.size(14.dp))
+                                    Text("Change 📇", color = AccentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

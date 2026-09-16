@@ -49,6 +49,7 @@ fun MainScreen(
     var showLoanSummaryDialog by remember { mutableStateOf(false) }
     var showDrawerLogoutDialog by remember { mutableStateOf(false) }
     var showRulesDialog by remember { mutableStateOf(false) }
+    var targetPaymentTxnId by remember { mutableStateOf<String?>(null) }
 
     val navItems = listOf(
         NavigationItem("Tasks", Icons.Default.Home),
@@ -516,8 +517,18 @@ fun MainScreen(
                 } else {
                     when (selectedTab) {
                         0 -> TasksScreen(repository = repository, onNavigateToPayments = { selectedTab = 2 })
-                        1 -> MembersScreen(repository = repository)
-                        2 -> PaymentsScreen(repository = repository)
+                        1 -> MembersScreen(
+                            repository = repository,
+                            onNavigateToPaymentDetail = { txnId ->
+                                targetPaymentTxnId = txnId
+                                selectedTab = 2
+                            }
+                        )
+                        2 -> PaymentsScreen(
+                            repository = repository,
+                            highlightTxnId = targetPaymentTxnId,
+                            onClearHighlight = { targetPaymentTxnId = null }
+                        )
                         3 -> RemindersScreen(repository = repository)
                         4 -> SettingsScreen(repository = repository)
                         5 -> MemberPortalScreen(repository = repository, onSwitchToAdmin = {
@@ -682,11 +693,8 @@ fun MainScreen(
         )
     }
 
-    // ================== DIALOG: SIDE DRAWER LOGOUT CONFIRMATION (Requirement 6) ==================
+    // ================== DIALOG: SIDE DRAWER LOGOUT CONFIRMATION ==================
     if (showDrawerLogoutDialog) {
-        var drawerLogoutPasskey by remember { mutableStateOf("") }
-        var isPassError by remember { mutableStateOf(false) }
-
         AlertDialog(
             onDismissRequest = { showDrawerLogoutDialog = false },
             title = {
@@ -694,54 +702,34 @@ fun MainScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Lock, contentDescription = "Logout", tint = AccentRed)
-                    Text("Confirm Session Lock / Logout", color = AccentRed, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed)
+                    Text("Confirm Admin Logout", color = AccentRed, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Admin session ko lock karne ke liye Admin Passkey darj karein:",
+                        "Kya aap Admin Session ko lock / logout karna chahte hain?",
+                        color = TextPrimary,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        "Admin panel lock ho jayega. Login karne ke liye admin passkey ki zaroorat hogi.",
                         color = TextSecondary,
-                        fontSize = 12.sp
+                        fontSize = 11.sp
                     )
-                    OutlinedTextField(
-                        value = drawerLogoutPasskey,
-                        onValueChange = {
-                            drawerLogoutPasskey = it
-                            isPassError = false
-                        },
-                        placeholder = { Text("Enter admin passkey", color = TextMuted) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = isPassError,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentRed,
-                            unfocusedBorderColor = CardBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                    if (isPassError) {
-                        Text("Incorrect admin passkey! Please try again.", color = AccentRed, fontSize = 10.sp)
-                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (repository.verifyAdminPassword(drawerLogoutPasskey)) {
-                            repository.logoutAdmin()
-                            showDrawerLogoutDialog = false
-                            selectedTab = 4 // Navigate to settings which will show the locked admin screen
-                        } else {
-                            isPassError = true
-                        }
+                        repository.logoutAdmin()
+                        showDrawerLogoutDialog = false
+                        selectedTab = 4 // Navigate to settings which will show the locked admin screen
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
                 ) {
-                    Text("Lock Admin Session 🔒", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Yes, Logout 🔒", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {

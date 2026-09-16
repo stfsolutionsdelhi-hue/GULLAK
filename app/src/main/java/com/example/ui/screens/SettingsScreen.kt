@@ -1644,13 +1644,18 @@ fun SettingsScreen(
         )
     }
 
-    // Logout Confirmation Dialog (Admin passkey required for logout)
+    // Logout Confirmation Dialog (No passkey required on logout, only on login)
     if (showLogoutDialog) {
-        var logoutConfirmInput by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = {
-                Text("Confirm Admin Logout", color = AccentRed, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed)
+                    Text("Confirm Admin Logout", color = AccentRed, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
             },
             text = {
                 Column(
@@ -1658,25 +1663,17 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        "Admin Panel ko lock karne ke liye admin passkey darj karein:",
-                        color = TextSecondary,
-                        fontSize = 12.sp
-                    )
-                    OutlinedTextField(
-                        value = logoutConfirmInput,
-                        onValueChange = { logoutConfirmInput = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        placeholder = { Text("Enter admin passkey", color = TextMuted) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentRed,
-                            unfocusedBorderColor = CardBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        )
+                        "Kya aap Admin Panel ko lock / logout karna chahte hain?",
+                        color = TextPrimary,
+                        fontSize = 13.sp
                     )
                     Text(
-                        "🔔 Note: Logout hone ke baad bhi important payment alerts aur push notifications device par aate rahenge.",
+                        "Admin panel lock ho jayega aur dobara open karne ke liye Admin Passkey ki zaroorat hogi.",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        "🔔 Note: Background sync aur alerts device par secure tareeqe se active rahenge.",
                         color = PrimaryGreen,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
@@ -1686,17 +1683,13 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (repository.verifyAdminPassword(logoutConfirmInput)) {
-                            repository.logoutAdmin()
-                            showLogoutDialog = false
-                            Toast.makeText(context, "Admin Logged Out & Locked. Push alerts remain active 🔔", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "Please enter correct admin passkey to confirm logout!", Toast.LENGTH_SHORT).show()
-                        }
+                        repository.logoutAdmin()
+                        showLogoutDialog = false
+                        Toast.makeText(context, "Admin Logged Out & Locked. 🔒", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
                 ) {
-                    Text("Confirm Logout 🔒", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Yes, Logout 🔒", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {

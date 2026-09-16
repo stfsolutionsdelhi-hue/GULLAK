@@ -38,7 +38,10 @@ fun TasksScreen(
     val context = LocalContext.current
     val members by repository.members.collectAsState()
     val payments by repository.payments.collectAsState()
-    val pendingApprovals by repository.pendingApprovals.collectAsState()
+    val allApprovals by repository.pendingApprovals.collectAsState()
+    val pendingApprovals = remember(allApprovals) {
+        allApprovals.filter { it.status.equals("PENDING", ignoreCase = true) }
+    }
     val isLiveSyncActive by repository.isLiveSyncActive.collectAsState()
 
     // Member dialog state
