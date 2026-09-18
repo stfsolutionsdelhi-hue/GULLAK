@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     repository: SocietyRepository
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(5) }
@@ -48,6 +49,7 @@ fun MainScreen(
     var showAccountSummaryDialog by remember { mutableStateOf(false) }
     var showLoanSummaryDialog by remember { mutableStateOf(false) }
     var showDrawerLogoutDialog by remember { mutableStateOf(false) }
+    var showMemberLogoutConfirmDialog by remember { mutableStateOf(false) }
     var showRulesDialog by remember { mutableStateOf(false) }
     var targetPaymentTxnId by remember { mutableStateOf<String?>(null) }
 
@@ -324,11 +326,11 @@ fun MainScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Only show logout button if member is logged in (Requirement 5)
+                        // When member is logged in, show logout button; when not logged in, show Admin switch
                         if (loggedInMemberId != null) {
                             Surface(
                                 onClick = {
-                                    repository.logoutMember()
+                                    showMemberLogoutConfirmDialog = true
                                     scope.launch { drawerState.close() }
                                 },
                                 shape = RoundedCornerShape(8.dp),
@@ -345,38 +347,44 @@ fun MainScreen(
                                     Text("Logout Passbook 🚪", color = Color(0xFFFCA5A5), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
                             }
-                        }
-
-                        // Switch to Admin / Staff Login
-                        Surface(
-                            onClick = {
-                                repository.logoutAdmin()
-                                selectedTab = 0
-                                scope.launch { drawerState.close() }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF1E293B),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        } else {
+                            Surface(
+                                onClick = {
+                                    selectedTab = 0
+                                    scope.launch { drawerState.close() }
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF1E293B),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Switch", tint = AccentGold, modifier = Modifier.size(16.dp))
-                                Text("Admin / Staff Login 🔑", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Switch", tint = AccentGold, modifier = Modifier.size(16.dp))
+                                    Text("Admin / Staff Login 🔑", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Gullak Android Pro • V64 Master",
-                        color = TextMuted,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(start = 6.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF0F172A),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Version ${com.example.data.APP_VERSION}", color = PrimaryGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("${com.example.data.APP_BUILD_DATE}", color = TextMuted, fontSize = 9.sp)
+                        }
+                    }
                 }
             }
         }
@@ -807,6 +815,68 @@ fun MainScreen(
             },
             containerColor = CardDark,
             shape = RoundedCornerShape(12.dp)
+        )
+    }
+
+    // Member Logout Confirmation Dialog from Side Drawer
+    if (showMemberLogoutConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showMemberLogoutConfirmDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed)
+                    Text("Confirm Member Logout", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Kya aap Gullak Member Passbook se logout karna chahte hain?",
+                        color = TextPrimary,
+                        fontSize = 13.sp
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF0F172A),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("🔔", fontSize = 14.sp)
+                            Text(
+                                "Logout ke baad bhi official society alerts aur passbook updates aapke device par aate rahenge.",
+                                color = PrimaryGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        repository.logoutMember()
+                        showMemberLogoutConfirmDialog = false
+                        Toast.makeText(context, "Logged out. Society alerts will remain active 🔔", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
+                ) {
+                    Text("Yes, Logout", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMemberLogoutConfirmDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = Color(0xFF1E293B)
         )
     }
 }

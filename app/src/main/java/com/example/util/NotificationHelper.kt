@@ -24,6 +24,12 @@ enum class NotificationTarget {
     MEMBER_ONLY
 }
 
+data class RoleContext(
+    val isAdminUnlocked: Boolean,
+    val activeMemberId: String?,
+    val lastKnownMemberId: String?
+)
+
 object NotificationHelper {
 
     const val CHANNEL_ID = "gullak_society_channel_v8_high_priority"
@@ -31,7 +37,7 @@ object NotificationHelper {
     private const val CHANNEL_DESC = "Official notices for RD collection, loan dues, bonus and passbook updates."
 
     // Provider to check whether Admin is currently active and which Member is logged in
-    var currentRoleProvider: (() -> Pair<Boolean, String?>)? = null
+    var currentRoleProvider: (() -> RoleContext)? = null
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -100,6 +106,36 @@ object NotificationHelper {
         notificationId: Int = (System.currentTimeMillis() % 10000).toInt(),
         forceShow: Boolean = false
     ) {
+        // Enforce role-based delivery filter (strictly isolate Admin vs Member devices)
+        val role = currentRoleProvider?.invoke()
+        if (role != null && !forceShow) {
+            when (target) {
+                NotificationTarget.ADMIN_ONLY -> {
+                    // Admin alerts must NEVER show on a device when a member is logged in, or when admin session is locked/unknown
+                    if (role.activeMemberId != null || !role.isAdminUnlocked) {
+                        return
+                    }
+                }
+                NotificationTarget.MEMBER_ONLY -> {
+                    val deviceMemberId = role.activeMemberId ?: role.lastKnownMemberId
+                    if (targetMemberId != null) {
+                        // Deliver strictly to the matching member ID
+                        if (deviceMemberId == null || !deviceMemberId.equals(targetMemberId, ignoreCase = true)) {
+                            return
+                        }
+                    } else {
+                        // General member notice: Only deliver to devices where a member is active or registered
+                        if (deviceMemberId == null) {
+                            return
+                        }
+                    }
+                }
+                NotificationTarget.ALL -> {
+                    // Broadcast to all
+                }
+            }
+        }
+
         createNotificationChannel(context)
 
         val intent = Intent(context, MainActivity::class.java).apply {

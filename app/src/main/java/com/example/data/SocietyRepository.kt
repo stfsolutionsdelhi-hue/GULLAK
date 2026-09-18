@@ -187,11 +187,13 @@ class SocietyRepository(private val context: Context) {
 
     fun loginMember(id: String) {
         _loggedInMemberId.value = id
+        prefs.edit().putString("last_known_member_id", id).apply()
         addAuditLog("MEMBER_LOGIN", "Member logged in: $id")
     }
 
     fun logoutMember() {
         _loggedInMemberId.value = null
+        addAuditLog("MEMBER_LOGOUT", "Member logged out.")
     }
 
     private val _auditLogs = MutableStateFlow<List<AuditLog>>(emptyList())
@@ -285,7 +287,11 @@ class SocietyRepository(private val context: Context) {
 
     init {
         NotificationHelper.currentRoleProvider = {
-            Pair(!_isSessionLocked.value, _loggedInMemberId.value)
+            com.example.util.RoleContext(
+                isAdminUnlocked = !_isSessionLocked.value,
+                activeMemberId = _loggedInMemberId.value,
+                lastKnownMemberId = prefs.getString("last_known_member_id", null)
+            )
         }
         loadLocalData()
         startPeriodicAutoSync()
@@ -294,7 +300,7 @@ class SocietyRepository(private val context: Context) {
     private fun startPeriodicAutoSync() {
         repoScope.launch {
             while (isActive) {
-                delay(20_000) // Poll every 20 seconds for cross-device updates
+                delay(8_000) // Poll every 8 seconds for real-time live sync between Admin & Member devices
                 if (_isLiveSyncActive.value) {
                     try {
                         syncWithGoogleSheet()
@@ -325,6 +331,9 @@ class SocietyRepository(private val context: Context) {
                     .build()
                 val response = client.newCall(request).execute()
                 response.close()
+
+                // Trigger an immediate sync so local task lists update right away
+                syncWithGoogleSheet()
             } catch (e: Exception) {
                 // If POST failed, silent local persistence remains reliable
             }
@@ -927,12 +936,38 @@ class SocietyRepository(private val context: Context) {
             "Member ${approval.memberName} submitted ₹${approval.totalAmount} (${approval.mode}) for Admin Approval. Ref: ${approval.utrNumber}"
         )
 
+        // 1. Notify the Member on their device that payment is submitted for verification
         NotificationHelper.sendPushNotification(
             context = context,
-            title = "NEW PAYMENT APPROVAL NEEDED",
-            message = "${approval.memberName} submitted ₹${approval.totalAmount} payment (${approval.mode}). Tap to review and approve.",
-            target = NotificationTarget.ADMIN_ONLY
+            title = "⏳ PAYMENT SUBMITTED FOR APPROVAL",
+            message = "Aapki ₹${approval.totalAmount} ki payment verification ke liye Admin ko submit ho gayi hai.",
+            target = NotificationTarget.MEMBER_ONLY,
+            targetMemberId = approval.memberId
         )
+
+        // 2. Post task to Google Sheet Backend so Admin devices / Web App receive it
+        val taskObj = JSONObject().apply {
+            put("id", approval.id)
+            put("memberId", approval.memberId)
+            put("memberName", approval.memberName)
+            put("mobile", approval.mobile)
+            put("requestedRd", approval.requestedRd)
+            put("requestedInterest", approval.requestedInterest)
+            put("requestedPenalty", approval.requestedPenalty)
+            put("requestedLoanRepay", approval.requestedLoanRepay)
+            put("waiver", approval.waiver)
+            put("totalAmount", approval.totalAmount)
+            put("mode", approval.mode)
+            put("utrNumber", approval.utrNumber)
+            put("remarks", approval.remarks)
+            put("date", approval.date)
+            put("status", "PENDING")
+        }
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "submitPaymentApproval")
+            put("approval", taskObj)
+            put("task", taskObj)
+        })
     }
 
     fun submitPaymentForApproval(
@@ -1273,9 +1308,183 @@ class SocietyRepository(private val context: Context) {
                         )
                     )
                 }
+                val oldMembersMap = _members.value.associateBy { it.id }
                 if (parsedMembers.isNotEmpty()) {
+                    // Check for changes made on Web App (PIN change, RD / Loan updates)
+                    val loggedInId = _loggedInMemberId.value
+                    if (loggedInId != null) {
+                        val oldM = oldMembersMap[loggedInId]
+                        val newM = parsedMembers.find { it.id == loggedInId }
+                        if (oldM != null && newM != null) {
+                            // PIN changed on Web App
+                            if (oldM.loginPin.isNotEmpty() && newM.loginPin.isNotEmpty() && oldM.loginPin != newM.loginPin) {
+                                NotificationHelper.sendPushNotification(
+                                    context = context,
+                                    title = "🔐 SECURITY ALERT: PIN UPDATED",
+                                    message = "Aapka 4-Digit Login PIN Admin / Web App se update kiya gaya hai. Kripya naye PIN se login karein.",
+                                    target = NotificationTarget.MEMBER_ONLY,
+                                    targetMemberId = loggedInId
+                                )
+                                logoutMember()
+                            }
+                            // RD Balance or Loan updated on Web App
+                            val oldBalance = oldM.openingRd
+                            val newBalance = newM.openingRd
+                            if (newBalance > oldBalance) {
+                                val diff = newBalance - oldBalance
+                                NotificationHelper.sendPushNotification(
+                                    context = context,
+                                    title = "💳 PASSBOOK UPDATED VIA WEB APP",
+                                    message = "Aapki Gullak Passbook me ₹$diff credit hua hai. Naya RD Balance: ₹$newBalance",
+                                    target = NotificationTarget.MEMBER_ONLY,
+                                    targetMemberId = loggedInId
+                                )
+                            }
+                        }
+                    }
+
                     _members.value = parsedMembers
                     saveMembersToLocal(parsedMembers)
+                }
+            }
+
+            // Also check for collections / payments from Web App
+            val payArray = dataObj.optJSONArray("payments") 
+                ?: dataObj.optJSONArray("collections") 
+                ?: dataObj.optJSONArray("transactions")
+                ?: dataObj.optJSONArray("receipts")
+
+            if (payArray != null && payArray.length() > 0) {
+                val parsedPayments = mutableListOf<Payment>()
+                val existingTxnIds = _payments.value.map { it.txnId }.toSet()
+                val newlyAddedPayments = mutableListOf<Payment>()
+
+                for (i in 0 until payArray.length()) {
+                    val p = payArray.getJSONObject(i)
+                    val txnId = p.optString("txnId", p.optString("id", "TXN-${System.currentTimeMillis()}-$i"))
+                    val memberId = p.optString("memberId", p.optString("id", ""))
+                    val totalAmt = p.optInt("totalAmount", p.optInt("total", p.optInt("amount", 0)))
+                    val paymentItem = Payment(
+                        txnId = txnId,
+                        date = p.optString("date", "18-09-2026"),
+                        memberId = memberId,
+                        memberName = p.optString("memberName", p.optString("name", "")),
+                        mobile = p.optString("mobile", p.optString("phone", "")),
+                        rdAmount = p.optInt("rdAmount", p.optInt("rd", 0)),
+                        interestAmount = p.optInt("interestAmount", p.optInt("interest", 0)),
+                        penaltyAmount = p.optInt("penaltyAmount", p.optInt("penalty", 0)),
+                        loanRepayAmount = p.optInt("loanRepayAmount", p.optInt("loanRepay", 0)),
+                        waiverAmount = p.optInt("waiverAmount", 0),
+                        totalAmount = totalAmt,
+                        mode = p.optString("mode", "CASH"),
+                        remarks = p.optString("remarks", p.optString("narration", "Web App Collection")),
+                        utrNumber = p.optString("utrNumber", "")
+                    )
+                    parsedPayments.add(paymentItem)
+                    if (!existingTxnIds.contains(txnId)) {
+                        newlyAddedPayments.add(paymentItem)
+                    }
+                }
+
+                if (parsedPayments.isNotEmpty()) {
+                    _payments.value = parsedPayments
+                    savePaymentsToLocal(parsedPayments)
+                }
+
+                // If new payments were added from Web App for the logged-in member, notify them!
+                val currentMember = _loggedInMemberId.value
+                if (currentMember != null) {
+                    val memberNewPays = newlyAddedPayments.filter { it.memberId.equals(currentMember, ignoreCase = true) }
+                    for (np in memberNewPays) {
+                        NotificationHelper.sendPushNotification(
+                            context = context,
+                            title = "🧾 NEW PAYMENT RECEIPT CREDITED",
+                            message = "Receipt ₹${np.totalAmount} (${np.mode}) successfully recorded in your passbook.",
+                            target = NotificationTarget.MEMBER_ONLY,
+                            targetMemberId = currentMember
+                        )
+                    }
+                }
+            }
+
+            // Two-Way Tasks / Approvals Sync with Web App
+            val tasksArray = dataObj.optJSONArray("approvals")
+                ?: dataObj.optJSONArray("tasks")
+                ?: dataObj.optJSONArray("pendingApprovals")
+
+            if (tasksArray != null && tasksArray.length() > 0) {
+                val currentApprovals = _pendingApprovals.value.associateBy { it.id }
+                val parsedApprovals = mutableListOf<PaymentApproval>()
+                val loggedInUser = _loggedInMemberId.value
+
+                for (i in 0 until tasksArray.length()) {
+                    val t = tasksArray.getJSONObject(i)
+                    val id = t.optString("id", "APP-${System.currentTimeMillis()}-$i")
+                    val status = t.optString("status", "PENDING").uppercase()
+                    val memberId = t.optString("memberId", "")
+                    val memberName = t.optString("memberName", "")
+                    val totalAmt = t.optInt("totalAmount", t.optInt("total", t.optInt("amount", 0)))
+                    val reason = t.optString("rejectionReason", t.optString("reason", ""))
+
+                    val item = PaymentApproval(
+                        id = id,
+                        memberId = memberId,
+                        memberName = memberName,
+                        mobile = t.optString("mobile", ""),
+                        requestedRd = t.optInt("requestedRd", t.optInt("rdAmount", 0)),
+                        requestedInterest = t.optInt("requestedInterest", t.optInt("loanInterest", 0)),
+                        requestedPenalty = t.optInt("requestedPenalty", t.optInt("penaltyPaid", 0)),
+                        requestedLoanRepay = t.optInt("requestedLoanRepay", t.optInt("loanRepayment", 0)),
+                        waiver = t.optInt("waiver", 0),
+                        totalAmount = totalAmt,
+                        mode = t.optString("mode", "ONLINE / UPI"),
+                        utrNumber = t.optString("utrNumber", t.optString("utrOrRef", "")),
+                        remarks = t.optString("remarks", "Web App Approval Task"),
+                        date = t.optString("date", t.optString("submissionDate", "18-09-2026")),
+                        status = status,
+                        rejectionReason = reason
+                    )
+                    parsedApprovals.add(item)
+
+                    // Check if new pending task arrived (Trigger Admin notification on Admin devices)
+                    val prev = currentApprovals[id]
+                    if (prev == null && status == "PENDING") {
+                        NotificationHelper.sendPushNotification(
+                            context = context,
+                            title = "📢 NEW PAYMENT APPROVAL NEEDED",
+                            message = "${item.memberName} submitted ₹$totalAmt payment (${item.mode}). Tap to review and approve.",
+                            target = NotificationTarget.ADMIN_ONLY
+                        )
+                    }
+
+                    // Check if status transitioned on Web App
+                    if (prev != null && prev.status == "PENDING" && status != "PENDING") {
+                        val targetMember = loggedInUser ?: prefs.getString("last_known_member_id", null)
+                        if (targetMember != null && targetMember.equals(memberId, ignoreCase = true)) {
+                            if (status == "APPROVED") {
+                                NotificationHelper.sendPushNotification(
+                                    context = context,
+                                    title = "✅ PAYMENT APPROVED BY ADMIN",
+                                    message = "Aapki ₹$totalAmt ki payment admin / web app dwara approve ho gayi hai!",
+                                    target = NotificationTarget.MEMBER_ONLY,
+                                    targetMemberId = memberId
+                                )
+                            } else if (status == "REJECTED") {
+                                NotificationHelper.sendPushNotification(
+                                    context = context,
+                                    title = "⚠️ PAYMENT REJECTED",
+                                    message = "Payment of ₹$totalAmt reject hui: ${if (reason.isNotEmpty()) reason else "Admin check"}",
+                                    target = NotificationTarget.MEMBER_ONLY,
+                                    targetMemberId = memberId
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (parsedApprovals.isNotEmpty()) {
+                    _pendingApprovals.value = parsedApprovals
+                    saveApprovalsToLocal(parsedApprovals)
                 }
             }
 

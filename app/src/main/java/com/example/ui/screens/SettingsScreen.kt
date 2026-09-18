@@ -1458,6 +1458,54 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // ================== APP VERSION & BUILD INFO FOOTER ==================
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 16.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = PrimaryGreen.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen.copy(alpha = 0.5f))
+                        ) {
+                            Text(
+                                text = "VERSION ${com.example.data.APP_VERSION}",
+                                color = PrimaryGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Text("Gullak Co-operative Society", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    Text(
+                        text = "${com.example.data.APP_VERSION_TAG} • Build: ${com.example.data.APP_BUILD_DATE}",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Text(
+                        text = "🚀 ${com.example.data.APP_SYNC_ENGINE}",
+                        color = AccentGold,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
     }
 

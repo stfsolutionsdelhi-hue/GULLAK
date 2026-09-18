@@ -1,5 +1,10 @@
 package com.example.data
 
+const val APP_VERSION = "v6.5"
+const val APP_VERSION_TAG = "v6.5 (PRO Realtime Sync)"
+const val APP_BUILD_DATE = "18 Sep 2026"
+const val APP_SYNC_ENGINE = "Two-Way Cloud & Live Web App Sync Engine"
+
 fun sanitizeMobileNumber(phone: String): String {
     var temp = phone.trim()
     if (temp.contains("E", ignoreCase = true)) {

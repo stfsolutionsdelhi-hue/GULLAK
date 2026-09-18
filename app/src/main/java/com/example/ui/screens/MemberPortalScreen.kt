@@ -95,6 +95,7 @@ fun MemberPortalScreen(
     // Cash Payment Confirmation Dialog State
     var showCashConfirmDialog by remember { mutableStateOf(false) }
     var cashPaymentNote by remember { mutableStateOf("") }
+    var showLogoutConfirmDialog by remember { mutableStateOf(false) }
 
     val loggedInMember = members.find { it.id == loggedInMemberId }
 
@@ -294,11 +295,39 @@ fun MemberPortalScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(14.dp))
+            OutlinedButton(
+                onClick = onSwitchToAdmin,
+                shape = RoundedCornerShape(8.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AccentGold.copy(alpha = 0.7f)),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth().height(44.dp)
+            ) {
+                Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin", tint = AccentGold, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Switch to Society Admin Panel 🔑", color = AccentGold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
-            TextButton(onClick = onSwitchToAdmin) {
-                Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin", tint = PrimaryGreen, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Switch to Society Admin Panel", color = PrimaryGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = PrimaryGreen,
+                        modifier = Modifier.size(6.dp)
+                    ) {}
+                    Text("App Version ${com.example.data.APP_VERSION}", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("•", color = TextMuted, fontSize = 10.sp)
+                    Text("Live Sync Active", color = PrimaryGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     } else {
@@ -418,6 +447,27 @@ fun MemberPortalScreen(
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
+                        }
+
+                        Surface(
+                            onClick = { showLogoutConfirmDialog = true },
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF3B0712).copy(alpha = 0.7f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed.copy(alpha = 0.6f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed, modifier = Modifier.size(12.dp))
+                                Text(
+                                    text = "LOGOUT",
+                                    color = Color(0xFFFCA5A5),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -971,6 +1021,25 @@ fun MemberPortalScreen(
                     }
                 }
             }
+
+            // Version Footer in Member Passbook
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 20.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A).copy(alpha = 0.6f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Gullak Passbook", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Version ${com.example.data.APP_VERSION}", color = PrimaryGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 
@@ -1450,6 +1519,68 @@ fun MemberPortalScreen(
                     Text("Back / Change Number", color = AccentGold, fontWeight = FontWeight.Bold)
                 }
             }
+        )
+    }
+
+    // Member Logout Confirmation Dialog
+    if (showLogoutConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirmDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed)
+                    Text("Confirm Member Logout", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Kya aap Gullak Member Passbook se logout karna chahte hain?",
+                        color = TextPrimary,
+                        fontSize = 13.sp
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF0F172A),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("🔔", fontSize = 14.sp)
+                            Text(
+                                "Logout ke baad bhi official society alerts aur passbook updates aapke device par aate rahenge.",
+                                color = PrimaryGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        repository.logoutMember()
+                        showLogoutConfirmDialog = false
+                        Toast.makeText(context, "Logged out. Society alerts will remain active 🔔", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
+                ) {
+                    Text("Yes, Logout", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirmDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = Color(0xFF1E293B)
         )
     }
 }
