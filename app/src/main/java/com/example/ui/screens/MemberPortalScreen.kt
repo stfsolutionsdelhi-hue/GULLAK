@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.Member
 import com.example.data.sanitizeMobileNumber
+import com.example.data.getLoanLimitDisplay
+import com.example.data.getEffectiveLoanLimit
 import com.example.data.PaymentApproval
 import com.example.data.SocietyRepository
 import com.example.ui.theme.*
@@ -95,6 +97,15 @@ fun MemberPortalScreen(
     var cashPaymentNote by remember { mutableStateOf("") }
 
     val loggedInMember = members.find { it.id == loggedInMemberId }
+
+    // User Request: Member panel login hote hi automatically live sync hona chahiye
+    LaunchedEffect(loggedInMemberId) {
+        if (loggedInMemberId != null && repository.isLiveSyncActive.value) {
+            try {
+                repository.syncWithGoogleSheet()
+            } catch (_: Exception) {}
+        }
+    }
 
     // If not logged in, show Member Login Screen (Requirement 5 & 6)
     if (loggedInMember == null) {
@@ -405,32 +416,8 @@ fun MemberPortalScreen(
                                 color = AccentBlue,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
-                        }
-
-                        // Prominent 1-Tap Logout Button
-                        Surface(
-                            onClick = {
-                                repository.logoutMember()
-                                enteredPin = ""
-                                enteredMobile = ""
-                                showMultiAccountDialog = false
-                                multiAccountSelectionList = emptyList()
-                                Toast.makeText(context, "Logged out from Member Passbook. Background alerts & notifications remain active 🔔", Toast.LENGTH_SHORT).show()
-                            },
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFF3B0712).copy(alpha = 0.85f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed.copy(alpha = 0.6f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed, modifier = Modifier.size(12.dp))
-                                Text("Logout", color = Color(0xFFFCA5A5), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
                         }
                     }
                 }
@@ -686,6 +673,8 @@ fun MemberPortalScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // Loan Limit Header
+                    val loanLimitDisplay = loggedInMember.getLoanLimitDisplay(payments)
+                    val effectiveLimit = loggedInMember.getEffectiveLoanLimit(payments)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -695,20 +684,25 @@ fun MemberPortalScreen(
                             Icon(Icons.Default.VerifiedUser, contentDescription = "Limit", tint = PrimaryGreen, modifier = Modifier.size(16.dp))
                             Text("🛡️ Approved Loan Limit", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
-                        Text("₹${loggedInMember.loanLimit}", color = PrimaryGreen, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        Text(
+                            text = loanLimitDisplay,
+                            color = if (loanLimitDisplay.contains("0 limit")) AccentGold else PrimaryGreen,
+                            fontWeight = FontWeight.Black,
+                            fontSize = if (loanLimitDisplay.contains("0 limit")) 13.sp else 16.sp
+                        )
                     }
 
                     // Progress Bar showing utilized vs available limit
                     val totalLoanOutstanding = loggedInMember.gullakLoan + loggedInMember.emergencyLoan
-                    val limitFraction = if (loggedInMember.loanLimit > 0) {
-                        (totalLoanOutstanding.toFloat() / loggedInMember.loanLimit.toFloat()).coerceIn(0f, 1f)
-                    } else 0f
+                    val limitFraction = if (effectiveLimit > 0) {
+                        (totalLoanOutstanding.toFloat() / effectiveLimit.toFloat()).coerceIn(0f, 1f)
+                    } else if (totalLoanOutstanding > 0) 1f else 0f
                     
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         LinearProgressIndicator(
                             progress = limitFraction,
                             modifier = Modifier.fillMaxWidth().height(8.dp),
-                            color = if (limitFraction > 0.8f) AccentRed else AccentGold,
+                            color = if (limitFraction >= 1f || totalLoanOutstanding > 0) AccentGold else PrimaryGreen,
                             trackColor = Color(0xFF1E293B)
                         )
                         Row(
@@ -716,7 +710,7 @@ fun MemberPortalScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("Utilized: ₹$totalLoanOutstanding", color = TextSecondary, fontSize = 9.sp)
-                            Text("Available: ₹${(loggedInMember.loanLimit - totalLoanOutstanding).coerceAtLeast(0)}", color = PrimaryGreen, fontSize = 9.sp)
+                            Text("Available: ₹${(effectiveLimit - totalLoanOutstanding).coerceAtLeast(0)}", color = PrimaryGreen, fontSize = 9.sp)
                         }
                     }
 

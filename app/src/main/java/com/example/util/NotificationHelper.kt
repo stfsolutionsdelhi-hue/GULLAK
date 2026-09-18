@@ -26,12 +26,11 @@ enum class NotificationTarget {
 
 object NotificationHelper {
 
-    const val CHANNEL_ID = "gullak_society_channel_v6_modern"
+    const val CHANNEL_ID = "gullak_society_channel_v8_high_priority"
     private const val CHANNEL_NAME = "Gullak Society Official Alerts"
     private const val CHANNEL_DESC = "Official notices for RD collection, loan dues, bonus and passbook updates."
 
     // Provider to check whether Admin is currently active and which Member is logged in
-    // Returns Pair(isAdminLoggedIn, loggedInMemberId)
     var currentRoleProvider: (() -> Pair<Boolean, String?>)? = null
 
     fun createNotificationChannel(context: Context) {
@@ -40,13 +39,13 @@ object NotificationHelper {
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .build()
 
             val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance).apply {
                 description = CHANNEL_DESC
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 300, 150, 300)
+                vibrationPattern = longArrayOf(0, 400, 200, 400)
                 enableLights(true)
                 lightColor = Color.rgb(16, 185, 129) // Theme Primary Green
                 setSound(soundUri, audioAttributes)
@@ -79,7 +78,7 @@ object NotificationHelper {
         }
         canvas.drawCircle(size / 2f, size / 2f, (size / 2f) - 3f, borderPaint)
 
-        // Bold letter 'G' in gold
+        // Bold letter '₹' in gold
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(245, 158, 11)
             textSize = 68f
@@ -101,38 +100,6 @@ object NotificationHelper {
         notificationId: Int = (System.currentTimeMillis() % 10000).toInt(),
         forceShow: Boolean = false
     ) {
-        // Smart Role Routing:
-        // Admin device receives Admin alerts (approvals, sync status, dispatch confirmation)
-        // Member device receives Member alerts (receipts, PIN changes, due reminders)
-        if (!forceShow) {
-            val roleInfo = currentRoleProvider?.invoke()
-            if (roleInfo != null) {
-                val (isAdminLoggedIn, currentMemberId) = roleInfo
-                when (target) {
-                    NotificationTarget.ADMIN_ONLY -> {
-                        // Only show if Admin is logged in or app is in Admin mode
-                        if (!isAdminLoggedIn) return
-                    }
-                    NotificationTarget.MEMBER_ONLY -> {
-                        // If Admin is actively logged in, avoid member-specific background noise unless targeted
-                        if (isAdminLoggedIn && targetMemberId != null) {
-                            // If admin is in admin panel, don't play sound for a single member's reminder
-                            return
-                        }
-                        // If targeted to a specific member ID, check if matching or broadcast
-                        if (targetMemberId != null && currentMemberId != null &&
-                            !currentMemberId.equals(targetMemberId, ignoreCase = true)
-                        ) {
-                            return
-                        }
-                    }
-                    NotificationTarget.ALL -> {
-                        // System-wide broadcast alerts shown on all devices
-                    }
-                }
-            }
-        }
-
         createNotificationChannel(context)
 
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -147,9 +114,15 @@ object NotificationHelper {
 
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
+        // Ensure audible feedback
+        try {
+            val ringtone = RingtoneManager.getRingtone(context, soundUri)
+            ringtone?.play()
+        } catch (_: Exception) {}
+
         // Format Title into modern clear CAPS with distinct branding
         val cleanTitle = title.trim().ifEmpty { "GULLAK SOCIETY ALERT" }
-        val formattedTitle = if (cleanTitle.startsWith("📢") || cleanTitle.startsWith("🔔") || cleanTitle.startsWith("💳") || cleanTitle.startsWith("✅")) {
+        val formattedTitle = if (cleanTitle.startsWith("📢") || cleanTitle.startsWith("🔔") || cleanTitle.startsWith("💳") || cleanTitle.startsWith("✅") || cleanTitle.startsWith("⚠️")) {
             val emoji = cleanTitle.take(2)
             val rest = cleanTitle.drop(2).trim().uppercase()
             "$emoji $rest"
@@ -179,10 +152,10 @@ object NotificationHelper {
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setSound(soundUri)
-            .setVibrate(longArrayOf(0, 300, 150, 300))
+            .setVibrate(longArrayOf(0, 400, 200, 400))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setDefaults(NotificationCompat.DEFAULT_LIGHTS or NotificationCompat.DEFAULT_VIBRATE)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
 
         if (largeIconBitmap != null) {
             builder.setLargeIcon(largeIconBitmap)

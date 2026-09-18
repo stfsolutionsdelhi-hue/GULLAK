@@ -524,11 +524,20 @@ class SocietyRepository(private val context: Context) {
 
     fun updateMemberLoanLimit(memberId: String, newLimit: Int) {
         val updated = _members.value.map { m ->
-            if (m.id == memberId) m.copy(loanLimit = newLimit) else m
+            if (m.id == memberId) m.copy(loanLimit = newLimit, customLimit = newLimit) else m
         }
         _members.value = updated
         saveMembersToLocal(updated)
         addAuditLog("LOAN LIMIT UPDATED", "Loan Limit set to ₹$newLimit for Member ID: $memberId")
+
+        val postPayload = JSONObject().apply {
+            put("action", "updateLoanLimit")
+            put("id", memberId)
+            put("memberId", memberId)
+            put("loanLimit", newLimit)
+            put("customLimit", newLimit)
+        }
+        postToGoogleSheetBackend(postPayload)
     }
 
     fun toggleMemberNotifications(memberId: String): Boolean {
@@ -1221,8 +1230,19 @@ class SocietyRepository(private val context: Context) {
                     val rawDue = m.optString("dueDay", "15th of every month")
                     val rawJoin = m.optString("joinDate", m.optString("dateJoined", "2026-01-01"))
 
-                    val rawCustom = m.optInt("customLimit", m.optInt("custom loan limit (₹)", m.optInt("custom limit", 0)))
-                    val rawLimit = m.optInt("loanLimit", rawCustom)
+                    val rawCustom = run {
+                        var v = m.optInt("customLimit", 0)
+                        if (v == 0) v = m.optInt("custom loan limit (₹)", 0)
+                        if (v == 0) v = m.optInt("custom loan limit", 0)
+                        if (v == 0) v = m.optInt("custom limit", 0)
+                        if (v == 0) v = m.optInt("custom_limit", 0)
+                        if (v == 0) v = m.optInt("loanLimit", 0)
+                        if (v == 0) v = m.optInt("loan limit (₹)", 0)
+                        if (v == 0) v = m.optInt("loan limit", 0)
+                        if (v == 0) v = m.optInt("limit", 0)
+                        v
+                    }
+                    val rawLimit = if (rawCustom > 0) rawCustom else m.optInt("loanLimit", m.optInt("limit", 0))
 
                     parsedMembers.add(
                         Member(
@@ -1262,12 +1282,6 @@ class SocietyRepository(private val context: Context) {
             _isSyncing.value = false
             _syncStatus.value = "Synced successfully with Web App Database!"
             addAuditLog("CLOUD SYNC SUCCESS", "Synced ${_members.value.size} society members directly from Google Sheets.")
-            NotificationHelper.sendPushNotification(
-                context = context,
-                title = "CLOUD SYNC COMPLETED",
-                message = "Successfully synchronized ${_members.value.size} society members with Google Sheets.",
-                target = NotificationTarget.ADMIN_ONLY
-            )
             return@withContext Pair(true, "Successfully synced ${_members.value.size} members from Google Sheet!")
         } catch (e: Exception) {
             _isSyncing.value = false
