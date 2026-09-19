@@ -111,8 +111,8 @@ object NotificationHelper {
         if (role != null && !forceShow) {
             when (target) {
                 NotificationTarget.ADMIN_ONLY -> {
-                    // Admin alerts must NEVER show on a device when a member is logged in, or when admin session is locked/unknown
-                    if (role.activeMemberId != null || !role.isAdminUnlocked) {
+                    // Admin alerts must show on Admin devices, but NEVER on a device where a member is actively logged in
+                    if (role.activeMemberId != null) {
                         return
                     }
                 }
@@ -124,14 +124,12 @@ object NotificationHelper {
                             return
                         }
                     } else {
-                        // General member notice: Only deliver to devices where a member is active or registered
-                        if (deviceMemberId == null) {
-                            return
-                        }
+                        // Broadcast to all members (Send to all)
+                        // Deliver to any device where member is logged in, or if not admin mode
                     }
                 }
                 NotificationTarget.ALL -> {
-                    // Broadcast to all
+                    // Broadcast to all devices
                 }
             }
         }

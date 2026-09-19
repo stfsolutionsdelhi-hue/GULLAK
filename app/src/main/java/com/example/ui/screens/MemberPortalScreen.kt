@@ -553,6 +553,7 @@ fun MemberPortalScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         // Total Loan Dues
+                        val totalLoanDuesAmt = loggedInMember.gullakLoan + loggedInMember.emergencyLoan
                         Card(
                             modifier = Modifier.weight(1f),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -561,12 +562,12 @@ fun MemberPortalScreen(
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.AccountBalance, contentDescription = "Loan", tint = if (loggedInMember.gullakLoan > 0) AccentRed else TextSecondary, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Default.AccountBalance, contentDescription = "Loan", tint = if (totalLoanDuesAmt > 0) AccentRed else TextSecondary, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("Total Loan Dues", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text("₹${loggedInMember.gullakLoan}", color = if (loggedInMember.gullakLoan > 0) AccentRed else TextSecondary, fontWeight = FontWeight.Black, fontSize = 24.sp)
+                                Text("₹$totalLoanDuesAmt", color = if (totalLoanDuesAmt > 0) AccentRed else TextSecondary, fontWeight = FontWeight.Black, fontSize = 24.sp)
                             }
                         }
 
@@ -615,7 +616,7 @@ fun MemberPortalScreen(
                         onClick = {
                             // Pre-fill form values
                             duesRdInput = loggedInMember.monthlyRd.toString()
-                            val calculatedIntr = ((loggedInMember.gullakLoan * societySettings.loanRate) / 100.0).toInt()
+                            val calculatedIntr = (((loggedInMember.gullakLoan + loggedInMember.emergencyLoan) * societySettings.loanRate) / 100.0).toInt()
                             duesInterestInput = calculatedIntr.toString()
                             duesPenaltyInput = loggedInMember.penaltyApplicable.toString()
                             duesLoanRepayInput = "" // Blank by default
@@ -635,72 +636,38 @@ fun MemberPortalScreen(
             }
         }
 
-        // ================== MEMBER LOAN LIMIT & SUMMARY OF MULTIPLE LOANS ==================
+        // ================== MEMBER LOAN LIMIT & SUMMARY OF LOANS ==================
         item {
             val activeLoans = remember(loggedInMember, societySettings) {
                 val list = mutableListOf<com.example.data.Loan>()
                 val baseRate = societySettings.loanRate
                 
                 if (loggedInMember.gullakLoan > 0) {
-                    if (loggedInMember.gullakLoan > 15000) {
-                        // Split into 2 active loans to show multiple loans as requested
-                        val firstAmt = (loggedInMember.gullakLoan * 0.6).toInt()
-                        val secondAmt = loggedInMember.gullakLoan - firstAmt
-                        list.add(
-                            com.example.data.Loan(
-                                loanId = "L-GUL-01",
-                                memberId = loggedInMember.id,
-                                memberName = loggedInMember.name,
-                                mobile = loggedInMember.mobile,
-                                type = "Gullak Standard Loan #1",
-                                principal = firstAmt,
-                                interestRate = baseRate,
-                                outstanding = firstAmt,
-                                issueDate = "2026-03-10",
-                                status = "ACTIVE"
-                            )
+                    list.add(
+                        com.example.data.Loan(
+                            loanId = "L-GUL-${loggedInMember.id}",
+                            memberId = loggedInMember.id,
+                            memberName = loggedInMember.name,
+                            mobile = loggedInMember.mobile,
+                            type = "Gullak Loan",
+                            principal = loggedInMember.gullakLoan,
+                            interestRate = baseRate,
+                            outstanding = loggedInMember.gullakLoan,
+                            issueDate = loggedInMember.joinDate.ifEmpty { "2026-03-10" },
+                            status = "ACTIVE"
                         )
-                        list.add(
-                            com.example.data.Loan(
-                                loanId = "L-GUL-02",
-                                memberId = loggedInMember.id,
-                                memberName = loggedInMember.name,
-                                mobile = loggedInMember.mobile,
-                                type = "Gullak Premium Loan #2",
-                                principal = secondAmt,
-                                interestRate = baseRate + 0.5, // e.g. 1.5%
-                                outstanding = secondAmt,
-                                issueDate = "2026-06-15",
-                                status = "ACTIVE"
-                            )
-                        )
-                    } else {
-                        list.add(
-                            com.example.data.Loan(
-                                loanId = "L-GUL-01",
-                                memberId = loggedInMember.id,
-                                memberName = loggedInMember.name,
-                                mobile = loggedInMember.mobile,
-                                type = "Gullak Standard Loan",
-                                principal = loggedInMember.gullakLoan,
-                                interestRate = baseRate,
-                                outstanding = loggedInMember.gullakLoan,
-                                issueDate = "2026-03-10",
-                                status = "ACTIVE"
-                            )
-                        )
-                    }
+                    )
                 }
                 if (loggedInMember.emergencyLoan > 0) {
                     list.add(
                         com.example.data.Loan(
-                            loanId = "L-EME-01",
+                            loanId = "L-EME-${loggedInMember.id}",
                             memberId = loggedInMember.id,
                             memberName = loggedInMember.name,
                             mobile = loggedInMember.mobile,
-                            type = "Emergency Cash Assist Loan",
+                            type = "Emergency Loan",
                             principal = loggedInMember.emergencyLoan,
-                            interestRate = 2.0, // Fixed 2.0% for emergency
+                            interestRate = 2.0,
                             outstanding = loggedInMember.emergencyLoan,
                             issueDate = "2026-08-01",
                             status = "ACTIVE"

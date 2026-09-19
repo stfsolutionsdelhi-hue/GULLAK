@@ -58,8 +58,6 @@ fun Member.getTotalRdDeposited(payments: List<Payment> = emptyList()): Int {
 
 fun Member.getEffectiveLoanLimit(payments: List<Payment> = emptyList()): Int {
     if (status.equals("INACTIVE", ignoreCase = true)) return 0
-    val activeLoan = gullakLoan + emergencyLoan
-    if (activeLoan > 0) return 0
     if (customLimit > 0) return customLimit
     if (loanLimit > 0) return loanLimit
     val totalRd = getTotalRdDeposited(payments)
@@ -69,13 +67,7 @@ fun Member.getEffectiveLoanLimit(payments: List<Payment> = emptyList()): Int {
 
 fun Member.getLoanLimitDisplay(payments: List<Payment> = emptyList()): String {
     if (status.equals("INACTIVE", ignoreCase = true)) return "₹0 (INACTIVE)"
-    val activeLoan = gullakLoan + emergencyLoan
-    if (activeLoan > 0) return "0 limit active loan"
-    val limit = if (customLimit > 0) customLimit else if (loanLimit > 0) loanLimit else {
-        val totalRd = getTotalRdDeposited(payments)
-        val calc = totalRd * 2
-        if (calc > 0) calc else 50000
-    }
+    val limit = getEffectiveLoanLimit(payments)
     return "₹%,d".format(java.util.Locale.ENGLISH, limit)
 }
 
