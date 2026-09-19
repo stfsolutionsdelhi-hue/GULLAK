@@ -226,7 +226,7 @@ class SocietyRepository(private val context: Context) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    private val _appDownloadUrl = MutableStateFlow("https://gullaksociety.example.com/download")
+    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi")
     val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
 
     private val _reminderTemplates = MutableStateFlow<List<ReminderTemplate>>(DEFAULT_REMINDER_TEMPLATES)

@@ -51,6 +51,7 @@ fun MainScreen(
     var showDrawerLogoutDialog by remember { mutableStateOf(false) }
     var showMemberLogoutConfirmDialog by remember { mutableStateOf(false) }
     var showRulesDialog by remember { mutableStateOf(false) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
     var targetPaymentTxnId by remember { mutableStateOf<String?>(null) }
 
     val navItems = listOf(
@@ -110,175 +111,262 @@ fun MainScreen(
 
                     if (selectedTab != 5) {
                         // ================== ADMIN SIDE DRAWER PANEL ==================
-                        Text(
-                            text = "👑 ADMIN TOOLS",
-                            color = AccentGold,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 6.dp, top = 4.dp)
-                        )
+                        if (isSessionLocked) {
+                            // When Admin Session is Locked / Logged Out: Do NOT expose confidential Admin menus
+                            Text(
+                                text = "🔒 ADMIN SESSION LOCKED",
+                                color = AccentRed,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 6.dp, top = 4.dp)
+                            )
 
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard", tint = if (selectedTab == 0) PrimaryGreen else TextMuted) },
-                            label = { Text("Society Tasks & Summary", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                            selected = selectedTab == 0,
-                            onClick = {
-                                selectedTab = 0
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = PrimaryGreenDark,
-                                selectedTextColor = PrimaryGreen,
-                                unselectedTextColor = TextSecondary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Lock, contentDescription = "Unlock", tint = AccentGold) },
+                                label = { Text("Unlock Admin Session 🔑", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                                selected = selectedTab == 4,
+                                onClick = {
+                                    selectedTab = 4
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = Color(0xFF1E293B),
+                                    selectedTextColor = AccentGold,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
 
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.People, contentDescription = "Members", tint = if (selectedTab == 1) PrimaryGreen else TextMuted) },
-                            label = { Text("Members Directory (${members.size})", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                            selected = selectedTab == 1,
-                            onClick = {
-                                selectedTab = 1
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = PrimaryGreenDark,
-                                selectedTextColor = PrimaryGreen,
-                                unselectedTextColor = TextSecondary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.AccountCircle, contentDescription = "Member Passbook", tint = AccentBlue) },
+                                label = { Text("Go to Member Passbook 👤", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                                selected = false,
+                                onClick = {
+                                    selectedTab = 5
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedTextColor = AccentBlue,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
 
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.CreditCard, contentDescription = "Payments", tint = if (selectedTab == 2) PrimaryGreen else TextMuted) },
-                            label = { Text("RD & Loan Collection", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                            selected = selectedTab == 2,
-                            onClick = {
-                                selectedTab = 2
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = PrimaryGreenDark,
-                                selectedTextColor = PrimaryGreen,
-                                unselectedTextColor = TextSecondary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.DownloadForOffline, contentDescription = "Download APK", tint = PrimaryGreen) },
+                                label = { Text("Download / Update APK 📲", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                                selected = false,
+                                onClick = {
+                                    showDownloadDialog = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
 
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.Notifications, contentDescription = "Reminders", tint = if (selectedTab == 3) PrimaryGreen else TextMuted) },
-                            label = { Text("Reminders & Bulk SMS", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                            selected = selectedTab == 3,
-                            onClick = {
-                                selectedTab = 3
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = PrimaryGreenDark,
-                                selectedTextColor = PrimaryGreen,
-                                unselectedTextColor = TextSecondary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentGold) },
+                                label = { Text("Rules & Regulations 📜", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                selected = false,
+                                onClick = {
+                                    showRulesDialog = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "👑 ADMIN TOOLS",
+                                color = AccentGold,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 6.dp, top = 4.dp)
+                            )
 
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings", tint = if (selectedTab == 4) PrimaryGreen else TextMuted) },
-                            label = { Text("Sync, QR & Settings", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                            selected = selectedTab == 4,
-                            onClick = {
-                                selectedTab = 4
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = PrimaryGreenDark,
-                                selectedTextColor = PrimaryGreen,
-                                unselectedTextColor = TextSecondary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard", tint = if (selectedTab == 0) PrimaryGreen else TextMuted) },
+                                label = { Text("Society Tasks & Summary", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                selected = selectedTab == 0,
+                                onClick = {
+                                    selectedTab = 0
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = PrimaryGreenDark,
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
 
-                        HorizontalDivider(color = CardBorder, modifier = Modifier.padding(vertical = 4.dp))
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.People, contentDescription = "Members", tint = if (selectedTab == 1) PrimaryGreen else TextMuted) },
+                                label = { Text("Members Directory (${members.size})", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                selected = selectedTab == 1,
+                                onClick = {
+                                    selectedTab = 1
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = PrimaryGreenDark,
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
 
-                        Text(
-                            text = "📊 SOCIETY INSIGHTS",
-                            color = PrimaryGreen,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 6.dp)
-                        )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.CreditCard, contentDescription = "Payments", tint = if (selectedTab == 2) PrimaryGreen else TextMuted) },
+                                label = { Text("RD & Loan Collection", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                selected = selectedTab == 2,
+                                onClick = {
+                                    selectedTab = 2
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = PrimaryGreenDark,
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
 
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.Assessment, contentDescription = "Account Summary", tint = AccentGold) },
-                            label = { Text("Account Summary", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                            selected = false,
-                            onClick = {
-                                showAccountSummaryDialog = true
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedTextColor = PrimaryGreen,
-                                unselectedTextColor = TextSecondary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Notifications, contentDescription = "Reminders", tint = if (selectedTab == 3) PrimaryGreen else TextMuted) },
+                                label = { Text("Reminders & Bulk SMS", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                selected = selectedTab == 3,
+                                onClick = {
+                                    selectedTab = 3
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = PrimaryGreenDark,
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
 
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentGold) },
-                            label = { Text("Rules & Regulations 📜", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                            selected = false,
-                            onClick = {
-                                showRulesDialog = true
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedTextColor = PrimaryGreen,
-                                unselectedTextColor = TextSecondary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Settings, contentDescription = "Settings", tint = if (selectedTab == 4) PrimaryGreen else TextMuted) },
+                                label = { Text("Sync, QR & Settings", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                selected = selectedTab == 4,
+                                onClick = {
+                                    selectedTab = 4
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = PrimaryGreenDark,
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            HorizontalDivider(color = CardBorder, modifier = Modifier.padding(vertical = 4.dp))
 
-                        // Bottom live sync status card for admins
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isLiveSyncActive) PrimaryGreenDark else Color(0xFF451A03),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            Text(
+                                text = "📊 SOCIETY INSIGHTS",
+                                color = PrimaryGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 6.dp)
+                            )
+
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Assessment, contentDescription = "Account Summary", tint = AccentGold) },
+                                label = { Text("Account Summary", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                selected = false,
+                                onClick = {
+                                    showAccountSummaryDialog = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentGold) },
+                                label = { Text("Rules & Regulations 📜", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                selected = false,
+                                onClick = {
+                                    showRulesDialog = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.DownloadForOffline, contentDescription = "Download APK", tint = AccentGold) },
+                                label = { Text("Download / Update APK 📲", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                                selected = false,
+                                onClick = {
+                                    showDownloadDialog = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedTextColor = PrimaryGreen,
+                                    unselectedTextColor = TextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Bottom live sync status card for admins
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isLiveSyncActive) PrimaryGreenDark else Color(0xFF451A03),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Live Google Sync", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text(
-                                    text = if (isLiveSyncActive) "🟢 ACTIVE" else "⏸ PAUSED",
-                                    color = if (isLiveSyncActive) PrimaryGreen else AccentGold,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Live Google Sync", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = if (isLiveSyncActive) "🟢 ACTIVE" else "⏸ PAUSED",
+                                        color = if (isLiveSyncActive) PrimaryGreen else AccentGold,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
-                        }
 
-                        // Admin Logout Button
-                        Surface(
-                            onClick = {
-                                showDrawerLogoutDialog = true
-                                scope.launch { drawerState.close() }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF3B0712).copy(alpha = 0.6f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            // Admin Logout Button
+                            Surface(
+                                onClick = {
+                                    showDrawerLogoutDialog = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF3B0712).copy(alpha = 0.6f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed, modifier = Modifier.size(16.dp))
-                                Text("Logout / Lock Session", color = Color(0xFFFCA5A5), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed, modifier = Modifier.size(16.dp))
+                                    Text("Logout / Lock Session", color = Color(0xFFFCA5A5), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
                             }
                         }
 
@@ -315,6 +403,23 @@ fun MainScreen(
                             selected = false,
                             onClick = {
                                 showRulesDialog = true
+                                scope.launch { drawerState.close() }
+                            },
+                            colors = NavigationDrawerItemDefaults.colors(
+                                selectedTextColor = PrimaryGreen,
+                                unselectedTextColor = TextSecondary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.DownloadForOffline, contentDescription = "Download APK", tint = AccentBlue) },
+                            label = { Text("Download / Update APK 📲", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                            selected = false,
+                            onClick = {
+                                showDownloadDialog = true
                                 scope.launch { drawerState.close() }
                             },
                             colors = NavigationDrawerItemDefaults.colors(
@@ -372,6 +477,10 @@ fun MainScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                     Surface(
+                        onClick = {
+                            showDownloadDialog = true
+                            scope.launch { drawerState.close() }
+                        },
                         shape = RoundedCornerShape(6.dp),
                         color = Color(0xFF0F172A),
                         border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
@@ -381,8 +490,14 @@ fun MainScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Version ${com.example.data.APP_VERSION}", color = PrimaryGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Text("${com.example.data.APP_BUILD_DATE}", color = TextMuted, fontSize = 9.sp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Default.DownloadForOffline, contentDescription = null, tint = PrimaryGreen, modifier = Modifier.size(12.dp))
+                                Text("Version ${com.example.data.APP_VERSION}", color = PrimaryGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text("APK Update 📥", color = AccentGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -416,6 +531,15 @@ fun MainScreen(
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Open Drawer", tint = AccentGold)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showDownloadDialog = true }) {
+                            Icon(
+                                Icons.Default.DownloadForOffline,
+                                contentDescription = "Download / Update APK",
+                                tint = AccentGold
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -734,7 +858,7 @@ fun MainScreen(
                     onClick = {
                         repository.logoutAdmin()
                         showDrawerLogoutDialog = false
-                        selectedTab = 4 // Navigate to settings which will show the locked admin screen
+                        selectedTab = 5 // Switch directly to Member Passbook / Portal
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
                 ) {
@@ -752,7 +876,7 @@ fun MainScreen(
     }
 
     // ================== DIALOG: RULES & REGULATIONS (Requirement 9) ==================
-    if (showRulesDialog && !isSessionLocked) {
+    if (showRulesDialog) {
         val rules by repository.rulesAndRegulations.collectAsState()
         AlertDialog(
             onDismissRequest = { showRulesDialog = false },
@@ -877,6 +1001,204 @@ fun MainScreen(
                 }
             },
             containerColor = Color(0xFF1E293B)
+        )
+    }
+
+    // App Download & Update Dialog for Admin & Members
+    if (showDownloadDialog) {
+        val appDownloadUrl by repository.appDownloadUrl.collectAsState()
+        var editUrlMode by remember { mutableStateOf(false) }
+        var inputUrl by remember(appDownloadUrl) { mutableStateOf(appDownloadUrl) }
+
+        AlertDialog(
+            onDismissRequest = { showDownloadDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.DownloadForOffline, contentDescription = "Download APK", tint = PrimaryGreen)
+                    Text("Download & Update App APK", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Version info card
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF0F172A),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Installed Version", color = TextSecondary, fontSize = 10.sp)
+                                Text("v${com.example.data.APP_VERSION}", color = PrimaryGreen, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Build Date", color = TextSecondary, fontSize = 10.sp)
+                                Text(com.example.data.APP_BUILD_DATE, color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+
+                    Text(
+                        "Gullak Society Android App ka latest update APK yahan se direct download ya share karein:",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+
+                    // Download URL Display or Edit
+                    if (editUrlMode) {
+                        OutlinedTextField(
+                            value = inputUrl,
+                            onValueChange = { inputUrl = it },
+                            label = { Text("APK Download / Drive URL") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PrimaryGreen,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            ),
+                            singleLine = true
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = { editUrlMode = false }) {
+                                Text("Cancel", color = TextSecondary)
+                            }
+                            Button(
+                                onClick = {
+                                    if (inputUrl.isNotBlank()) {
+                                        repository.updateAppDownloadUrl(inputUrl)
+                                        editUrlMode = false
+                                        Toast.makeText(context, "Download link updated successfully!", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                            ) {
+                                Text("Save URL", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1E293B),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Current Download Link:", color = TextSecondary, fontSize = 10.sp)
+                                Text(
+                                    text = appDownloadUrl,
+                                    color = AccentBlue,
+                                    fontSize = 11.sp,
+                                    maxLines = 2,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        // Action Buttons: Open in Browser & Copy Link
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(appDownloadUrl))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Unable to open link: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = Color(0xFF064E3B), modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Open Link 🌐", color = Color(0xFF064E3B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    val clip = android.content.ClipData.newPlainText("App Download URL", appDownloadUrl)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "Download link copied! 📋", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AccentGold),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentGold)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, tint = AccentGold, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Copy Link 📋", color = AccentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Share via WhatsApp / Other Apps Button
+                        Button(
+                            onClick = {
+                                try {
+                                    val sendIntent = android.content.Intent().apply {
+                                        action = android.content.Intent.ACTION_SEND
+                                        putExtra(android.content.Intent.EXTRA_TEXT, "Namaste! Gullak Co-operative Society Android App ka latest update APK yahan se download karein:\n$appDownloadUrl\n(Version: v${com.example.data.APP_VERSION})")
+                                        type = "text/plain"
+                                    }
+                                    val shareIntent = android.content.Intent.createChooser(sendIntent, "Share APK Download Link")
+                                    context.startActivity(shareIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Error sharing link: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Share APK Link (WhatsApp) 📤", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // Admin Only: Edit Link Button
+                        if (selectedTab != 5 || !isSessionLocked) {
+                            TextButton(
+                                onClick = { editUrlMode = true },
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = AccentGold, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Admin: Change APK Link ⚙️", color = AccentGold, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showDownloadDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                ) {
+                    Text("Close", color = TextPrimary)
+                }
+            },
+            containerColor = CardDark,
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }
