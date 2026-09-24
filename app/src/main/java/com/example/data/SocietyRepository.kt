@@ -226,7 +226,7 @@ class SocietyRepository(private val context: Context) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi")
+    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/app-debug.apk")
     val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
 
     private val _reminderTemplates = MutableStateFlow<List<ReminderTemplate>>(DEFAULT_REMINDER_TEMPLATES)
@@ -368,7 +368,7 @@ class SocietyRepository(private val context: Context) {
         _societyUpiId.value = socUpi
         _isLiveSyncActive.value = prefs.getBoolean("live_sync_active", true)
         _societyQrUri.value = prefs.getString("society_qr_uri", null)
-        _appDownloadUrl.value = prefs.getString("app_download_url", "https://gullaksociety.example.com/download") ?: "https://gullaksociety.example.com/download"
+        _appDownloadUrl.value = prefs.getString("app_download_url", "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/app-debug.apk") ?: "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/app-debug.apk"
 
         val savedRules = prefs.getStringSet("rules_and_regulations", null)
         if (savedRules != null) {

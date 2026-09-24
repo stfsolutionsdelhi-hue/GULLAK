@@ -1048,11 +1048,25 @@ fun MainScreen(
                         }
                     }
 
-                    Text(
-                        "Gullak Society Android App ka latest update APK yahan se direct download ya share karein:",
-                        color = TextSecondary,
-                        fontSize = 12.sp
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF064E3B).copy(alpha = 0.3f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("💡", fontSize = 16.sp)
+                            Text(
+                                "Purani app ko delete/uninstall karne ki bilkul zaroorat nahi hai. Download hone par seedha 'Update' par click karein.",
+                                color = Color(0xFFA7F3D0),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
 
                     // Download URL Display or Edit
                     if (editUrlMode) {
