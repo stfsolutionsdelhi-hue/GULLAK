@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -238,7 +239,7 @@ fun TasksScreen(
                 }
             }
         } else {
-            items(pendingApprovals, key = { it.id }) { req ->
+            itemsIndexed(pendingApprovals, key = { index, req -> "${req.id}_$index" }) { _, req ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -468,7 +469,8 @@ fun TasksScreen(
                 }
             }
         } else {
-            items(if (overviewSearchQuery.isBlank()) filteredOverviewMembers.take(20) else filteredOverviewMembers, key = { it.id }) { member ->
+            val overviewList = if (overviewSearchQuery.isBlank()) filteredOverviewMembers.distinctBy { it.id }.take(20) else filteredOverviewMembers.distinctBy { it.id }
+            itemsIndexed(overviewList, key = { index, member -> "${member.id}_$index" }) { _, member ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()

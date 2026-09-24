@@ -15,8 +15,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -31,6 +33,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.SocietyRepository
@@ -82,6 +86,14 @@ fun SettingsScreen(
     var oldAdminPass by remember { mutableStateOf("") }
     var newAdminPass by remember { mutableStateOf("") }
     var confirmAdminPass by remember { mutableStateOf("") }
+    var newRecoveryPinInput by remember { mutableStateOf("") }
+
+    // Forgot Password Recovery Dialog State
+    var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var forgotAdminMobile by remember { mutableStateOf("") }
+    var forgotRecoveryPin by remember { mutableStateOf("") }
+    var forgotNewPass by remember { mutableStateOf("") }
+    var forgotConfirmPass by remember { mutableStateOf("") }
 
     var isAuditLogsExpanded by remember { mutableStateOf(false) }
 
@@ -157,6 +169,154 @@ fun SettingsScreen(
             ) {
                 Text("Unlock Admin Session 🔓", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold)
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            TextButton(
+                onClick = {
+                    forgotAdminMobile = ""
+                    forgotRecoveryPin = ""
+                    forgotNewPass = ""
+                    forgotConfirmPass = ""
+                    showForgotPasswordDialog = true
+                }
+            ) {
+                Icon(Icons.Default.HelpOutline, contentDescription = "Forgot", tint = AccentGold, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Forgot Passkey? / पासवर्ड भूल गए?", color = AccentGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (showForgotPasswordDialog) {
+            val adminPhone = societySettings.adminWhatsApp
+            val maskedPhoneHint = if (adminPhone.length >= 10) "xxx${adminPhone.substring(3, 7)}xxx" else "xxx1817xxx"
+
+            AlertDialog(
+                onDismissRequest = { showForgotPasswordDialog = false },
+                containerColor = Color(0xFF0F172A),
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Security, contentDescription = "Recovery", tint = AccentGold)
+                        Text("🔑 Admin Passkey Recovery", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Bina OTP ke Safe Recovery: Registered Admin Mobile number aur Recovery PIN daal kar naya passkey banayein.",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+
+                        OutlinedTextField(
+                            value = forgotAdminMobile,
+                            onValueChange = { forgotAdminMobile = it },
+                            label = { Text("Registered Admin Mobile (Hint: $maskedPhoneHint)") },
+                            placeholder = { Text("Enter 10-digit mobile number") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentGold,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = forgotRecoveryPin,
+                            onValueChange = { forgotRecoveryPin = it },
+                            label = { Text("Admin Recovery PIN") },
+                            placeholder = { Text("••••") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentGold,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = forgotNewPass,
+                            onValueChange = { forgotNewPass = it },
+                            label = { Text("New Admin Passkey") },
+                            placeholder = { Text("Enter new passkey") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PrimaryGreen,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = forgotConfirmPass,
+                            onValueChange = { forgotConfirmPass = it },
+                            label = { Text("Confirm New Passkey") },
+                            placeholder = { Text("Re-enter new passkey") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PrimaryGreen,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            )
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (forgotAdminMobile.trim().isEmpty()) {
+                                Toast.makeText(context, "Please enter your 10-digit registered admin mobile number!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (forgotRecoveryPin.trim().isEmpty()) {
+                                Toast.makeText(context, "Please enter your Recovery PIN!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (forgotNewPass.trim().isEmpty()) {
+                                Toast.makeText(context, "New passkey cannot be empty!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (forgotNewPass.trim() != forgotConfirmPass.trim()) {
+                                Toast.makeText(context, "New passkeys do not match!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            val (success, msg) = repository.resetAdminPasswordWithRecovery(
+                                adminMobile = forgotAdminMobile,
+                                recoveryPin = forgotRecoveryPin,
+                                newPass = forgotNewPass
+                            )
+                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            if (success) {
+                                showForgotPasswordDialog = false
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentGold)
+                    ) {
+                        Text("Reset & Unlock Admin 🔓", color = Color(0xFF451A03), fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showForgotPasswordDialog = false }) {
+                        Text("Cancel", color = TextMuted)
+                    }
+                }
+            )
         }
         return
     }
@@ -805,6 +965,67 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Update Admin Passkey", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
+
+                    HorizontalDivider(color = Color(0xFF334155), thickness = 0.8.dp)
+
+                    // Recovery PIN Management
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.Shield, contentDescription = "Recovery PIN", tint = PrimaryGreen, modifier = Modifier.size(16.dp))
+                        Text("Admin Recovery PIN (Bina OTP Reset Ke Liye)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    Text(
+                        text = "Recovery PIN Status: 🛡️ Active & Protected. Agar passkey bhul jayein toh is Recovery PIN aur registered mobile number se lock screen se bina OTP ke turant passkey reset ho jayegi.",
+                        color = TextSecondary,
+                        fontSize = 10.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = newRecoveryPinInput,
+                            onValueChange = { newRecoveryPinInput = it },
+                            label = { Text("Set Admin Recovery PIN") },
+                            placeholder = { Text("••••") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PrimaryGreen,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary,
+                                focusedContainerColor = BgDark,
+                                unfocusedContainerColor = BgDark
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        Button(
+                            onClick = {
+                                if (newRecoveryPinInput.trim().isEmpty()) {
+                                    Toast.makeText(context, "Please enter Recovery PIN!", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                if (repository.updateAdminRecoveryPin(newRecoveryPinInput)) {
+                                    Toast.makeText(context, "Admin Recovery PIN updated successfully! 🛡️", Toast.LENGTH_SHORT).show()
+                                    newRecoveryPinInput = ""
+                                }
+                            },
+                            modifier = Modifier.height(48.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreenDark),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Save PIN", color = PrimaryGreen, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
                 }
             }
         }
@@ -1036,13 +1257,13 @@ fun SettingsScreen(
                         )
                         Column {
                             Text(
-                                text = "Manage Rules & Regulations 📜",
+                                text = "सोसाइटी नियम व विनियम (Rules) 📜",
                                 color = TextPrimary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Add, edit, or delete official society guidelines",
+                                text = "सोसाइटी के आधिकारिक नियम जोड़ें, बदलें या देखें",
                                 color = TextSecondary,
                                 fontSize = 9.sp
                             )
@@ -1182,7 +1403,7 @@ fun SettingsScreen(
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("SAVE SYSTEM RULES 💾", color = Color(0xFF064E3B), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                            Text("नियम सुरक्षित करें (SAVE RULES) 💾", color = Color(0xFF064E3B), fontWeight = FontWeight.Black, fontSize = 11.sp)
                         }
                     }
                 }
@@ -1234,7 +1455,7 @@ fun SettingsScreen(
         }
 
         if (isAuditLogsExpanded) {
-            items(auditLogs) { log ->
+            itemsIndexed(auditLogs, key = { index, log -> "${log.id}_$index" }) { _, log ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()

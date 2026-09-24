@@ -32,7 +32,7 @@ data class RoleContext(
 
 object NotificationHelper {
 
-    const val CHANNEL_ID = "gullak_society_channel_v8_high_priority"
+    const val CHANNEL_ID = "gullak_society_loud_v10_high_priority"
     private const val CHANNEL_NAME = "Gullak Society Official Alerts"
     private const val CHANNEL_DESC = "Official notices for RD collection, loan dues, bonus and passbook updates."
 
@@ -43,6 +43,7 @@ object NotificationHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val importance = NotificationManager.IMPORTANCE_HIGH
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
@@ -51,7 +52,7 @@ object NotificationHelper {
             val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance).apply {
                 description = CHANNEL_DESC
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 400, 200, 400)
+                vibrationPattern = longArrayOf(0, 500, 250, 500)
                 enableLights(true)
                 lightColor = Color.rgb(16, 185, 129) // Theme Primary Green
                 setSound(soundUri, audioAttributes)
@@ -147,11 +148,37 @@ object NotificationHelper {
         )
 
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
-        // Ensure audible feedback
+        // Ensure loud audible and physical feedback
         try {
             val ringtone = RingtoneManager.getRingtone(context, soundUri)
-            ringtone?.play()
+            if (ringtone != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    ringtone.audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                }
+                ringtone.play()
+            }
+        } catch (_: Exception) {}
+
+        // Direct vibration trigger
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                vibratorManager?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 300, 150, 300), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(longArrayOf(0, 300, 150, 300), -1)
+            }
         } catch (_: Exception) {}
 
         // Format Title into modern clear CAPS with distinct branding

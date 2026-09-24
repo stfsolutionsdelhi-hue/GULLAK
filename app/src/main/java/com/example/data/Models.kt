@@ -1,8 +1,8 @@
 package com.example.data
 
-const val APP_VERSION = "v7.0"
-const val APP_VERSION_TAG = "v7.0 (PRO Realtime Sync & APK Updater)"
-const val APP_BUILD_DATE = "19 Sep 2026"
+const val APP_VERSION = "v7.6"
+const val APP_VERSION_TAG = "v7.6 (Hindi Rules, Member Clean Limit & Discreet Admin Switch)"
+const val APP_BUILD_DATE = "24 Sep 2026"
 const val APP_SYNC_ENGINE = "Two-Way Cloud & Live Web App Sync Engine"
 
 fun sanitizeMobileNumber(phone: String): String {
@@ -58,15 +58,21 @@ fun Member.getTotalRdDeposited(payments: List<Payment> = emptyList()): Int {
 
 fun Member.getEffectiveLoanLimit(payments: List<Payment> = emptyList()): Int {
     if (status.equals("INACTIVE", ignoreCase = true)) return 0
+    // Rule: Any active loan dues = Loan limit is strictly 0
+    val totalActiveLoan = gullakLoan + emergencyLoan
+    if (totalActiveLoan > 0) return 0
     if (customLimit > 0) return customLimit
-    if (loanLimit > 0) return loanLimit
     val totalRd = getTotalRdDeposited(payments)
     val calc = totalRd * 2
-    return if (calc > 0) calc else 50000
+    return if (calc > 0) calc else 0
 }
 
 fun Member.getLoanLimitDisplay(payments: List<Payment> = emptyList()): String {
-    if (status.equals("INACTIVE", ignoreCase = true)) return "₹0 (INACTIVE)"
+    if (status.equals("INACTIVE", ignoreCase = true)) return "₹0"
+    val totalActiveLoan = gullakLoan + emergencyLoan
+    if (totalActiveLoan > 0) {
+        return "₹0"
+    }
     val limit = getEffectiveLoanLimit(payments)
     return "₹%,d".format(java.util.Locale.ENGLISH, limit)
 }

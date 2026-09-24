@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -76,13 +77,14 @@ fun MembersScreen(
             }
         }
 
-        when (selectedSortIndex) {
+        val sortedList = when (selectedSortIndex) {
             0 -> list.sortedByDescending { it.gullakLoan + it.emergencyLoan }
             1 -> list.sortedBy { it.gullakLoan + it.emergencyLoan }
             2 -> list.sortedByDescending { it.getTotalRdDeposited(payments) }
             3 -> list.sortedBy { it.name }
             else -> list
         }
+        sortedList.distinctBy { it.id }
     }
 
     LazyColumn(
@@ -217,7 +219,7 @@ fun MembersScreen(
         }
 
         // Members List - Tapping on Name / Card Opens Ledger Directly
-        items(filteredMembers, key = { it.id }) { member ->
+        itemsIndexed(filteredMembers, key = { index, member -> "${member.id}_$index" }) { _, member ->
             val totalLoan = member.gullakLoan + member.emergencyLoan
             val totalRdDeposited = member.getTotalRdDeposited(payments)
             val loanLimitDisplay = member.getLoanLimitDisplay(payments)
@@ -237,14 +239,18 @@ fun MembersScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { fullScreenLedgerMember = member },
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { fullScreenLedgerMember = member }
                         ) {
                             Box(
                                 modifier = Modifier
@@ -305,7 +311,10 @@ fun MembersScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.End) {
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                modifier = Modifier.clickable { fullScreenLedgerMember = member }
+                            ) {
                                 Text("RD ₹${member.monthlyRd}", color = PrimaryGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 if (totalLoan > 0) {
                                     Text("Loan ₹$totalLoan", color = AccentRed, fontWeight = FontWeight.Black, fontSize = 11.sp)
@@ -331,6 +340,14 @@ fun MembersScreen(
                                     modifier = Modifier.background(CardDark)
                                 ) {
                                     DropdownMenuItem(
+                                        text = { Text("📜 Open Member Ledger", color = AccentGold, fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                                        leadingIcon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Ledger", tint = AccentGold, modifier = Modifier.size(16.dp)) },
+                                        onClick = {
+                                            showDropdown = false
+                                            fullScreenLedgerMember = member
+                                        }
+                                    )
+                                    DropdownMenuItem(
                                         text = { Text("👤 Member Profile & KYC", color = TextPrimary, fontSize = 12.sp) },
                                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Profile", tint = AccentBlue, modifier = Modifier.size(16.dp)) },
                                         onClick = {
@@ -346,22 +363,16 @@ fun MembersScreen(
                                             pinDialogMember = member
                                         }
                                     )
-                                    DropdownMenuItem(
-                                        text = { Text("📄 Open Ledger", color = TextPrimary, fontSize = 12.sp) },
-                                        leadingIcon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Ledger", tint = PrimaryGreen, modifier = Modifier.size(16.dp)) },
-                                        onClick = {
-                                            showDropdown = false
-                                            fullScreenLedgerMember = member
-                                        }
-                                    )
                                 }
                             }
                         }
                     }
 
-                    // Bottom info strip with accurate Loan Limit and RD balance
+                    // Bottom info strip with accurate Loan Limit and RD balance - also clickable
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { fullScreenLedgerMember = member },
                         color = CardDark,
                         shape = RoundedCornerShape(6.dp)
                     ) {
@@ -373,8 +384,8 @@ fun MembersScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Accumulated RD: ₹$totalRdDeposited", color = TextSecondary, fontSize = 10.sp)
-                            Text("Loan Limit: $loanLimitDisplay", color = AccentBlue, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Due: ${member.dueDay.take(6)}", color = AccentGold, fontSize = 10.sp)
+                            Text("Loan Limit: $loanLimitDisplay", color = if (totalLoan > 0) AccentGold else AccentBlue, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text("📜 View Ledger ➔", color = AccentGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -567,7 +578,7 @@ fun MembersScreen(
                                 .weight(1f),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(memberPayments, key = { it.txnId }) { p ->
+                            itemsIndexed(memberPayments, key = { index, p -> "${p.txnId}_$index" }) { _, p ->
                                 val markupOrigin = when {
                                     p.remarks.contains("Web App", ignoreCase = true) -> "🌐 Web App"
                                     p.remarks.contains("Admin", ignoreCase = true) -> "🏢 Admin Counter"

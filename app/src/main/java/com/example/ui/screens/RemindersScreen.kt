@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -101,8 +102,9 @@ fun RemindersScreen(
 
     val filteredMemberList = remember(members, memberSearchQuery) {
         val q = memberSearchQuery.trim().lowercase()
-        if (q.isBlank()) members
+        val list = if (q.isBlank()) members
         else members.filter { it.name.lowercase().contains(q) || it.mobile.contains(q) || it.address.lowercase().contains(q) }
+        list.distinctBy { it.id }
     }
 
     LazyColumn(
@@ -396,18 +398,20 @@ fun RemindersScreen(
                                     "${editableTemplateBody.take(70)}... ($count recipients targeted)"
                                 }
 
-                                NotificationHelper.sendPushNotification(
-                                    context = context,
+                                repository.dispatchBroadcastNotification(
                                     title = cleanTitle,
                                     message = formattedMessage,
-                                    target = NotificationTarget.MEMBER_ONLY,
+                                    target = when (selectedAudience) {
+                                        "ALL" -> NotificationTarget.ALL
+                                        else -> NotificationTarget.MEMBER_ONLY
+                                    },
                                     targetMemberId = if (count == 1) targetRecipients.first().id else null
                                 )
                                 repository.addAuditLog(
                                     "PUSH REMINDER DISPATCHED",
-                                    "Dispatched '$cleanTitle' for $count recipients (${selectedAudience} list)."
+                                    "Dispatched '$cleanTitle' for $count recipients (${selectedAudience} list) across all devices."
                                 )
-                                Toast.makeText(context, "✅ Push Alert dispatched to $count members!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "✅ Push Alert broadcasted to all member devices ($count target)!", Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
@@ -609,7 +613,7 @@ fun RemindersScreen(
             }
         }
 
-        items(filteredMemberList, key = { it.id }) { m ->
+        itemsIndexed(filteredMemberList, key = { index, m -> "${m.id}_$index" }) { _, m ->
             val totalLoan = m.gullakLoan + m.emergencyLoan
             val isPaid = m.pendingDues == 0 && totalLoan == 0
             val hasPaidThisMonth = paidMemberIdsThisMonth.contains(m.id)

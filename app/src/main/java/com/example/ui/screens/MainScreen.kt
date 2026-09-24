@@ -1,11 +1,16 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,12 +18,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
-import android.widget.Toast
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.SocietyRepository
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
@@ -169,7 +177,7 @@ fun MainScreen(
 
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentGold) },
-                                label = { Text("Rules & Regulations 📜", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                label = { Text("सोसाइटी नियम (Rules) 📜", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
                                 selected = false,
                                 onClick = {
                                     showRulesDialog = true
@@ -297,7 +305,7 @@ fun MainScreen(
 
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentGold) },
-                                label = { Text("Rules & Regulations 📜", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                label = { Text("सोसाइटी नियम (Rules) 📜", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
                                 selected = false,
                                 onClick = {
                                     showRulesDialog = true
@@ -399,7 +407,7 @@ fun MainScreen(
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentBlue) },
-                            label = { Text("Rules & Regulations 📜", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                            label = { Text("सोसाइटी नियम (Rules) 📜", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                             selected = false,
                             onClick = {
                                 showRulesDialog = true
@@ -534,12 +542,36 @@ fun MainScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { showDownloadDialog = true }) {
-                            Icon(
-                                Icons.Default.DownloadForOffline,
-                                contentDescription = "Download / Update APK",
-                                tint = AccentGold
-                            )
+                        if (selectedTab != 5 && !isSessionLocked) {
+                            Surface(
+                                onClick = {
+                                    val state = repository.toggleLiveSync()
+                                    val txt = if (state) "🟢 Live Sync Resumed" else "⏸️ Live Sync Paused"
+                                    Toast.makeText(context, txt, Toast.LENGTH_SHORT).show()
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isLiveSyncActive) PrimaryGreenDark else Color(0xFF451A03),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isLiveSyncActive) PrimaryGreen else AccentGold),
+                                modifier = Modifier.padding(end = 10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (isLiveSyncActive) PrimaryGreen else AccentGold,
+                                        modifier = Modifier.size(6.dp)
+                                    ) {}
+                                    Text(
+                                        text = if (isLiveSyncActive) "Live" else "Paused",
+                                        color = if (isLiveSyncActive) PrimaryGreen else AccentGold,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -548,7 +580,7 @@ fun MainScreen(
                 )
             },
             bottomBar = {
-                if (selectedTab != 5) {
+                if (selectedTab != 5 && !isSessionLocked) {
                     NavigationBar(
                         containerColor = Color(0xFF060913),
                         tonalElevation = 8.dp
@@ -579,7 +611,14 @@ fun MainScreen(
             ) {
                 if (isSessionLocked && selectedTab != 5) {
                     var unlockPasscode by remember { mutableStateOf("") }
+                    var showMainForgotDialog by remember { mutableStateOf(false) }
+                    var forgotMobile by remember { mutableStateOf("") }
+                    var forgotPin by remember { mutableStateOf("") }
+                    var forgotNewPass by remember { mutableStateOf("") }
+                    var forgotConfirmPass by remember { mutableStateOf("") }
                     val context = LocalContext.current
+                    val societySettings by repository.societySettings.collectAsState()
+
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -636,8 +675,24 @@ fun MainScreen(
                         ) {
                             Text("Unlock Admin Session 🔓", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold)
                         }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        TextButton(
+                            onClick = {
+                                forgotMobile = societySettings.adminWhatsApp
+                                forgotPin = ""
+                                forgotNewPass = ""
+                                forgotConfirmPass = ""
+                                showMainForgotDialog = true
+                            }
+                        ) {
+                            Icon(Icons.Default.HelpOutline, contentDescription = "Forgot", tint = AccentGold, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Forgot Passkey? / पासवर्ड भूल गए?", color = AccentGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                         
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         
                         TextButton(
                             onClick = { selectedTab = 5 }
@@ -646,6 +701,139 @@ fun MainScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Go back to Member Passbook", color = AccentBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
+                    }
+
+                    if (showMainForgotDialog) {
+                        val adminPhone = societySettings.adminWhatsApp
+                        val maskedPhoneHint = if (adminPhone.length >= 10) "xxx${adminPhone.substring(3, 7)}xxx" else "xxx1817xxx"
+
+                        AlertDialog(
+                            onDismissRequest = { showMainForgotDialog = false },
+                            containerColor = Color(0xFF0F172A),
+                            title = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Security, contentDescription = "Recovery", tint = AccentGold)
+                                    Text("🔑 Admin Passkey Recovery", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+                            },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(
+                                        text = "Bina OTP ke Safe Recovery: Registered Admin Mobile number aur Recovery PIN daal kar naya passkey banayein.",
+                                        color = TextSecondary,
+                                        fontSize = 11.sp
+                                    )
+
+                                    OutlinedTextField(
+                                        value = forgotMobile,
+                                        onValueChange = { forgotMobile = it },
+                                        label = { Text("Registered Admin Mobile (Hint: $maskedPhoneHint)") },
+                                        placeholder = { Text("Enter 10-digit mobile number") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AccentGold,
+                                            unfocusedBorderColor = CardBorder,
+                                            focusedTextColor = TextPrimary,
+                                            unfocusedTextColor = TextPrimary
+                                        )
+                                    )
+
+                                    OutlinedTextField(
+                                        value = forgotPin,
+                                        onValueChange = { forgotPin = it },
+                                        label = { Text("Admin Recovery PIN") },
+                                        placeholder = { Text("••••") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AccentGold,
+                                            unfocusedBorderColor = CardBorder,
+                                            focusedTextColor = TextPrimary,
+                                            unfocusedTextColor = TextPrimary
+                                        )
+                                    )
+
+                                    OutlinedTextField(
+                                        value = forgotNewPass,
+                                        onValueChange = { forgotNewPass = it },
+                                        label = { Text("New Admin Passkey") },
+                                        placeholder = { Text("Enter new passkey") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = PrimaryGreen,
+                                            unfocusedBorderColor = CardBorder,
+                                            focusedTextColor = TextPrimary,
+                                            unfocusedTextColor = TextPrimary
+                                        )
+                                    )
+
+                                    OutlinedTextField(
+                                        value = forgotConfirmPass,
+                                        onValueChange = { forgotConfirmPass = it },
+                                        label = { Text("Confirm New Passkey") },
+                                        placeholder = { Text("Re-enter new passkey") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = PrimaryGreen,
+                                            unfocusedBorderColor = CardBorder,
+                                            focusedTextColor = TextPrimary,
+                                            unfocusedTextColor = TextPrimary
+                                        )
+                                    )
+                                }
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        if (forgotMobile.trim().isEmpty()) {
+                                            Toast.makeText(context, "Please enter your 10-digit registered admin mobile number!", Toast.LENGTH_SHORT).show()
+                                            return@Button
+                                        }
+                                        if (forgotPin.trim().isEmpty()) {
+                                            Toast.makeText(context, "Please enter your Recovery PIN!", Toast.LENGTH_SHORT).show()
+                                            return@Button
+                                        }
+                                        if (forgotNewPass.trim().isEmpty()) {
+                                            Toast.makeText(context, "New passkey cannot be empty!", Toast.LENGTH_SHORT).show()
+                                            return@Button
+                                        }
+                                        if (forgotNewPass.trim() != forgotConfirmPass.trim()) {
+                                            Toast.makeText(context, "New passkeys do not match!", Toast.LENGTH_SHORT).show()
+                                            return@Button
+                                        }
+                                        val (success, msg) = repository.resetAdminPasswordWithRecovery(
+                                            adminMobile = forgotMobile,
+                                            recoveryPin = forgotPin,
+                                            newPass = forgotNewPass
+                                        )
+                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        if (success) {
+                                            showMainForgotDialog = false
+                                            selectedTab = 0
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentGold)
+                                ) {
+                                    Text("Reset & Unlock Admin 🔓", color = Color(0xFF451A03), fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showMainForgotDialog = false }) {
+                                    Text("Cancel", color = TextMuted)
+                                }
+                            }
+                        )
                     }
                 } else {
                     when (selectedTab) {
@@ -875,71 +1063,182 @@ fun MainScreen(
         )
     }
 
-    // ================== DIALOG: RULES & REGULATIONS (Requirement 9) ==================
+    // ================== DIALOG: RULES & REGULATIONS (FULL SCREEN & LARGE FONT) ==================
     if (showRulesDialog) {
         val rules by repository.rulesAndRegulations.collectAsState()
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showRulesDialog = false },
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(Icons.Default.Gavel, contentDescription = "Rules", tint = AccentGold)
-                    Text("📜 नियम और विनियम (Rules)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-            },
-            text = {
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BgDark),
+                color = BgDark
+            ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .fillMaxSize()
+                        .padding(16.dp)
                 ) {
-                    Text(
-                        text = "Society ke official niyam aur nirdesh niche diye gaye hain:",
-                        color = TextSecondary,
-                        fontSize = 11.sp
-                    )
-                    rules.forEach { rule ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            shape = RoundedCornerShape(6.dp)
+                    // Top Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.Top
+                            IconButton(
+                                onClick = { showRulesDialog = false },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(CardDark)
                             ) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Close", tint = AccentGold)
+                            }
+                            Column {
                                 Text(
-                                    text = "•",
+                                    text = "📜 समाज के नियम और शर्तें",
                                     color = AccentGold,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
+                                    fontSize = 18.sp
                                 )
                                 Text(
-                                    text = rule,
+                                    text = "Gullak Co-operative Society • Official Guidelines",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { showRulesDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text("बंद करें (Close)", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Notice Banner
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("⚖️", fontSize = 24.sp)
+                            Column {
+                                Text(
+                                    "सभी सदस्यों के लिए अनिवार्य नियम (Rules & Regulations)",
                                     color = TextPrimary,
-                                    fontSize = 11.sp,
-                                    lineHeight = 16.sp
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    "सोसाइटी की वित्तीय पारदर्शिता एवं सुचारू संचालन हेतु सभी नियम मान्य हैं:",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp
                                 )
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Scrollable Rules List in Big Readable Font
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        itemsIndexed(rules) { index, rule ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    // Number Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF1E3A8A)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${index + 1}",
+                                            color = AccentBlue,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+
+                                    // Rule Content in Big Font
+                                    Text(
+                                        text = rule,
+                                        color = TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        lineHeight = 22.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Footer Share Button
+                    Button(
+                        onClick = {
+                            try {
+                                val rulesText = StringBuilder("📜 *गुल्लक को-ऑपरेटिव सोसाइटी - नियम व विनियम (RULES & REGULATIONS)*\n\n")
+                                rules.forEachIndexed { i, r -> rulesText.append("${i + 1}. $r\n\n") }
+                                val sendIntent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, rulesText.toString())
+                                    type = "text/plain"
+                                }
+                                val shareIntent = Intent.createChooser(sendIntent, "Share Society Rules")
+                                context.startActivity(shareIntent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF065F46)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Share", tint = Color(0xFFA7F3D0), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("नियम व्हाट्सएप पर भेजें 📲", color = Color(0xFFA7F3D0), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showRulesDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
-                ) {
-                    Text("ठीक है (OK)", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold)
-                }
-            },
-            containerColor = CardDark,
-            shape = RoundedCornerShape(12.dp)
-        )
+            }
+        }
     }
 
     // Member Logout Confirmation Dialog from Side Drawer
@@ -1123,7 +1422,7 @@ fun MainScreen(
                             }
                         }
 
-                        // Action Buttons: Open in Browser & Copy Link
+                        // Action Buttons: Direct Download & Open GitHub Repo
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1141,11 +1440,35 @@ fun MainScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = Color(0xFF064E3B), modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Download, contentDescription = null, tint = Color(0xFF064E3B), modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Open Link 🌐", color = Color(0xFF064E3B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Direct APK 📥", color = Color(0xFF064E3B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
 
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/stfsolutionsdelhi-hue/GULLAK"))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Unable to open GitHub: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("GitHub Repo 🌐", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Copy Link & Share on WhatsApp
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             OutlinedButton(
                                 onClick = {
                                     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
@@ -1162,30 +1485,44 @@ fun MainScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Copy Link 📋", color = AccentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
+
+                            Button(
+                                onClick = {
+                                    try {
+                                        val sendIntent = android.content.Intent().apply {
+                                            action = android.content.Intent.ACTION_SEND
+                                            putExtra(android.content.Intent.EXTRA_TEXT, "Namaste! Gullak Co-operative Society Android App ka latest update APK yahan se download karein:\n$appDownloadUrl\nGitHub Repo: https://github.com/stfsolutionsdelhi-hue/GULLAK\n(Version: v${com.example.data.APP_VERSION})")
+                                            type = "text/plain"
+                                        }
+                                        val shareIntent = android.content.Intent.createChooser(sendIntent, "Share APK Download Link")
+                                        context.startActivity(shareIntent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error sharing link: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("WhatsApp 📤", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
 
-                        // Share via WhatsApp / Other Apps Button
-                        Button(
-                            onClick = {
-                                try {
-                                    val sendIntent = android.content.Intent().apply {
-                                        action = android.content.Intent.ACTION_SEND
-                                        putExtra(android.content.Intent.EXTRA_TEXT, "Namaste! Gullak Co-operative Society Android App ka latest update APK yahan se download karein:\n$appDownloadUrl\n(Version: v${com.example.data.APP_VERSION})")
-                                        type = "text/plain"
-                                    }
-                                    val shareIntent = android.content.Intent.createChooser(sendIntent, "Share APK Download Link")
-                                    context.startActivity(shareIntent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Error sharing link: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                            shape = RoundedCornerShape(8.dp)
+                        // Helpful Notice for 404
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF1E293B),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Share APK Link (WhatsApp) 📤", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "ℹ️ Note: Agar GitHub direct APK par 404 error aaye to GitHub repository me ek baar 'Release' publish karein, ya 'Admin: Change APK Link ⚙️' se apna Google Drive / direct link set karein.",
+                                color = TextMuted,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(6.dp),
+                                lineHeight = 13.sp
+                            )
                         }
 
                         // Admin Only: Edit Link Button

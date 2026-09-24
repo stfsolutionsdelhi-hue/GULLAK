@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -77,7 +78,7 @@ fun PaymentsScreen(
             ) {
                 Column {
                     Text("💳 RD & LOAN COLLECTION", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text("Auto-calculated breakdown with penalty & waiver", color = TextSecondary, fontSize = 12.sp)
+                    Text("Verified & set-off transactions register", color = TextSecondary, fontSize = 12.sp)
                 }
                 Button(
                     onClick = { showCollectDialog = true },
@@ -88,96 +89,6 @@ fun PaymentsScreen(
                     Icon(Icons.Default.Add, contentDescription = "Receive", tint = Color(0xFF064E3B), modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Receive ₹", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
-        }
-
-        // Section: Pending Member Online Approvals (if any)
-        if (approvals.isNotEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.5.dp, AccentGold, RoundedCornerShape(12.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1917)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(Icons.Default.PendingActions, contentDescription = "Approvals", tint = AccentGold, modifier = Modifier.size(18.dp))
-                                Text("⏳ Pending Online Approvals (${approvals.size})", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            }
-                        }
-
-                        approvals.forEach { app ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .border(1.dp, CardBorder, RoundedCornerShape(8.dp)),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1120)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(10.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(app.memberName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                            Text("ID: ${app.memberId} • 📱 ${app.mobile}", color = TextSecondary, fontSize = 10.sp)
-                                        }
-                                        Text("₹${app.totalAmount}", color = AccentGold, fontWeight = FontWeight.Black, fontSize = 16.sp)
-                                    }
-
-                                    Text("UTR: ${app.utrNumber} • ${app.date}", color = TextMuted, fontSize = 10.sp)
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Button(
-                                            onClick = {
-                                                repository.approvePaymentRequest(app.id)
-                                                Toast.makeText(context, "Payment of ₹${app.totalAmount} Approved for ${app.memberName}!", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.weight(1f).height(34.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Text("Approve ✅", color = Color(0xFF064E3B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                        }
-
-                                        OutlinedButton(
-                                            onClick = {
-                                                repository.rejectPaymentRequest(app.id)
-                                                Toast.makeText(context, "Payment Rejected", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.weight(1f).height(34.dp),
-                                            shape = RoundedCornerShape(6.dp),
-                                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(AccentRed))
-                                        ) {
-                                            Text("Reject ❌", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -281,7 +192,7 @@ fun PaymentsScreen(
                 }
             }
         } else {
-            items(payments, key = { it.txnId }) { pay ->
+            itemsIndexed(payments, key = { index, pay -> "${pay.txnId}_$index" }) { _, pay ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,6 +38,7 @@ import com.example.data.Member
 import com.example.data.sanitizeMobileNumber
 import com.example.data.getLoanLimitDisplay
 import com.example.data.getEffectiveLoanLimit
+import com.example.data.getTotalRdDeposited
 import com.example.data.PaymentApproval
 import com.example.data.SocietyRepository
 import com.example.ui.theme.*
@@ -295,17 +297,31 @@ fun MemberPortalScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-            OutlinedButton(
-                onClick = onSwitchToAdmin,
-                shape = RoundedCornerShape(8.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AccentGold.copy(alpha = 0.7f)),
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.6f)),
-                modifier = Modifier.fillMaxWidth().height(44.dp)
+            Spacer(modifier = Modifier.height(18.dp))
+            // Small & discreet text link for Admin login so app looks 100% designed for members
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin", tint = AccentGold, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Switch to Society Admin Panel 🔑", color = AccentGold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                TextButton(
+                    onClick = onSwitchToAdmin,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = "Admin Switch",
+                        tint = TextMuted.copy(alpha = 0.6f),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "Admin Panel",
+                        color = TextMuted.copy(alpha = 0.7f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -441,33 +457,12 @@ fun MemberPortalScreen(
                             border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
                         ) {
                             Text(
-                                text = "PASSBOOK",
+                                text = "MEMBER PORTAL",
                                 color = AccentBlue,
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
-                        }
-
-                        Surface(
-                            onClick = { showLogoutConfirmDialog = true },
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFF3B0712).copy(alpha = 0.7f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed.copy(alpha = 0.6f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(Icons.Default.Logout, contentDescription = "Logout", tint = AccentRed, modifier = Modifier.size(12.dp))
-                                Text(
-                                    text = "LOGOUT",
-                                    color = Color(0xFFFCA5A5),
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     }
                 }
@@ -689,45 +684,59 @@ fun MemberPortalScreen(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Loan Limit Header
+                    // Loan Limit Header & Clean Number Display
                     val loanLimitDisplay = loggedInMember.getLoanLimitDisplay(payments)
                     val effectiveLimit = loggedInMember.getEffectiveLoanLimit(payments)
+                    val totalLoanOutstanding = loggedInMember.gullakLoan + loggedInMember.emergencyLoan
+                    
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Default.VerifiedUser, contentDescription = "Limit", tint = PrimaryGreen, modifier = Modifier.size(16.dp))
-                            Text("🛡️ Approved Loan Limit", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Icon(Icons.Default.VerifiedUser, contentDescription = "Limit", tint = if (totalLoanOutstanding > 0) AccentGold else PrimaryGreen, modifier = Modifier.size(16.dp))
+                            Text("🛡️ Loan Limit / Eligibility", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                         Text(
                             text = loanLimitDisplay,
-                            color = if (loanLimitDisplay.contains("0 limit")) AccentGold else PrimaryGreen,
+                            color = if (totalLoanOutstanding > 0) AccentGold else PrimaryGreen,
                             fontWeight = FontWeight.Black,
-                            fontSize = if (loanLimitDisplay.contains("0 limit")) 13.sp else 16.sp
+                            fontSize = 15.sp
                         )
                     }
 
-                    // Progress Bar showing utilized vs available limit
-                    val totalLoanOutstanding = loggedInMember.gullakLoan + loggedInMember.emergencyLoan
-                    val limitFraction = if (effectiveLimit > 0) {
-                        (totalLoanOutstanding.toFloat() / effectiveLimit.toFloat()).coerceIn(0f, 1f)
-                    } else if (totalLoanOutstanding > 0) 1f else 0f
-                    
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        LinearProgressIndicator(
-                            progress = limitFraction,
-                            modifier = Modifier.fillMaxWidth().height(8.dp),
-                            color = if (limitFraction >= 1f || totalLoanOutstanding > 0) AccentGold else PrimaryGreen,
-                            trackColor = Color(0xFF1E293B)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Utilized: ₹$totalLoanOutstanding", color = TextSecondary, fontSize = 9.sp)
-                            Text("Available: ₹${(effectiveLimit - totalLoanOutstanding).coerceAtLeast(0)}", color = PrimaryGreen, fontSize = 9.sp)
+                    // Simple Clean Explanation Card (No graph / No credit-card progress bar)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (totalLoanOutstanding > 0) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("⚠️", fontSize = 14.sp)
+                                    Text(
+                                        "Active Loan Dues: ₹$totalLoanOutstanding chal rahe hain. Rule ke mutabiq jab tak purana loan clear nahi hota, nayi loan eligibility ₹0 rehti hai.",
+                                        color = Color(0xFFFDE68A),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("✅", fontSize = 14.sp)
+                                    Text(
+                                        "Aapka koi active loan nahi hai. Vartaman loan eligibility limit ₹%,d hai.".format(java.util.Locale.ENGLISH, effectiveLimit),
+                                        color = Color(0xFFA7F3D0),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -873,7 +882,7 @@ fun MemberPortalScreen(
                 }
             }
         } else {
-            items(combinedTxns) { txn ->
+            itemsIndexed(combinedTxns, key = { index, txn -> "${txn.txnId}_$index" }) { _, txn ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
