@@ -226,7 +226,7 @@ class SocietyRepository(private val context: Context) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/actions/runs/35989215228/artifacts/10803920802")
+    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.7.apk")
     val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
 
     private val _reminderTemplates = MutableStateFlow<List<ReminderTemplate>>(DEFAULT_REMINDER_TEMPLATES)
@@ -368,7 +368,7 @@ class SocietyRepository(private val context: Context) {
         _societyUpiId.value = socUpi
         _isLiveSyncActive.value = prefs.getBoolean("live_sync_active", true)
         _societyQrUri.value = prefs.getString("society_qr_uri", null)
-        _appDownloadUrl.value = prefs.getString("app_download_url", "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/app-debug.apk") ?: "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/app-debug.apk"
+        _appDownloadUrl.value = prefs.getString("app_download_url", "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.7.apk") ?: "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.7.apk"
 
         val savedRules = prefs.getStringSet("rules_and_regulations", null)
         val defaultHindiRules = listOf(
@@ -706,6 +706,15 @@ class SocietyRepository(private val context: Context) {
         targetMemberId: String? = null
     ) {
         val noticeId = "NOTIF-${System.currentTimeMillis()}"
+
+        prefs.edit()
+            .putString("active_broadcast_id", noticeId)
+            .putString("active_broadcast_title", title)
+            .putString("active_broadcast_message", message)
+            .putString("active_broadcast_target", target.name)
+            .putString("active_broadcast_target_member_id", targetMemberId ?: "")
+            .putLong("active_broadcast_timestamp", System.currentTimeMillis())
+            .apply()
 
         // 1. Play & display immediately on this local device
         NotificationHelper.sendPushNotification(
@@ -1358,6 +1367,34 @@ class SocietyRepository(private val context: Context) {
         if (!_isLiveSyncActive.value) {
             return@withContext Pair(false, "Live Sync is currently PAUSED by Admin. Tap Live toggle to resume.")
         }
+
+        // Check for pending broadcast notification across emulators/devices
+        try {
+            val broadcastId = prefs.getString("active_broadcast_id", null)
+            val broadcastTimestamp = prefs.getLong("active_broadcast_timestamp", 0L)
+            val lastCheckedBroadcast = prefs.getLong("last_checked_broadcast_timestamp", 0L)
+            if (broadcastId != null && broadcastTimestamp > lastCheckedBroadcast) {
+                prefs.edit().putLong("last_checked_broadcast_timestamp", broadcastTimestamp).apply()
+                if (!isNoticeDelivered(broadcastId)) {
+                    markNoticeDelivered(broadcastId)
+                    val bTitle = prefs.getString("active_broadcast_title", "Gullak Society Alert") ?: "Gullak Society Alert"
+                    val bMsg = prefs.getString("active_broadcast_message", "") ?: ""
+                    val bTargetName = prefs.getString("active_broadcast_target", "MEMBER_ONLY") ?: "MEMBER_ONLY"
+                    val bTargetMemberId = prefs.getString("active_broadcast_target_member_id", "").takeIf { !it.isNullOrEmpty() }
+                    val bTarget = try { NotificationTarget.valueOf(bTargetName) } catch (_: Exception) { NotificationTarget.MEMBER_ONLY }
+
+                    NotificationHelper.sendPushNotification(
+                        context = context,
+                        title = bTitle,
+                        message = bMsg,
+                        target = bTarget,
+                        targetMemberId = bTargetMemberId,
+                        forceShow = false
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+
         var url = _webAppUrl.value.trim()
         if (url.isBlank() || url.contains("AKfycbz_gullak_society_master_sync_v64")) {
             url = DEFAULT_WEB_APP_URL

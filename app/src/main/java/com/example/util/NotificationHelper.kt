@@ -126,7 +126,9 @@ object NotificationHelper {
                         }
                     } else {
                         // Broadcast to all members (Send to all)
-                        // Deliver to any device where member is logged in, or if not admin mode
+                        if (role.activeMemberId == null && role.isAdminUnlocked && !forceShow) {
+                            return
+                        }
                     }
                 }
                 NotificationTarget.ALL -> {

@@ -1,8 +1,8 @@
 package com.example.data
 
-const val APP_VERSION = "v7.6"
-const val APP_VERSION_TAG = "v7.6 (Hindi Rules, Member Clean Limit & Discreet Admin Switch)"
-const val APP_BUILD_DATE = "24 Sep 2026"
+const val APP_VERSION = "v7.7"
+const val APP_VERSION_TAG = "v7.7 (Instant Push Alerts & Check Update Fix)"
+const val APP_BUILD_DATE = "25 Sep 2026"
 const val APP_SYNC_ENGINE = "Two-Way Cloud & Live Web App Sync Engine"
 
 fun sanitizeMobileNumber(phone: String): String {

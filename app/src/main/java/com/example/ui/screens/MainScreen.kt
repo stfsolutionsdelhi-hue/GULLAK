@@ -1429,20 +1429,21 @@ fun MainScreen(
                         ) {
                             Button(
                                 onClick = {
+                                    Toast.makeText(context, "Checking GitHub repository for latest v7.7 update...", Toast.LENGTH_SHORT).show()
                                     try {
                                         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(appDownloadUrl))
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, "Unable to open link: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Unable to open update link: ${e.message}", Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Icon(Icons.Default.Download, contentDescription = null, tint = Color(0xFF064E3B), modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = Color(0xFF064E3B), modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Direct APK 📥", color = Color(0xFF064E3B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Check Update 🔄", color = Color(0xFF064E3B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
 
                             Button(
