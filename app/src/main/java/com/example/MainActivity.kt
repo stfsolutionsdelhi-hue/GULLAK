@@ -30,7 +30,6 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
-        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         NotificationHelper.createNotificationChannel(applicationContext)
 

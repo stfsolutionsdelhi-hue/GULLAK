@@ -226,7 +226,7 @@ class SocietyRepository(private val context: Context) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society.apk")
+    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v8.0.apk")
     val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
 
     private val _reminderTemplates = MutableStateFlow<List<ReminderTemplate>>(DEFAULT_REMINDER_TEMPLATES)
@@ -369,8 +369,8 @@ class SocietyRepository(private val context: Context) {
         _isLiveSyncActive.value = prefs.getBoolean("live_sync_active", true)
         _societyQrUri.value = prefs.getString("society_qr_uri", null)
         val savedDownloadUrl = prefs.getString("app_download_url", "") ?: ""
-        val universalLatestUrl = "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society.apk"
-        if (savedDownloadUrl.isBlank() || savedDownloadUrl.contains("v7.") || savedDownloadUrl.contains("actions/runs") || savedDownloadUrl.contains("app-debug.apk")) {
+        val universalLatestUrl = "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v8.0.apk"
+        if (savedDownloadUrl.isBlank() || savedDownloadUrl.contains("v7.") || savedDownloadUrl.contains("actions/runs") || savedDownloadUrl.contains("app-debug.apk") || savedDownloadUrl.endsWith("Gullak-Society.apk")) {
             _appDownloadUrl.value = universalLatestUrl
             prefs.edit().putString("app_download_url", universalLatestUrl).apply()
         } else {
@@ -760,6 +760,20 @@ class SocietyRepository(private val context: Context) {
             })
         }
         postToGoogleSheetBackend(payload)
+
+        // Dual-Bridge fallback: Save to FundRegister (supported on all deployed Google Sheet versions)
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "saveFund")
+            put("fund", JSONObject().apply {
+                put("id", noticeId)
+                put("date", SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date()))
+                put("type", "BROADCAST_NOTICE")
+                put("account", "NOTICE")
+                put("entity", targetMemberId ?: target.name)
+                put("amount", 0)
+                put("narration", noticeObj.toString())
+            })
+        })
     }
 
     fun saveWebAppUrl(url: String) {
@@ -1057,8 +1071,10 @@ class SocietyRepository(private val context: Context) {
         val payObj = JSONObject().apply {
             put("receiptNo", payment.txnId)
             put("date", payment.date)
+            put("id", payment.memberId)
             put("memberId", payment.memberId)
             put("name", payment.memberName)
+            put("memberName", payment.memberName)
             put("rd", payment.rdAmount)
             put("interest", payment.interestAmount)
             put("penalty", payment.penaltyAmount)
@@ -1118,6 +1134,20 @@ class SocietyRepository(private val context: Context) {
             put("action", "submitPaymentApproval")
             put("approval", taskObj)
             put("task", taskObj)
+        })
+
+        // Dual-Bridge fallback: Save to FundRegister (supported on all deployed Google Sheet versions)
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "saveFund")
+            put("fund", JSONObject().apply {
+                put("id", approval.id)
+                put("date", approval.date)
+                put("type", "APPROVAL_PENDING")
+                put("account", approval.mode)
+                put("entity", approval.memberId)
+                put("amount", approval.totalAmount)
+                put("narration", taskObj.toString())
+            })
         })
     }
 
@@ -1315,8 +1345,10 @@ class SocietyRepository(private val context: Context) {
         val payObj = JSONObject().apply {
             put("receiptNo", payment.txnId)
             put("date", payment.date)
+            put("id", payment.memberId)
             put("memberId", payment.memberId)
             put("name", payment.memberName)
+            put("memberName", payment.memberName)
             put("rd", payment.rdAmount)
             put("interest", payment.interestAmount)
             put("penalty", payment.penaltyAmount)
@@ -1335,6 +1367,26 @@ class SocietyRepository(private val context: Context) {
             put("action", "deleteApproval")
             put("approvalId", approvalId)
             put("id", approvalId)
+        })
+
+        // Dual-Bridge fallback: Save resolution to FundRegister
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "saveFund")
+            put("fund", JSONObject().apply {
+                put("id", "RESOLVED-$approvalId")
+                put("date", payment.date)
+                put("type", "APPROVAL_RESOLVED")
+                put("account", payment.mode)
+                put("entity", payment.memberId)
+                put("amount", payment.totalAmount)
+                put("narration", JSONObject().apply {
+                    put("approvalId", approvalId)
+                    put("status", "APPROVED")
+                    put("receiptNo", payment.txnId)
+                    put("total", payment.totalAmount)
+                    put("memberId", payment.memberId)
+                }.toString())
+            })
         })
 
         return true
@@ -1552,7 +1604,7 @@ class SocietyRepository(private val context: Context) {
 
                 for (i in 0 until payArray.length()) {
                     val p = payArray.getJSONObject(i)
-                    val txnId = p.optString("txnId", p.optString("id", "TXN-${System.currentTimeMillis()}-$i"))
+                    val txnId = p.optString("receiptNo", p.optString("txnId", p.optString("receipt", "TXN-${System.currentTimeMillis()}-$i")))
                     val memberId = p.optString("memberId", p.optString("id", ""))
                     val totalAmt = p.optInt("totalAmount", p.optInt("total", p.optInt("amount", 0)))
                     val paymentItem = Payment(
@@ -1583,18 +1635,117 @@ class SocietyRepository(private val context: Context) {
                 }
 
                 // If new payments were added from Web App for the logged-in member, notify them!
-                val currentMember = _loggedInMemberId.value
+                val currentMember = _loggedInMemberId.value ?: prefs.getString("last_known_member_id", null)
                 if (currentMember != null) {
                     val memberNewPays = newlyAddedPayments.filter { it.memberId.equals(currentMember, ignoreCase = true) }
                     for (np in memberNewPays) {
                         NotificationHelper.sendPushNotification(
                             context = context,
-                            title = "🧾 NEW PAYMENT RECEIPT CREDITED",
+                            title = "🧾 PAYMENT RECEIPT CREDITED",
                             message = "Receipt ₹${np.totalAmount} (${np.mode}) successfully recorded in your passbook.",
                             target = NotificationTarget.MEMBER_ONLY,
-                            targetMemberId = currentMember
+                            targetMemberId = currentMember,
+                            forceShow = true
                         )
                     }
+                }
+            }
+
+            // Dual-Bridge: Inspect fundTransactions for cross-device Approvals & Notices (works on all deployed Google Sheet versions)
+            val fundArray = dataObj.optJSONArray("fundTransactions") ?: dataObj.optJSONArray("funds")
+            if (fundArray != null && fundArray.length() > 0) {
+                val currentApprovalsMap = _pendingApprovals.value.associateBy { it.id }.toMutableMap()
+                val currentApprovedPayments = _payments.value
+                val loggedInUser = _loggedInMemberId.value ?: prefs.getString("last_known_member_id", null)
+
+                for (i in 0 until fundArray.length()) {
+                    val f = fundArray.getJSONObject(i)
+                    val fType = f.optString("type", "").uppercase()
+                    val fId = f.optString("id", "")
+                    val fNarration = f.optString("narration", "")
+
+                    if (fType == "APPROVAL_PENDING" && fNarration.startsWith("{")) {
+                        try {
+                            val aObj = JSONObject(fNarration)
+                            val appId = aObj.optString("id", fId)
+                            val mId = aObj.optString("memberId", f.optString("entity", ""))
+                            val totalAmt = aObj.optInt("totalAmount", f.optInt("amount", 0))
+                            val isAlreadyPresent = currentApprovalsMap.containsKey(appId)
+                            val isAlreadyApproved = currentApprovedPayments.any { 
+                                it.memberId.equals(mId, ignoreCase = true) && 
+                                (it.totalAmount == totalAmt || it.remarks.contains(appId))
+                            }
+                            if (!isAlreadyPresent && !isAlreadyApproved) {
+                                val item = PaymentApproval(
+                                    id = appId,
+                                    memberId = mId,
+                                    memberName = aObj.optString("memberName", "Member"),
+                                    mobile = aObj.optString("mobile", ""),
+                                    requestedRd = aObj.optInt("requestedRd", totalAmt),
+                                    requestedInterest = aObj.optInt("requestedInterest", 0),
+                                    requestedPenalty = aObj.optInt("requestedPenalty", 0),
+                                    requestedLoanRepay = aObj.optInt("requestedLoanRepay", 0),
+                                    waiver = aObj.optInt("waiver", 0),
+                                    totalAmount = totalAmt,
+                                    mode = aObj.optString("mode", f.optString("account", "CASH")),
+                                    utrNumber = aObj.optString("utrNumber", ""),
+                                    remarks = aObj.optString("remarks", "Dual-Bridge Approval Task"),
+                                    date = aObj.optString("date", f.optString("date", "18-09-2026")),
+                                    status = "PENDING"
+                                )
+                                currentApprovalsMap[appId] = item
+                                NotificationHelper.sendPushNotification(
+                                    context = context,
+                                    title = "📢 NEW PAYMENT APPROVAL NEEDED",
+                                    message = "${item.memberName} submitted ₹$totalAmt payment (${item.mode}). Tap to review and approve.",
+                                    target = NotificationTarget.ADMIN_ONLY
+                                )
+                            }
+                        } catch (_: Exception) {}
+                    } else if (fType == "APPROVAL_RESOLVED") {
+                        val resolvedAppId = if (fId.startsWith("RESOLVED-")) fId.removePrefix("RESOLVED-") else fId
+                        val existing = currentApprovalsMap.remove(resolvedAppId)
+                        if (existing != null && loggedInUser != null && loggedInUser.equals(existing.memberId, ignoreCase = true)) {
+                            NotificationHelper.sendPushNotification(
+                                context = context,
+                                title = "✅ PAYMENT APPROVED BY ADMIN",
+                                message = "Aapki ₹${existing.totalAmount} ki payment admin dwara approve ho gayi hai aur Passbook me credit kar di gayi hai!",
+                                target = NotificationTarget.MEMBER_ONLY,
+                                targetMemberId = existing.memberId,
+                                forceShow = true
+                            )
+                        }
+                    } else if (fType == "BROADCAST_NOTICE") {
+                        if (!isNoticeDelivered(fId)) {
+                            markNoticeDelivered(fId)
+                            try {
+                                val nObj = if (fNarration.startsWith("{")) JSONObject(fNarration) else null
+                                val title = nObj?.optString("title") ?: "📢 GULLAK SOCIETY ALERT"
+                                val msg = nObj?.optString("message") ?: fNarration
+                                val targetStr = nObj?.optString("target") ?: "ALL"
+                                val targetMember = nObj?.optString("targetMemberId", f.optString("entity", ""))
+                                val nTarget = when (targetStr.uppercase()) {
+                                    "ADMIN_ONLY", "ADMIN" -> com.example.util.NotificationTarget.ADMIN_ONLY
+                                    "MEMBER_ONLY", "MEMBER" -> com.example.util.NotificationTarget.MEMBER_ONLY
+                                    else -> com.example.util.NotificationTarget.ALL
+                                }
+                                if (msg.isNotBlank()) {
+                                    NotificationHelper.sendPushNotification(
+                                        context = context,
+                                        title = title,
+                                        message = msg,
+                                        target = nTarget,
+                                        targetMemberId = targetMember?.ifEmpty { null }
+                                    )
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
+                val updatedList = currentApprovalsMap.values.toList()
+                if (updatedList.size != _pendingApprovals.value.size) {
+                    _pendingApprovals.value = updatedList
+                    saveApprovalsToLocal(updatedList)
                 }
             }
 
@@ -1688,6 +1839,20 @@ class SocietyRepository(private val context: Context) {
                 }
             }
             if (filteredPending.size != existingApprovals.size) {
+                val cleared = existingApprovals.filterNot { filteredPending.contains(it) }
+                val loggedInUser = _loggedInMemberId.value ?: prefs.getString("last_known_member_id", null)
+                for (c in cleared) {
+                    if (loggedInUser != null && loggedInUser.equals(c.memberId, ignoreCase = true)) {
+                        NotificationHelper.sendPushNotification(
+                            context = context,
+                            title = "✅ PAYMENT APPROVED BY ADMIN",
+                            message = "Aapki ₹${c.totalAmount} ki payment admin dwara approve ho gayi hai aur Passbook me credit kar di gayi hai!",
+                            target = NotificationTarget.MEMBER_ONLY,
+                            targetMemberId = c.memberId,
+                            forceShow = true
+                        )
+                    }
+                }
                 _pendingApprovals.value = filteredPending
                 saveApprovalsToLocal(filteredPending)
             }

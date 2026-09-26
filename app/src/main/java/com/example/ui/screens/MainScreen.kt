@@ -76,7 +76,10 @@ fun MainScreen(
             ModalDrawerSheet(
                 drawerContainerColor = Color(0xFF090D16),
                 drawerContentColor = TextPrimary,
-                modifier = Modifier.width(300.dp)
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                modifier = Modifier
+                    .width(300.dp)
+                    .statusBarsPadding()
             ) {
                 Column(
                     modifier = Modifier
@@ -515,7 +518,8 @@ fun MainScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    windowInsets = WindowInsets.statusBars,
+                    modifier = Modifier.statusBarsPadding(),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -1430,7 +1434,7 @@ fun MainScreen(
                         ) {
                             Button(
                                 onClick = {
-                                    Toast.makeText(context, "Checking GitHub repository for latest v7.9 update...", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Checking GitHub repository for latest v8.0 update...", Toast.LENGTH_SHORT).show()
                                     try {
                                         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(appDownloadUrl))
                                         context.startActivity(intent)

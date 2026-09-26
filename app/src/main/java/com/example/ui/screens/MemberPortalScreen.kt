@@ -349,8 +349,15 @@ fun MemberPortalScreen(
     } else {
 
     // ==================== MEMBER PASSBOOK SCREEN (Requirement 7) ====================
-    val memberTxns = payments.filter { it.memberId == loggedInMember.id }
-    val memberPendingApprovals = approvals.filter { it.memberId == loggedInMember.id }
+    val memberTxns = payments.filter { it.memberId.equals(loggedInMember.id, ignoreCase = true) }
+    val memberPendingApprovals = approvals.filter { app ->
+        app.memberId.equals(loggedInMember.id, ignoreCase = true) &&
+        app.status.equals("PENDING", ignoreCase = true) &&
+        memberTxns.none { t ->
+            (t.totalAmount == app.totalAmount || (t.rdAmount == app.requestedRd && t.interestAmount == app.requestedInterest)) &&
+            (t.remarks.contains(app.id) || (t.utrNumber.isNotBlank() && t.utrNumber == app.utrNumber) || memberTxns.size > 0)
+        }
+    }
 
     val combinedTxns = remember(memberTxns, memberPendingApprovals) {
         val list = mutableListOf<CombinedTxn>()
