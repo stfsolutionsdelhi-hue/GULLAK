@@ -1429,7 +1429,7 @@ fun MainScreen(
                         ) {
                             Button(
                                 onClick = {
-                                    Toast.makeText(context, "Checking GitHub repository for latest v7.7 update...", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Checking GitHub repository for latest v7.8 update...", Toast.LENGTH_SHORT).show()
                                     try {
                                         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(appDownloadUrl))
                                         context.startActivity(intent)

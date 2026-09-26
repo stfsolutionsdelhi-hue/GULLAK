@@ -1,7 +1,7 @@
 package com.example.data
 
-const val APP_VERSION = "v7.7"
-const val APP_VERSION_TAG = "v7.7 (Instant Push Alerts & Check Update Fix)"
+const val APP_VERSION = "v7.8"
+const val APP_VERSION_TAG = "v7.8 (Status Bar & Pending Approvals Fix)"
 const val APP_BUILD_DATE = "25 Sep 2026"
 const val APP_SYNC_ENGINE = "Two-Way Cloud & Live Web App Sync Engine"
 
@@ -223,22 +223,6 @@ object DefaultData {
             mode = "ONLINE / UPI",
             utrNumber = "PAYTM/9938471102",
             date = "12-09-2026 09:40",
-            status = "PENDING"
-        ),
-        PaymentApproval(
-            id = "REQ-103",
-            memberId = "MEM0101202641",
-            memberName = "Ravi Garwali 022022",
-            mobile = "7042085508",
-            requestedRd = 400,
-            requestedInterest = 170,
-            requestedPenalty = 50,
-            requestedLoanRepay = 0,
-            waiver = 50,
-            totalAmount = 570,
-            mode = "ONLINE / UPI",
-            utrNumber = "GPAY/8849201948",
-            date = "11-09-2026 18:22",
             status = "PENDING"
         )
     )

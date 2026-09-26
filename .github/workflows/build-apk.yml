@@ -40,13 +40,13 @@ jobs:
 
       - name: Rename and Clean APK Filename
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk Gullak-Society-v7.7.apk
+          cp app/build/outputs/apk/debug/app-debug.apk Gullak-Society-v7.8.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Gullak-Society-v7.7
-          path: Gullak-Society-v7.7.apk
+          name: Gullak-Society-v7.8
+          path: Gullak-Society-v7.8.apk
           retention-days: 14
 
       - name: Publish to GitHub Releases (latest)
@@ -54,8 +54,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "Gullak Society v7.7"
-          body: "Automated Clean Build of Gullak Society v7.7 (Ready for installation by members)."
-          files: Gullak-Society-v7.7.apk
+          name: "Gullak Society v7.8"
+          body: "Automated Clean Build of Gullak Society v7.8 (Ready for installation by members)."
+          files: Gullak-Society-v7.8.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

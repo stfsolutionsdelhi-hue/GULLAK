@@ -226,7 +226,7 @@ class SocietyRepository(private val context: Context) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.7.apk")
+    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.8.apk")
     val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
 
     private val _reminderTemplates = MutableStateFlow<List<ReminderTemplate>>(DEFAULT_REMINDER_TEMPLATES)
@@ -368,7 +368,7 @@ class SocietyRepository(private val context: Context) {
         _societyUpiId.value = socUpi
         _isLiveSyncActive.value = prefs.getBoolean("live_sync_active", true)
         _societyQrUri.value = prefs.getString("society_qr_uri", null)
-        _appDownloadUrl.value = prefs.getString("app_download_url", "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.7.apk") ?: "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.7.apk"
+        _appDownloadUrl.value = prefs.getString("app_download_url", "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.8.apk") ?: "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.8.apk"
 
         val savedRules = prefs.getStringSet("rules_and_regulations", null)
         val defaultHindiRules = listOf(
@@ -437,13 +437,14 @@ class SocietyRepository(private val context: Context) {
 
         val appJson = prefs.getString("approvals_cache", null)
         if (appJson.isNullOrEmpty()) {
-            val initial = DefaultData.SAMPLE_APPROVALS.distinctBy { it.id }
+            val initial = DefaultData.SAMPLE_APPROVALS.filter { it.id != "REQ-103" }.distinctBy { it.id }
             _pendingApprovals.value = initial
             saveApprovalsToLocal(initial)
         } else {
             try {
-                val list = parseApprovalsJson(appJson).distinctBy { it.id }
+                val list = parseApprovalsJson(appJson).filter { it.id != "REQ-103" }.distinctBy { it.id }
                 _pendingApprovals.value = list
+                saveApprovalsToLocal(list)
             } catch (e: Exception) {
                 _pendingApprovals.value = emptyList()
             }
