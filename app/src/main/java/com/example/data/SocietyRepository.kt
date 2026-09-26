@@ -226,7 +226,7 @@ class SocietyRepository(private val context: Context) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.8.apk")
+    private val _appDownloadUrl = MutableStateFlow("https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society.apk")
     val appDownloadUrl: StateFlow<String> = _appDownloadUrl.asStateFlow()
 
     private val _reminderTemplates = MutableStateFlow<List<ReminderTemplate>>(DEFAULT_REMINDER_TEMPLATES)
@@ -368,7 +368,14 @@ class SocietyRepository(private val context: Context) {
         _societyUpiId.value = socUpi
         _isLiveSyncActive.value = prefs.getBoolean("live_sync_active", true)
         _societyQrUri.value = prefs.getString("society_qr_uri", null)
-        _appDownloadUrl.value = prefs.getString("app_download_url", "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.8.apk") ?: "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society-v7.8.apk"
+        val savedDownloadUrl = prefs.getString("app_download_url", "") ?: ""
+        val universalLatestUrl = "https://github.com/stfsolutionsdelhi-hue/GULLAK/releases/latest/download/Gullak-Society.apk"
+        if (savedDownloadUrl.isBlank() || savedDownloadUrl.contains("v7.") || savedDownloadUrl.contains("actions/runs") || savedDownloadUrl.contains("app-debug.apk")) {
+            _appDownloadUrl.value = universalLatestUrl
+            prefs.edit().putString("app_download_url", universalLatestUrl).apply()
+        } else {
+            _appDownloadUrl.value = savedDownloadUrl
+        }
 
         val savedRules = prefs.getStringSet("rules_and_regulations", null)
         val defaultHindiRules = listOf(
@@ -1324,6 +1331,11 @@ class SocietyRepository(private val context: Context) {
             put("action", "savePayment")
             put("payment", payObj)
         })
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "deleteApproval")
+            put("approvalId", approvalId)
+            put("id", approvalId)
+        })
 
         return true
     }
@@ -1346,6 +1358,12 @@ class SocietyRepository(private val context: Context) {
             "APPROVAL REJECTED",
             "Payment request of ₹${item.totalAmount} for ${item.memberName} was rejected. Reason: $reason"
         )
+
+        postToGoogleSheetBackend(JSONObject().apply {
+            put("action", "deleteApproval")
+            put("approvalId", approvalId)
+            put("id", approvalId)
+        })
 
         NotificationHelper.sendPushNotification(
             context = context,
@@ -1585,7 +1603,7 @@ class SocietyRepository(private val context: Context) {
                 ?: dataObj.optJSONArray("tasks")
                 ?: dataObj.optJSONArray("pendingApprovals")
 
-            if (tasksArray != null && tasksArray.length() > 0) {
+            if (tasksArray != null) {
                 val currentApprovals = _pendingApprovals.value.associateBy { it.id }
                 val parsedApprovals = mutableListOf<PaymentApproval>()
                 val loggedInUser = _loggedInMemberId.value
@@ -1655,11 +1673,23 @@ class SocietyRepository(private val context: Context) {
                     }
                 }
 
-                if (parsedApprovals.isNotEmpty()) {
-                    val uniqueApprovals = parsedApprovals.distinctBy { it.id }
-                    _pendingApprovals.value = uniqueApprovals
-                    saveApprovalsToLocal(uniqueApprovals)
+                val uniqueApprovals = parsedApprovals.distinctBy { it.id }
+                _pendingApprovals.value = uniqueApprovals
+                saveApprovalsToLocal(uniqueApprovals)
+            }
+
+            // Automatic Reconciliation: Clear any local pending approval if it is already approved & recorded in Receipts
+            val currentApprovedPayments = _payments.value
+            val existingApprovals = _pendingApprovals.value
+            val filteredPending = existingApprovals.filterNot { app ->
+                currentApprovedPayments.any { pay ->
+                    pay.memberId.equals(app.memberId, ignoreCase = true) &&
+                    (pay.totalAmount == app.totalAmount || (pay.rdAmount == app.requestedRd && pay.interestAmount == app.requestedInterest))
                 }
+            }
+            if (filteredPending.size != existingApprovals.size) {
+                _pendingApprovals.value = filteredPending
+                saveApprovalsToLocal(filteredPending)
             }
 
             // Cross-Device Broadcast Notices & Alerts Sync

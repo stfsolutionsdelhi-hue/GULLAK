@@ -1104,9 +1104,59 @@ function getSocietyFullDataWithoutFinSync() {
     });
   }
 
+  var approvals = [];
+  var appSheet = ss.getSheetByName("Approvals");
+  if (appSheet && appSheet.getLastRow() > 1) {
+    var aMap = buildHeaderMap(appSheet);
+    var aData = appSheet.getRange(2, 1, appSheet.getLastRow() - 1, appSheet.getLastColumn()).getValues();
+    aData.forEach(function(a) {
+      var aId = String(getValByHeader(a, aMap, ["approval id", "id"], 0, "")).trim();
+      if (aId) {
+        approvals.push({
+          id: aId,
+          date: String(getValByHeader(a, aMap, ["date"], 1, "2026-01-01")),
+          memberId: String(getValByHeader(a, aMap, ["member id", "id"], 2, "")),
+          memberName: String(getValByHeader(a, aMap, ["name", "member name"], 3, "")),
+          mobile: String(getValByHeader(a, aMap, ["mobile", "phone"], 4, "")),
+          requestedRd: Math.round(Number(getValByHeader(a, aMap, ["rd amount", "rd"], 5, 0))) || 0,
+          requestedInterest: Math.round(Number(getValByHeader(a, aMap, ["interest"], 6, 0))) || 0,
+          requestedPenalty: Math.round(Number(getValByHeader(a, aMap, ["penalty"], 7, 0))) || 0,
+          requestedLoanRepay: Math.round(Number(getValByHeader(a, aMap, ["loan repay", "principal repay"], 8, 0))) || 0,
+          waiver: Math.round(Number(getValByHeader(a, aMap, ["waiver"], 9, 0))) || 0,
+          totalAmount: Math.round(Number(getValByHeader(a, aMap, ["total", "total amount"], 10, 0))) || 0,
+          mode: String(getValByHeader(a, aMap, ["mode"], 11, "ONLINE")),
+          utrNumber: String(getValByHeader(a, aMap, ["utr number", "utr"], 12, "")),
+          remarks: String(getValByHeader(a, aMap, ["remarks", "narration"], 13, "")),
+          status: String(getValByHeader(a, aMap, ["status"], 14, "PENDING"))
+        });
+      }
+    });
+  }
+
+  var notices = [];
+  var notSheet = ss.getSheetByName("Notices");
+  if (notSheet && notSheet.getLastRow() > 1) {
+    var nMap = buildHeaderMap(notSheet);
+    var nData = notSheet.getRange(2, 1, notSheet.getLastRow() - 1, notSheet.getLastColumn()).getValues();
+    nData.forEach(function(n) {
+      var nId = String(getValByHeader(n, nMap, ["notice id", "id"], 0, "")).trim();
+      if (nId) {
+        notices.push({
+          id: nId,
+          date: String(getValByHeader(n, nMap, ["date"], 1, "")),
+          title: String(getValByHeader(n, nMap, ["title"], 2, "")),
+          message: String(getValByHeader(n, nMap, ["message"], 3, "")),
+          target: String(getValByHeader(n, nMap, ["target"], 4, "ALL")),
+          targetMemberId: String(getValByHeader(n, nMap, ["targetmemberid", "member id"], 5, "")),
+          timestamp: Number(getValByHeader(n, nMap, ["timestamp"], 6, 0)) || 0
+        });
+      }
+    });
+  }
+
   var sheetUrl = "";
   try { sheetUrl = ss.getUrl(); } catch(e) {}
-  return { members: members, payments: payments, loans: loans, exitSettlements: exitSettlements, bonusSettlements: bonusSettlements, fundTransactions: fundTransactions, users: users, spreadsheetUrl: sheetUrl };
+  return { members: members, payments: payments, loans: loans, exitSettlements: exitSettlements, bonusSettlements: bonusSettlements, fundTransactions: fundTransactions, users: users, approvals: approvals, notices: notices, spreadsheetUrl: sheetUrl };
 }
 
 function getSocietyFullData() {
@@ -1435,6 +1485,23 @@ function handleApiRequest(params, postData) {
     } else if (action === 'saveBonusSettlement') {
       var bonusObj = (postData && postData.bonusSettlement) || (params && params.bonusSettlement ? JSON.parse(params.bonusSettlement) : null);
       result = saveBonusSettlementBackend(bonusObj);
+    } else if (action === 'submitPaymentApproval' || action === 'submitApproval') {
+      var appObj = (postData && (postData.approval || postData.task)) || (params && (params.approval ? JSON.parse(params.approval) : null));
+      result = submitPaymentApprovalBackend(appObj);
+    } else if (action === 'deleteApproval' || action === 'approvePaymentApproval' || action === 'rejectPaymentApproval') {
+      var appDeleteId = (postData && (postData.approvalId || postData.id)) || (params && (params.approvalId || params.id));
+      result = deleteApprovalBackend(appDeleteId);
+    } else if (action === 'postNotice' || action === 'broadcastNotice') {
+      var notObj = (postData && (postData.notice || postData.broadcast)) || (params && (params.notice ? JSON.parse(params.notice) : null));
+      result = postNoticeBackend(notObj);
+    } else if (action === 'updatePin') {
+      var pinMemberId = (postData && postData.id) || (params && params.id);
+      var newMemberPin = (postData && postData.pin) || (params && params.pin);
+      result = updateMemberPinBackend(pinMemberId, newMemberPin);
+    } else if (action === 'updateLoanLimit') {
+      var limitMemberId = (postData && (postData.memberId || postData.id)) || (params && (params.memberId || params.id));
+      var newLoanLimit = (postData && (postData.loanLimit || postData.customLimit)) || (params && (params.loanLimit || params.customLimit));
+      result = updateMemberLoanLimitBackend(limitMemberId, newLoanLimit);
     } else if (action === 'saveFund') {
       var fundObj = (postData && postData.fund) || (params && params.fund ? JSON.parse(params.fund) : null);
       result = saveFundTransactionBackend(fundObj);
@@ -1448,6 +1515,154 @@ function handleApiRequest(params, postData) {
   }
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function submitPaymentApprovalBackend(appObj) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return { success: false, error: "No active spreadsheet" };
+    var appH = ["Approval ID", "Date", "Member ID", "Name", "Mobile", "RD Amount", "Interest", "Penalty", "Loan Repay", "Waiver", "Total", "Mode", "UTR Number", "Remarks", "Status"];
+    var appSheet = getOrCreateSheet(ss, "Approvals", appH, "#D97706");
+    if (!appObj) return { success: false, error: "No approval object" };
+
+    var aId = String(appObj.id || "APP-" + new Date().getTime());
+    var aDate = String(appObj.date || formatPureDate(new Date()));
+    var mId = String(appObj.memberId || "");
+    var mName = String(appObj.memberName || "");
+    var mobile = String(appObj.mobile || "");
+    var rd = Number(appObj.requestedRd || 0);
+    var intAmt = Number(appObj.requestedInterest || 0);
+    var pen = Number(appObj.requestedPenalty || 0);
+    var loanRepay = Number(appObj.requestedLoanRepay || 0);
+    var waiver = Number(appObj.waiver || 0);
+    var total = Number(appObj.totalAmount || (rd + intAmt + pen + loanRepay - waiver));
+    var mode = String(appObj.mode || "ONLINE");
+    var utr = String(appObj.utrNumber || "");
+    var remarks = String(appObj.remarks || "");
+    var status = String(appObj.status || "PENDING");
+
+    var existingRow = -1;
+    if (appSheet.getLastRow() > 1) {
+      var vals = appSheet.getRange(2, 1, appSheet.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        if (String(vals[i][0]).trim() === aId) {
+          existingRow = i + 2;
+          break;
+        }
+      }
+    }
+
+    var rowData = [aId, aDate, mId, mName, mobile, rd, intAmt, pen, loanRepay, waiver, total, mode, utr, remarks, status];
+    if (existingRow > 0) {
+      appSheet.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);
+    } else {
+      appSheet.appendRow(rowData);
+    }
+    SpreadsheetApp.flush();
+    return { success: true, approvalId: aId };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+function deleteApprovalBackend(approvalId) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return { success: false, error: "No active spreadsheet" };
+    var appSheet = ss.getSheetByName("Approvals");
+    if (!appSheet || appSheet.getLastRow() <= 1) return { success: true };
+    var aId = String(approvalId || "").trim();
+    if (!aId) return { success: true };
+    var vals = appSheet.getRange(2, 1, appSheet.getLastRow() - 1, 1).getValues();
+    for (var i = vals.length - 1; i >= 0; i--) {
+      if (String(vals[i][0]).trim() === aId) {
+        appSheet.deleteRow(i + 2);
+      }
+    }
+    SpreadsheetApp.flush();
+    return { success: true };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+function postNoticeBackend(notObj) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return { success: false, error: "No active spreadsheet" };
+    var notH = ["Notice ID", "Date", "Title", "Message", "Target", "TargetMemberId", "Timestamp"];
+    var notSheet = getOrCreateSheet(ss, "Notices", notH, "#4338CA");
+    if (!notObj) return { success: false, error: "No notice object" };
+
+    var nId = String(notObj.id || "NOTIF-" + new Date().getTime());
+    var nDate = String(notObj.date || formatPureDate(new Date()));
+    var title = String(notObj.title || "GULLAK ALERT");
+    var msg = String(notObj.message || "");
+    var target = String(notObj.target || "ALL");
+    var targetMemberId = String(notObj.targetMemberId || "");
+    var ts = Number(notObj.timestamp || new Date().getTime());
+
+    notSheet.appendRow([nId, nDate, title, msg, target, targetMemberId, ts]);
+    if (notSheet.getLastRow() > 52) {
+      notSheet.deleteRow(2);
+    }
+    SpreadsheetApp.flush();
+    return { success: true, noticeId: nId };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+function updateMemberPinBackend(memberId, pin) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return { success: false, error: "No active spreadsheet" };
+    var memSheet = ss.getSheetByName("Members");
+    if (!memSheet || memSheet.getLastRow() <= 1) return { success: false, error: "Members sheet empty" };
+    var mId = String(memberId || "").trim().toUpperCase();
+    var newPin = String(pin || "").trim();
+    var mMap = buildHeaderMap(memSheet);
+    var mData = memSheet.getRange(2, 1, memSheet.getLastRow() - 1, memSheet.getLastColumn()).getValues();
+    for (var i = 0; i < mData.length; i++) {
+      var curId = String(getValByHeader(mData[i], mMap, ["member id", "id"], 0, "")).trim().toUpperCase();
+      if (curId === mId) {
+        var pinCol = mMap["login pin"] || mMap["pin"] || -1;
+        if (pinCol >= 0) {
+          memSheet.getRange(i + 2, pinCol + 1).setValue(newPin);
+        }
+        break;
+      }
+    }
+    SpreadsheetApp.flush();
+    return { success: true };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+function updateMemberLoanLimitBackend(memberId, limit) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) return { success: false, error: "No active spreadsheet" };
+    var memSheet = ss.getSheetByName("Members");
+    if (!memSheet || memSheet.getLastRow() <= 1) return { success: false, error: "Members sheet empty" };
+    var mId = String(memberId || "").trim().toUpperCase();
+    var newLimit = Number(limit || 0);
+    var mMap = buildHeaderMap(memSheet);
+    var mData = memSheet.getRange(2, 1, memSheet.getLastRow() - 1, memSheet.getLastColumn()).getValues();
+    for (var i = 0; i < mData.length; i++) {
+      var curId = String(getValByHeader(mData[i], mMap, ["member id", "id"], 0, "")).trim().toUpperCase();
+      if (curId === mId) {
+        var limCol = mMap["custom loan limit (₹)"] || mMap["custom limit"] || 10;
+        memSheet.getRange(i + 2, limCol + 1).setValue(newLimit);
+        break;
+      }
+    }
+    SpreadsheetApp.flush();
+    return { success: true };
+  } catch(e) {
+    return { success: false, error: e.toString() };
+  }
 }
 
 function doGet(e) {
